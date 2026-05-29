@@ -1452,6 +1452,72 @@ const app = new Hono()
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     const id = c.req.param('id');
 
+    const traineesRows = await sql(
+      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level FROM trainees WHERE id=?`, [id]
+    );
+    if (!traineesRows.length) return c.json({ error: 'Not found' }, 404);
+    const t = traineesRows[0];
+
+    const actLogs = await sql(
+      `SELECT id, event, detail, page, ts FROM activity_log WHERE trainee_id=? ORDER BY ts DESC LIMIT 200`, [id]
+    );
+    const attempts = await sql(
+      `SELECT id, module_id, module_name, score, total, correct, wrong, pct, passed, ts FROM quiz_attempts WHERE trainee_id=? ORDER BY ts DESC`, [id]
+    );
+    const progress = await sql(
+      `SELECT id, module_id, module_name, progress, completed, assigned_by_admin, last_accessed_at FROM trainee_module_progress WHERE trainee_id=? ORDER BY module_id`, [id]
+    );
+    const notes = await sql(
+      `SELECT id, note, author_id, ts FROM instructor_notes WHERE trainee_id=? ORDER BY ts DESC`, [id]
+    );
+    const msgs = await sql(
+      `SELECT id, sender_role, text, read, ts FROM trainee_messages WHERE trainee_id=? ORDER BY ts DESC LIMIT 50`, [id]
+    );
+    const alerts = await sql(
+      `SELECT id, message, alert_type, read, ts FROM trainee_alerts WHERE trainee_id=? ORDER BY ts DESC LIMIT 50`, [id]
+    );
+    const evaluation = await sql(
+      `SELECT rating, recommendation, technical_observations, updated_at FROM trainee_evaluations WHERE trainee_id=?`, [id]
+    );
+    const timeLogs = await sql(
+      `SELECT module_id, module_name, SUM(duration_ms) as total_ms FROM module_time_log WHERE trainee_id=? GROUP BY module_id`, [id]
+    );
+    const manualLogs = await sql(
+      `SELECT manual_name, file_name, COUNT(*) as view_count, SUM(duration_ms) as total_ms FROM manual_view_log WHERE trainee_id=? GROUP BY file_name`, [id]
+    );
+
+    const totalAttempts = attempts.length;
+    const passedAttempts = attempts.filter(a => a.passed === 1).length;
+    const failedAttempts = totalAttempts - passedAttempts;
+    const totalCorrect = attempts.reduce((s, a) => s + (a.correct as number), 0);
+    const totalWrong = attempts.reduce((s, a) => s + (a.wrong as number), 0);
+    const bestScore = attempts.length > 0 ? Math.max(...attempts.map(a => a.pct as number)) : 0;
+    const avgScore = attempts.length > 0 ? Math.round(attempts.reduce((s, a) => s + (a.pct as number), 0) / attempts.length) : 0;
+    const completedModules = progress.filter(p => p.completed === 1).length;
+    const assignedModules = progress.filter(p => p.assigned_by_admin === 1).length;
+    const manualViews = manualLogs.reduce((s, m) => s + (m.view_count as number), 0);
+    const totalTrainingMs = timeLogs.reduce((s, t) => s + (t.total_ms as number), 0);
+    const trainingHours = Math.round((totalTrainingMs / 3600000) * 10) / 10;
+
+    return c.json({
+      trainee: { ...t, online: isOnline(id) },
+      stats: {
+        totalAttempts, passedAttempts, failedAttempts,
+        totalCorrect, totalWrong, bestScore, avgScore,
+        completedModules, assignedModules, manualViews, trainingHours,
+      },
+      activityLog: actLogs,
+      quizAttempts: attempts,
+      moduleProgress: progress,
+      instructorNotes: notes,
+      messages: msgs,
+      alerts,
+      evaluation: evaluation[0] ?? null,
+      timeLogs,
+      manualLogs,
+    }, 200);
+  })
+
   // GET /admin/quiz-answers/:traineeId — per-question answers for a trainee
   .get('/admin/quiz-answers/:traineeId', async (c) => {
     const pw = c.req.header('x-admin-password');
