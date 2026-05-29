@@ -394,12 +394,12 @@ body {
 
 /* ── Sidebar (desktop only) ── */
 .sidebar {
-  display: none;
+  display: none !important;
 }
 
 @media (min-width: 768px) {
   .sidebar {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     width: 220px;
     min-width: 220px;
