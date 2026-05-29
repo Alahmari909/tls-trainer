@@ -9,11 +9,16 @@ import { useLanguage } from "../hooks/useLanguage";
 type Question = {
   id: number;
   question: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctOption: string;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
+  correctOption?: string;
+  correct_option?: string;
   explanation: string;
 };
 
@@ -117,7 +122,8 @@ export default function Quiz() {
     if (answered || !q) return;
     setSelected(opt);
     setAnswered(true);
-    const correct = opt.toLowerCase() === q.correctOption.toLowerCase();
+    const correctOpt = (q.correctOption ?? q.correct_option ?? '');
+    const correct = opt.toLowerCase() === correctOpt.toLowerCase();
     if (correct) setScore(s => s + 1);
     setResults(prev => [...prev, { correct, selected: opt, question: q! }]);
     // Sound feedback — only if enabled in settings
@@ -130,7 +136,7 @@ export default function Quiz() {
     if (current + 1 >= questions.length) {
       setFinished(true);
       const lastCorrect = selected != null && questions[current] != null
-        ? selected.toLowerCase() === questions[current]!.correctOption.toLowerCase()
+        ? selected.toLowerCase() === (questions[current]!.correctOption ?? questions[current]!.correct_option ?? '').toLowerCase()
         : false;
       const finalResults = answered
         ? results
@@ -375,7 +381,7 @@ export default function Quiz() {
         {/* Options */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {opts.map((opt) => {
-            const val = q[`option${opt}` as keyof Question] as string;
+            const val = (q[`option${opt}` as keyof Question] ?? q[`option_${opt.toLowerCase()}` as keyof Question]) as string;
             const isSelected = selected === opt;
             const showResult = answered;
 
