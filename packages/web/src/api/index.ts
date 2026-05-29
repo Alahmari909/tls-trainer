@@ -63,17 +63,6 @@ async function ensureTables() {
       passed INTEGER NOT NULL DEFAULT 0,
       ts INTEGER NOT NULL
     )`);
-    await client.execute(`CREATE TABLE IF NOT EXISTS quiz_retake_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      trainee_id TEXT NOT NULL,
-      trainee_name TEXT,
-      module_id INTEGER NOT NULL,
-      module_name TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      ts INTEGER NOT NULL,
-      reviewed_at INTEGER,
-      review_note TEXT
-    )`);
     await client.execute(`CREATE TABLE IF NOT EXISTS instructor_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       trainee_id TEXT NOT NULL,
@@ -144,12 +133,6 @@ async function ensureTables() {
     // Add xp/level columns to trainees if missing
     await client.execute(`ALTER TABLE trainees ADD COLUMN xp INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN level INTEGER NOT NULL DEFAULT 1`).catch(() => {});
-    // Add training level: beginner / advanced
-    await client.execute(`ALTER TABLE trainees ADD COLUMN training_level TEXT NOT NULL DEFAULT 'beginner'`).catch(() => {});
-    // Add difficulty to questions
-    await client.execute(`ALTER TABLE questions ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'beginner'`).catch(() => {});
-    // Backfill all existing questions as beginner
-    await client.execute(`UPDATE questions SET difficulty='beginner' WHERE difficulty IS NULL OR difficulty=''`).catch(() => {});
     await client.execute(`CREATE TABLE IF NOT EXISTS moderation_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       trainee_id TEXT NOT NULL,
@@ -207,33 +190,6 @@ async function ensureTables() {
   }
 }
 ensureTables();
-
-// ── Inactivity Reminder Scheduler ─────────────────────────────────────────────
-// Runs every hour — notifies admin via Telegram about trainees inactive 2+ days.
-// Uses a daily key so each trainee gets at most one reminder per day.
-const remindersSent = new Set<string>();
-setInterval(async () => {
-  try {
-    const twoDaysAgo  = Date.now() - 2  * 24 * 60 * 60 * 1000;
-    const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
-    const inactive = await sql(
-      `SELECT id, name, last_active_at FROM trainees WHERE last_active_at < ? AND last_active_at > ? AND status='active'`,
-      [twoDaysAgo, twoWeeksAgo]
-    ).catch(() => []);
-    for (const row of inactive) {
-      const id = (row as any).id as string;
-      const dayKey = `${id}:${Math.floor(Date.now() / (24 * 60 * 60 * 1000))}`;
-      if (!remindersSent.has(dayKey)) {
-        remindersSent.add(dayKey);
-        const days = Math.floor((Date.now() - ((row as any).last_active_at as number)) / (24 * 60 * 60 * 1000));
-        sendTelegram({
-          type: 'admin_alert',
-          message: `⏰ INACTIVE TRAINEE: ${(row as any).name} has not trained for ${days} day${days !== 1 ? 's' : ''}.`,
-        });
-      }
-    }
-  } catch { /* non-fatal */ }
-}, 60 * 60 * 1000); // every hour
 
 // ── Backup Engine ─────────────────────────────────────────────────────────────
 
@@ -619,22 +575,12 @@ const onlineHeartbeats = new Map<string, number>();
 // How long without a heartbeat before we consider someone offline
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
 
-// ── Login rate limiting ───────────────────────────────────────────────────────
-// After 5 failed PIN attempts, lock the trainee out for 10 minutes.
-const loginFailures = new Map<string, { count: number; lockedUntil: number }>();
-const LOGIN_MAX_ATTEMPTS = 5;
-const LOGIN_LOCKOUT_MS   = 10 * 60 * 1000; // 10 min
-
 // ── Telegram cooldown ─────────────────────────────────────────────────────────
-// Prevents re-sending alerts within the cooldown window.
-// Covers: login, online, module_open, inactive, chat, manual view.
+// Prevents re-sending login/online alerts within the cooldown window.
+// This is the PRIMARY guard against spam — covers app-switch, refresh, reconnect.
 const telegramCooldowns = new Map<string, number>();
-const TELEGRAM_LOGIN_COOLDOWN_MS   = 15 * 60 * 1000; // 15 min — real login
-const TELEGRAM_ONLINE_COOLDOWN_MS  = 10 * 60 * 1000; // 10 min — came back online
-const TELEGRAM_MODULE_COOLDOWN_MS  =  5 * 60 * 1000; //  5 min — per module open
-const TELEGRAM_MANUAL_COOLDOWN_MS  =  5 * 60 * 1000; //  5 min — per manual view
-const TELEGRAM_INACTIVE_COOLDOWN_MS = 30 * 60 * 1000; // 30 min — inactive alert
-const TELEGRAM_CHAT_COOLDOWN_MS    =  3 * 60 * 1000; //  3 min — chat messages
+const TELEGRAM_LOGIN_COOLDOWN_MS  = 15 * 60 * 1000; // 15 min — real login
+const TELEGRAM_ONLINE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min — came back online
 
 function canSendTelegram(userId: string, eventType: string): boolean {
   if (userId === "unknown") return true;
@@ -644,12 +590,6 @@ function canSendTelegram(userId: string, eventType: string): boolean {
     ? TELEGRAM_ONLINE_COOLDOWN_MS
     : TELEGRAM_LOGIN_COOLDOWN_MS;
   return last === undefined || Date.now() - last > threshold;
-}
-
-// Flexible keyed cooldown — used for per-module and per-manual checks
-function canSendTelegramKey(key: string, cooldownMs: number): boolean {
-  const last = telegramCooldowns.get(key);
-  return last === undefined || Date.now() - last > cooldownMs;
 }
 
 function markTelegramSent(userId: string, ...eventTypes: string[]) {
@@ -721,36 +661,8 @@ const app = new Hono()
     // Block gate — blocked trainees cannot log in
     if (t.status === 'blocked') return c.json({ error: 'blocked', message: 'Your account has been blocked. Contact your instructor.' }, 403);
 
-    // Rate limit — check lockout before PIN
-    const attempt = loginFailures.get(body.id);
-    if (attempt && Date.now() < attempt.lockedUntil) {
-      const minsLeft = Math.ceil((attempt.lockedUntil - Date.now()) / 60000);
-      return c.json({ error: 'locked', message: `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft > 1 ? 's' : ''}.` }, 429);
-    }
-
     // PIN check only if PIN was set
-    if (t.pin && body.pin !== t.pin) {
-      const prev = loginFailures.get(body.id) ?? { count: 0, lockedUntil: 0 };
-      const newCount = prev.count + 1;
-      const lockedUntil = newCount >= LOGIN_MAX_ATTEMPTS ? Date.now() + LOGIN_LOCKOUT_MS : 0;
-      loginFailures.set(body.id, { count: newCount, lockedUntil });
-      const remaining = LOGIN_MAX_ATTEMPTS - newCount;
-      if (lockedUntil) return c.json({ error: 'locked', message: `Too many failed attempts. Account locked for 10 minutes.` }, 429);
-      return c.json({ error: 'Wrong PIN', message: `Wrong PIN. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` }, 401);
-    }
-
-    // Success — clear any previous failures
-    loginFailures.delete(body.id);
-
-    // Welcome-back alert — if trainee was inactive for 2+ days
-    const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
-    if (t.last_active_at && (t.last_active_at as unknown as number) < twoDaysAgo) {
-      const days = Math.floor((Date.now() - (t.last_active_at as unknown as number)) / (24 * 60 * 60 * 1000));
-      sqlRun(
-        `INSERT INTO trainee_alerts (trainee_id, message, alert_type, ts) VALUES (?, ?, 'info', ?)`,
-        [body.id, `مرحباً بعودتك! 👋 لم تتدرب منذ ${days} أيام. واصل التقدم! / Welcome back! You haven't trained in ${days} days. Keep it up!`, Date.now()]
-      ).catch(() => {});
-    }
+    if (t.pin && body.pin !== t.pin) return c.json({ error: 'Wrong PIN' }, 401);
 
     const now = Date.now();
     await sqlRun(
@@ -915,58 +827,19 @@ const app = new Hono()
           sendTelegram({ type: "login", traineeId: userId, traineeName });
         }
         break;
-      case "logout":
-        sendTelegram({ type: "logout", traineeId: userId, traineeName });
-        break;
-      case "inactive": {
-        const inactiveKey = `${userId}:inactive`;
-        if (canSendTelegramKey(inactiveKey, TELEGRAM_INACTIVE_COOLDOWN_MS)) {
-          telegramCooldowns.set(inactiveKey, Date.now());
-          sendTelegram({ type: "inactive", traineeId: userId, traineeName });
-        }
-        break;
-      }
-      case "module_open": {
-        const modKey = `${userId}:module_open:${moduleName}`;
-        if (canSendTelegramKey(modKey, TELEGRAM_MODULE_COOLDOWN_MS)) {
-          telegramCooldowns.set(modKey, Date.now());
-          sendTelegram({ type: "module_open", traineeId: userId, traineeName, moduleName });
-        }
-        break;
-      }
-      case "quiz_start":
-        sendTelegram({ type: "quiz_start", traineeId: userId, traineeName, moduleName });
-        break;
-      case "quiz_finish":
-        sendTelegram({ type: "quiz_finish", traineeId: userId, traineeName, moduleName, score, total });
-        break;
-      case "module_complete":
-        sendTelegram({ type: "module_complete", traineeId: userId, traineeName, moduleName });
-        break;
-      case "chat_message": {
-        const chatKey = `${userId}:chat_message`;
-        if (canSendTelegramKey(chatKey, TELEGRAM_CHAT_COOLDOWN_MS)) {
-          telegramCooldowns.set(chatKey, Date.now());
-          sendTelegram({ type: "chat_message", traineeId: userId, traineeName, preview });
-        }
-        break;
-      }
+      case "logout":           sendTelegram({ type: "logout", traineeId: userId, traineeName }); break;
+      case "inactive":         sendTelegram({ type: "inactive", traineeId: userId, traineeName }); break;
+      case "module_open":      sendTelegram({ type: "module_open", traineeId: userId, traineeName, moduleName }); break;
+      case "quiz_start":       sendTelegram({ type: "quiz_start", traineeId: userId, traineeName, moduleName }); break;
+      case "quiz_finish":      sendTelegram({ type: "quiz_finish", traineeId: userId, traineeName, moduleName, score, total }); break;
+      case "module_complete":  sendTelegram({ type: "module_complete", traineeId: userId, traineeName, moduleName }); break;
+      case "chat_message":     sendTelegram({ type: "chat_message", traineeId: userId, traineeName, preview }); break;
       case "status_change_offline":
         await sqlRun(`UPDATE trainees SET is_online=0 WHERE id=?`, [userId]).catch(() => {});
         onlineHeartbeats.delete(userId);
-        sendTelegram({ type: "status_change", traineeId: userId, traineeName, status: "offline" });
-        break;
-      case "manual_view": {
-        const manualKey = `${userId}:manual_view:${moduleName}`;
-        if (canSendTelegramKey(manualKey, TELEGRAM_MANUAL_COOLDOWN_MS)) {
-          telegramCooldowns.set(manualKey, Date.now());
-          sendTelegram({ type: "module_open", traineeId: userId, traineeName, moduleName: `[MANUAL] ${moduleName}` });
-        }
-        break;
-      }
-      case "system_warning":
-        sendTelegram({ type: "system_warning", message: preview });
-        break;
+        sendTelegram({ type: "status_change", traineeId: userId, traineeName, status: "offline" }); break;
+      case "manual_view":      sendTelegram({ type: "module_open", traineeId: userId, traineeName, moduleName: `[MANUAL] ${moduleName}` }); break;
+      case "system_warning":   sendTelegram({ type: "system_warning", message: preview }); break;
     }
     return c.json({ ok: true }, 200);
   })
@@ -1018,28 +891,6 @@ const app = new Hono()
     }
 
     await logActivity(traineeId, 'quiz_finish', { moduleId, moduleName, score, total, pct, passed });
-
-    // ── Auto-promotion check ───────────────────────────────────────────────
-    // If trainee passes with ≥80% and has 3+ passed quizzes → promote to Advanced
-    if (passed === 1) {
-      const [traineeRow] = await sql(`SELECT training_level, name FROM trainees WHERE id=?`, [traineeId]).catch(() => []);
-      if ((traineeRow as any)?.training_level === 'beginner') {
-        const allAttempts = await sql(`SELECT pct, passed FROM quiz_attempts WHERE trainee_id=?`, [traineeId]);
-        const passedList = allAttempts.filter((a: any) => a.passed === 1);
-        if (passedList.length >= 3) {
-          const avgPct = Math.round(passedList.reduce((s: number, a: any) => s + (a.pct as number), 0) / passedList.length);
-          if (avgPct >= 80) {
-            await sqlRun(`UPDATE trainees SET training_level='advanced' WHERE id=?`, [traineeId]);
-            sendTelegram({
-              type: 'admin_alert',
-              message: `🎓 AUTO-PROMOTION: ${(traineeRow as any).name} promoted to ADVANCED level! (${passedList.length} quizzes passed, avg ${avgPct}%)`,
-            });
-            return c.json({ ok: true, pct, passed: true, promoted: true, newLevel: 'advanced' }, 200);
-          }
-        }
-      }
-    }
-
     return c.json({ ok: true, pct, passed: passed === 1 }, 200);
   })
 
@@ -1082,29 +933,9 @@ const app = new Hono()
   })
   .get('/modules/:id/questions', async (c) => {
     const moduleId = Number(c.req.param('id'));
-    const traineeId = c.req.query('traineeId') ?? '';
-
-    // Get trainee's training level
-    let difficulty = 'beginner';
-    if (traineeId) {
-      const t = await sql(`SELECT training_level FROM trainees WHERE id=?`, [traineeId]).catch(() => []);
-      if (t.length > 0) difficulty = (t[0] as any).training_level ?? 'beginner';
-    }
-
-    // Fetch questions at trainee's level
-    let rows = await sql(
-      `SELECT * FROM questions WHERE module_id=? AND difficulty=? ORDER BY "order"`,
-      [moduleId, difficulty]
-    );
-
-    // Fallback to beginner if no advanced questions exist yet
-    if (rows.length === 0) {
-      rows = await sql(
-        `SELECT * FROM questions WHERE module_id=? AND difficulty='beginner' ORDER BY "order"`,
-        [moduleId]
-      );
-    }
-
+    const rows = await db.select().from(questions)
+      .where(eq(questions.moduleId, moduleId))
+      .orderBy(questions.order);
     return c.json(rows, 200);
   })
   .get('/achievements', async (c) => {
@@ -1218,71 +1049,34 @@ const app = new Hono()
     const [row] = await db.select().from(streaks).where(eq(streaks.userId, userId));
     return c.json(row ?? { currentStreak: 0, longestStreak: 0, totalXp: 0 }, 200);
   })
+  .get('/leaderboard', async (c) => {
+    // Join trainees with streaks and quiz stats
+    const rows = await sql(`
+      SELECT 
+        t.id,
+        t.name,
+        t.rank,
+        t.unit,
+        t.training_level,
+        COALESCE(s.total_xp, 0) as total_xp,
+        COALESCE(s.current_streak, 0) as current_streak,
+        COALESCE(s.longest_streak, 0) as longest_streak,
+        COUNT(DISTINCT qa.id) as quiz_count,
+        COALESCE(AVG(CASE WHEN qa.passed = 1 THEN qa.pct ELSE NULL END), 0) as avg_passed_pct,
+        SUM(CASE WHEN qa.passed = 1 THEN 1 ELSE 0 END) as quizzes_passed
+      FROM trainees t
+      LEFT JOIN streaks s ON s.user_id = t.id
+      LEFT JOIN quiz_attempts qa ON qa.trainee_id = t.id
+      GROUP BY t.id
+      ORDER BY total_xp DESC
+      LIMIT 50
+    `, []);
+    return c.json(rows, 200);
+  })
   .get('/quiz-attempts/:userId', async (c) => {
     const userId = c.req.param('userId');
     const rows = await sql(`SELECT id, module_id, module_name, score, total, pct, passed, ts FROM quiz_attempts WHERE trainee_id=? ORDER BY ts DESC`, [userId]);
     return c.json(rows, 200);
-  })
-
-  // GET /trainee/quiz-status/:moduleId?traineeId=xxx
-  .get('/trainee/quiz-status/:moduleId', async (c) => {
-    const moduleId = parseInt(c.req.param('moduleId') ?? '0');
-    const traineeId = c.req.query('traineeId') ?? '';
-    if (!traineeId || !moduleId) return c.json({ hasAttempt: false, retakeStatus: 'none' });
-    const attempts = await sql(`SELECT id FROM quiz_attempts WHERE trainee_id=? AND module_id=? LIMIT 1`, [traineeId, moduleId]);
-    const hasAttempt = attempts.length > 0;
-    if (!hasAttempt) return c.json({ hasAttempt: false, retakeStatus: 'none' });
-    const req = await sql(`SELECT status FROM quiz_retake_requests WHERE trainee_id=? AND module_id=? ORDER BY ts DESC LIMIT 1`, [traineeId, moduleId]);
-    const retakeStatus = req.length > 0 ? (req[0] as any).status : 'none';
-    return c.json({ hasAttempt, retakeStatus });
-  })
-
-  // POST /trainee/retake-request
-  .post('/trainee/retake-request', async (c) => {
-    const body = await c.req.json().catch(() => ({})) as { traineeId?: string; traineeName?: string; moduleId?: number; moduleName?: string };
-    if (!body.traineeId || !body.moduleId) return c.json({ error: 'Missing fields' }, 400);
-    const existing = await sql(`SELECT id FROM quiz_retake_requests WHERE trainee_id=? AND module_id=? AND status='pending'`, [body.traineeId, body.moduleId]);
-    if (existing.length > 0) return c.json({ ok: true, message: 'Already pending' });
-    await sqlRun(`INSERT INTO quiz_retake_requests (trainee_id, trainee_name, module_id, module_name, status, ts) VALUES (?, ?, ?, ?, 'pending', ?)`,
-      [body.traineeId, body.traineeName ?? '', body.moduleId, body.moduleName ?? '', Date.now()]);
-    return c.json({ ok: true });
-  })
-
-  // GET /admin/retake-requests
-  .get('/admin/retake-requests', async (c) => {
-    const pw = c.req.header('x-admin-password');
-    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
-    const rows = await sql(`SELECT * FROM quiz_retake_requests WHERE status='pending' ORDER BY ts DESC`);
-    return c.json(rows);
-  })
-
-  // POST /admin/retake-request/:id/approve
-  .post('/admin/retake-request/:id/approve', async (c) => {
-    const pw = c.req.header('x-admin-password');
-    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    await sqlRun(`UPDATE quiz_retake_requests SET status='approved', reviewed_at=? WHERE id=?`, [Date.now(), id]);
-    return c.json({ ok: true });
-  })
-
-  // POST /admin/retake-request/:id/deny
-  .post('/admin/retake-request/:id/deny', async (c) => {
-    const pw = c.req.header('x-admin-password');
-    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    await sqlRun(`UPDATE quiz_retake_requests SET status='denied', reviewed_at=? WHERE id=?`, [Date.now(), id]);
-    return c.json({ ok: true });
-  })
-
-  // POST /admin/trainee/:id/training-level
-  .post('/admin/trainee/:id/training-level', async (c) => {
-    const pw = c.req.header('x-admin-password');
-    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    const body = await c.req.json().catch(() => ({})) as { level?: string };
-    if (!body.level || !['beginner', 'advanced'].includes(body.level)) return c.json({ error: 'level must be beginner or advanced' }, 400);
-    await sqlRun(`UPDATE trainees SET training_level=? WHERE id=?`, [body.level, id]);
-    return c.json({ ok: true });
   })
   .post('/chat/ai', async (c) => {
     const body = await c.req.json();
@@ -1576,7 +1370,7 @@ const app = new Hono()
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
 
     const allTrainees = await sql(
-      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, training_level FROM trainees ORDER BY last_active_at DESC`
+      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status FROM trainees ORDER BY last_active_at DESC`
     );
 
     const allProgress = await sql(`SELECT trainee_id, completed FROM trainee_module_progress`);
@@ -1609,7 +1403,6 @@ const app = new Hono()
         quizAttempts: attempts.length,
         avgScore,
         status: (t.status as string) ?? 'active',
-        trainingLevel: (t.training_level as string) ?? 'beginner',
       };
     });
 
