@@ -18,7 +18,7 @@ type Trainee = {
   xp: number; currentStreak: number; longestStreak: number;
   completedModules: number; totalModules: number; earnedBadges: number;
   lastActive: number; online: boolean; createdAt: number;
-  status?: string;
+  status?: string; trainingLevel?: string;
 };
 
 type ModerationEntry = { id: number; action: string; reason: string | null; admin_id: string; ts: number };
@@ -115,7 +115,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
             background: pw.trim() && !loading ? `linear-gradient(135deg, ${C.cyan}, ${C.blue})` : "rgba(0,174,239,0.08)",
             border: "none", borderRadius: 10, cursor: pw.trim() && !loading ? "pointer" : "not-allowed",
             color: pw.trim() && !loading ? "#020810" : "var(--text-muted)",
-            fontFamily: "Orbitron", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em",
+            fontFamily: "Inter", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em",
           }}>
             {loading ? "VERIFYING..." : "ENTER"}
           </button>
@@ -298,7 +298,7 @@ function TraineeDetailModal({
                 background: `linear-gradient(135deg, ${t.online ? C.green : C.cyan}30, #071426)`,
                 border: `2px solid ${t.online ? C.green : C.cyan}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "Orbitron", fontSize: 16, fontWeight: 700, color: t.online ? C.green : C.cyan,
+                fontFamily: "Inter", fontSize: 16, fontWeight: 700, color: t.online ? C.green : C.cyan,
                 boxShadow: t.online ? `0 0 12px ${C.green}40` : `0 0 8px ${C.cyan}20`,
               }}>{initials}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -306,7 +306,7 @@ function TraineeDetailModal({
                   <div className="font-orbitron" style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{t.name}</div>
                   {t.status && t.status !== 'active' && (
                     <span style={{
-                      fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Orbitron", flexShrink: 0,
+                      fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Inter", flexShrink: 0,
                       background: t.status === 'blocked' ? `${C.red}18` : t.status === 'suspended' ? `${C.yellow}18` : `${C.gold}18`,
                       border: `1px solid ${t.status === 'blocked' ? C.red : t.status === 'suspended' ? C.yellow : C.gold}40`,
                       color: t.status === 'blocked' ? C.red : t.status === 'suspended' ? C.yellow : C.gold,
@@ -314,6 +314,14 @@ function TraineeDetailModal({
                       {t.status.toUpperCase()}
                     </span>
                   )}
+                  <span style={{
+                    fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Inter", flexShrink: 0,
+                    background: t.trainingLevel === 'advanced' ? `${C.gold}18` : "rgba(0,174,239,0.1)",
+                    border: `1px solid ${t.trainingLevel === 'advanced' ? C.gold + "50" : C.cyan + "30"}`,
+                    color: t.trainingLevel === 'advanced' ? C.gold : C.cyan,
+                  }}>
+                    {t.trainingLevel === 'advanced' ? '⭐ ADVANCED' : '🔵 BEGINNER'}
+                  </span>
                 </div>
                 <div style={{ fontSize: 11, color: C.cyan, marginTop: 2 }}>
                   {[t.rank, t.unit].filter(Boolean).join(" · ") || "TLS Trainee"}
@@ -324,7 +332,7 @@ function TraineeDetailModal({
                   </div>
                   {detail?.evaluation?.rating && detail.evaluation.rating !== 'pending' && (
                     <span style={{
-                      fontSize: 8, padding: "1px 6px", borderRadius: 8, fontFamily: "Orbitron",
+                      fontSize: 8, padding: "1px 6px", borderRadius: 8, fontFamily: "Inter",
                       background: detail.evaluation.rating === 'excellent' ? `${C.green}18` :
                                   detail.evaluation.rating === 'good' ? `${C.cyan}18` :
                                   detail.evaluation.rating === 'weak' ? `${C.red}18` : `${C.yellow}18`,
@@ -346,7 +354,7 @@ function TraineeDetailModal({
               }}>✕</button>
             </>
           ) : (
-            <div style={{ flex: 1, color: C.red, fontFamily: "Orbitron", fontSize: 12 }}>Failed to load trainee</div>
+            <div style={{ flex: 1, color: C.red, fontFamily: "Inter", fontSize: 12 }}>Failed to load trainee</div>
           )}
         </div>
 
@@ -360,7 +368,7 @@ function TraineeDetailModal({
               padding: "10px 12px", background: "none", cursor: "pointer",
               border: "none", borderBottom: tab === tb ? `2px solid ${C.cyan}` : "2px solid transparent",
               color: tab === tb ? C.cyan : "var(--text-muted)",
-              fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.08em",
+              fontFamily: "Inter", fontSize: 9, letterSpacing: "0.08em",
               whiteSpace: "nowrap", flexShrink: 0, textTransform: "uppercase",
               transition: "color 0.15s",
             }}>{tb}</button>
@@ -373,7 +381,7 @@ function TraineeDetailModal({
             margin: "8px 16px 0", padding: "8px 12px", borderRadius: 8, flexShrink: 0,
             background: actionResult.ok ? "rgba(0,210,106,0.1)" : "rgba(255,77,77,0.1)",
             border: `1px solid ${actionResult.ok ? "rgba(0,210,106,0.35)" : "rgba(255,77,77,0.35)"}`,
-            color: actionResult.ok ? C.green : C.red, fontSize: 12, fontFamily: "Rajdhani",
+            color: actionResult.ok ? C.green : C.red, fontSize: 12, fontFamily: "Inter",
           }}>
             {actionResult.ok ? "✅ " : "❌ "}{actionResult.text}
           </div>
@@ -412,7 +420,7 @@ function TraineeDetailModal({
                       borderRadius: 8, padding: "10px 8px", textAlign: "center",
                     }}>
                       <div className="font-orbitron" style={{ fontSize: 16, fontWeight: 700, color: item.color }}>{item.value}</div>
-                      <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Orbitron", marginTop: 2, letterSpacing: "0.06em" }}>{item.label}</div>
+                      <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 2, letterSpacing: "0.06em" }}>{item.label}</div>
                     </div>
                   ))}
                 </div>
@@ -426,8 +434,8 @@ function TraineeDetailModal({
                     { label: "Last Page", value: t!.last_page ?? "—" },
                   ].map(row => (
                     <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>{row.label}</span>
-                      <span style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>{row.value}</span>
+                      <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter" }}>{row.label}</span>
+                      <span style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter" }}>{row.value}</span>
                     </div>
                   ))}
                 </div>
@@ -456,7 +464,7 @@ function TraineeDetailModal({
                       background: msgText.trim() ? `${C.blue}20` : "transparent",
                       border: `1px solid ${C.blue}35`, borderRadius: 8, cursor: msgText.trim() ? "pointer" : "default",
                       color: msgText.trim() ? C.blue : "var(--text-muted)",
-                      fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.08em",
+                      fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
                     }}
                   >{acting ? "SENDING..." : "SEND"}</button>
                 </div>
@@ -467,7 +475,7 @@ function TraineeDetailModal({
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                     {(["info", "warning", "danger", "sound"] as const).map(at => (
                       <button key={at} onClick={() => setAlertType(at)} style={{
-                        padding: "4px 10px", borderRadius: 12, fontSize: 9, fontFamily: "Orbitron", cursor: "pointer",
+                        padding: "4px 10px", borderRadius: 12, fontSize: 9, fontFamily: "Inter", cursor: "pointer",
                         background: alertType === at ? `${C.yellow}20` : "transparent",
                         border: `1px solid ${alertType === at ? C.yellow : "rgba(255,255,255,0.1)"}`,
                         color: alertType === at ? C.yellow : "var(--text-muted)",
@@ -493,7 +501,7 @@ function TraineeDetailModal({
                         background: alertText.trim() ? `${C.yellow}15` : "transparent",
                         border: `1px solid ${C.yellow}35`, borderRadius: 8, cursor: alertText.trim() ? "pointer" : "default",
                         color: alertText.trim() ? C.yellow : "var(--text-muted)",
-                        fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.08em",
+                        fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
                       }}
                     >{acting ? "SENDING..." : "SEND ALERT"}</button>
                     <button
@@ -502,7 +510,7 @@ function TraineeDetailModal({
                       style={{
                         padding: "8px 14px", background: "rgba(255,77,77,0.1)",
                         border: `1px solid ${C.red}35`, borderRadius: 8, cursor: "pointer",
-                        color: C.red, fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.08em",
+                        color: C.red, fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
                       }}
                     >🔔 SOUND</button>
                   </div>
@@ -529,7 +537,7 @@ function TraineeDetailModal({
                       background: noteText.trim() ? `${C.gold}15` : "transparent",
                       border: `1px solid ${C.gold}35`, borderRadius: 8, cursor: noteText.trim() ? "pointer" : "default",
                       color: noteText.trim() ? C.gold : "var(--text-muted)",
-                      fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.08em",
+                      fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
                     }}
                   >{acting ? "SAVING..." : "SAVE NOTE"}</button>
                 </div>
@@ -567,7 +575,7 @@ function TraineeDetailModal({
                       background: assignModuleId ? `${C.cyan}12` : "transparent",
                       border: `1px solid ${C.cyan}35`, borderRadius: 8, cursor: assignModuleId ? "pointer" : "default",
                       color: assignModuleId ? C.cyan : "var(--text-muted)",
-                      fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.08em",
+                      fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
                     }}
                   >{acting ? "ASSIGNING..." : "ASSIGN"}</button>
                 </div>
@@ -595,7 +603,7 @@ function TraineeDetailModal({
                         background: resetModuleId ? `${C.red}12` : "transparent",
                         border: `1px solid ${C.red}35`, borderRadius: 8, cursor: resetModuleId ? "pointer" : "default",
                         color: resetModuleId ? C.red : "var(--text-muted)",
-                        fontFamily: "Orbitron", fontSize: 10,
+                        fontFamily: "Inter", fontSize: 10,
                       }}
                     >{acting ? "..." : "RESET"}</button>
                   </div>
@@ -631,10 +639,39 @@ function TraineeDetailModal({
                         background: completeModuleId ? `${C.green}12` : "transparent",
                         border: `1px solid ${C.green}35`, borderRadius: 8, cursor: completeModuleId ? "pointer" : "default",
                         color: completeModuleId ? C.green : "var(--text-muted)",
-                        fontFamily: "Orbitron", fontSize: 10,
+                        fontFamily: "Inter", fontSize: 10,
                       }}
                     >{acting ? "..." : "COMPLETE"}</button>
                   </div>
+                </div>
+
+                {/* TRAINING LEVEL */}
+                <div className="font-orbitron" style={{ fontSize: 9, color: C.cyan, letterSpacing: "0.15em", marginBottom: 10, marginTop: 16 }}>TRAINING LEVEL</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                  {(['beginner', 'advanced'] as const).map(lvl => (
+                    <button
+                      key={lvl}
+                      onClick={async () => {
+                        await fetch(`/api/admin/trainee/${traineeId}/training-level`, {
+                          method: 'POST',
+                          headers: { 'x-admin-password': adminPw, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ level: lvl }),
+                        });
+                        // Refresh detail
+                        const r = await fetch(`/api/admin/trainee/${traineeId}`, { headers: { 'x-admin-password': adminPw } });
+                        if (r.ok) setDetail(await r.json() as TraineeDetail);
+                      }}
+                      style={{
+                        flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer",
+                        fontFamily: "Inter", fontSize: 11, letterSpacing: "0.05em",
+                        background: lvl === 'advanced' ? `${C.gold}15` : "rgba(0,174,239,0.1)",
+                        border: `1px solid ${lvl === 'advanced' ? C.gold + "50" : C.cyan + "40"}`,
+                        color: lvl === 'advanced' ? C.gold : C.cyan,
+                      }}
+                    >
+                      {lvl === 'advanced' ? '⭐ Set Advanced' : '🔵 Set Beginner'}
+                    </button>
+                  ))}
                 </div>
 
                 {/* EXPORT REPORT */}
@@ -733,7 +770,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                     width: "100%", padding: "12px 16px",
                     background: `${C.gold}15`, border: `1px solid ${C.gold}50`,
                     borderRadius: 10, cursor: "pointer",
-                    color: C.gold, fontFamily: "Orbitron", fontSize: 11,
+                    color: C.gold, fontFamily: "Inter", fontSize: 11,
                     letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   }}
                 >
@@ -763,11 +800,11 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                       background: log.event === "login" ? C.green : log.event === "logout" ? C.red : C.cyan,
                     }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>{log.event.replace(/_/g, " ").toUpperCase()}</div>
-                      {log.detail && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1, fontFamily: "Rajdhani" }}>{log.detail}</div>}
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Inter" }}>{log.event.replace(/_/g, " ").toUpperCase()}</div>
+                      {log.detail && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1, fontFamily: "Inter" }}>{log.detail}</div>}
                       {log.page && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>📍 {log.page}</div>}
                     </div>
-                    <div style={{ fontSize: 9, color: "var(--text-muted)", flexShrink: 0, fontFamily: "Orbitron" }}>{timeAgo(log.ts)}</div>
+                    <div style={{ fontSize: 9, color: "var(--text-muted)", flexShrink: 0, fontFamily: "Inter" }}>{timeAgo(log.ts)}</div>
                   </div>
                 ))}
               </div>
@@ -786,17 +823,17 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                     borderRadius: 10,
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "Inter" }}>
                         Module {a.module_id} {a.module_name ? `— ${a.module_name}` : ""}
                       </div>
                       <span style={{
-                        fontSize: 9, padding: "2px 8px", fontFamily: "Orbitron",
+                        fontSize: 9, padding: "2px 8px", fontFamily: "Inter",
                         background: a.passed ? "rgba(0,210,106,0.15)" : "rgba(255,77,77,0.15)",
                         border: `1px solid ${a.passed ? C.green : C.red}40`,
                         color: a.passed ? C.green : C.red, borderRadius: 10,
                       }}>{a.passed ? "PASSED" : "FAILED"}</span>
                     </div>
-                    <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>
+                    <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter" }}>
                       <span>Score: <b style={{ color: "var(--text-secondary)" }}>{Math.round(a.pct)}%</b></span>
                       <span>✅ {a.correct}  ❌ {a.wrong}</span>
                       <span>{timeAgo(a.ts)}</span>
@@ -818,15 +855,15 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                     borderRadius: 10,
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "Inter" }}>
                         Module {p.module_id} {p.module_name ? `— ${p.module_name}` : ""}
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         {p.assigned_by_admin === 1 && (
-                          <span style={{ fontSize: 8, fontFamily: "Orbitron", padding: "2px 6px", background: `${C.gold}15`, border: `1px solid ${C.gold}35`, color: C.gold, borderRadius: 8 }}>ASSIGNED</span>
+                          <span style={{ fontSize: 8, fontFamily: "Inter", padding: "2px 6px", background: `${C.gold}15`, border: `1px solid ${C.gold}35`, color: C.gold, borderRadius: 8 }}>ASSIGNED</span>
                         )}
                         {p.completed === 1 && (
-                          <span style={{ fontSize: 8, fontFamily: "Orbitron", padding: "2px 6px", background: `${C.green}15`, border: `1px solid ${C.green}35`, color: C.green, borderRadius: 8 }}>DONE</span>
+                          <span style={{ fontSize: 8, fontFamily: "Inter", padding: "2px 6px", background: `${C.green}15`, border: `1px solid ${C.green}35`, color: C.green, borderRadius: 8 }}>DONE</span>
                         )}
                         <span className="font-orbitron" style={{ fontSize: 11, color: p.completed ? C.green : C.cyan }}>{Math.round(p.progress)}%</span>
                       </div>
@@ -838,7 +875,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                       }} />
                     </div>
                     {p.last_accessed_at > 0 && (
-                      <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 4, fontFamily: "Rajdhani" }}>Last accessed: {timeAgo(p.last_accessed_at)}</div>
+                      <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 4, fontFamily: "Inter" }}>Last accessed: {timeAgo(p.last_accessed_at)}</div>
                     )}
                   </div>
                 ))}
@@ -868,7 +905,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                       background: noteText.trim() ? `${C.gold}15` : "transparent",
                       border: `1px solid ${C.gold}35`, borderRadius: 8, cursor: noteText.trim() ? "pointer" : "default",
                       color: noteText.trim() ? C.gold : "var(--text-muted)",
-                      fontFamily: "Orbitron", fontSize: 10,
+                      fontFamily: "Inter", fontSize: 10,
                     }}
                   >{acting ? "SAVING..." : "ADD NOTE"}</button>
                 </div>
@@ -880,8 +917,8 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                     background: `${C.gold}06`, border: `1px solid ${C.gold}20`,
                     borderRadius: 10,
                   }}>
-                    <div style={{ fontSize: 13, color: "var(--text-secondary)", fontFamily: "Rajdhani", lineHeight: 1.5 }}>{n.note}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6, fontFamily: "Rajdhani" }}>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)", fontFamily: "Inter", lineHeight: 1.5 }}>{n.note}</div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6, fontFamily: "Inter" }}>
                       by {n.author_id} · {fmtDate(n.ts)}
                     </div>
                   </div>
@@ -923,14 +960,14 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                             border: `1px solid ${isAlert ? C.yellow + "30" : isAdmin ? C.blue + "35" : "rgba(255,255,255,0.12)"}`,
                           }}>
                             {isAlert && (
-                              <div style={{ fontSize: 10, color: C.yellow, fontFamily: "Orbitron", letterSpacing: "0.08em", marginBottom: 3 }}>
+                              <div style={{ fontSize: 10, color: C.yellow, fontFamily: "Inter", letterSpacing: "0.08em", marginBottom: 3 }}>
                                 {(item.alert_type ?? "info").toUpperCase()} ALERT
                               </div>
                             )}
-                            <div style={{ fontSize: 12, color: "var(--text-primary)", fontFamily: "Rajdhani", lineHeight: 1.4 }}>
+                            <div style={{ fontSize: 12, color: "var(--text-primary)", fontFamily: "Inter", lineHeight: 1.4 }}>
                               {item.text}
                             </div>
-                            <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 4, fontFamily: "Rajdhani", textAlign: isAdmin ? "right" : "left" }}>
+                            <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 4, fontFamily: "Inter", textAlign: isAdmin ? "right" : "left" }}>
                               {isAlert ? "SYSTEM" : isAdmin ? "Admin" : (t?.name ?? "Trainee")} · {fmtDate(item.ts)}
                             </div>
                           </div>
@@ -949,7 +986,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                 <div className="glass-card" style={{ padding: "14px", marginBottom: 14, border: `1px solid ${C.red}20`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <div className="font-orbitron" style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.15em", marginBottom: 4 }}>CURRENT STATUS</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "Orbitron", color:
+                    <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "Inter", color:
                       t?.status === 'blocked' ? C.red :
                       t?.status === 'suspended' ? C.yellow :
                       t?.status === 'muted' ? C.gold :
@@ -993,7 +1030,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                         background: disabled ? "rgba(255,255,255,0.04)" : `${color}15`,
                         border: `1px solid ${disabled ? "rgba(255,255,255,0.08)" : color + "40"}`,
                         color: disabled ? "var(--text-muted)" : color,
-                        fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.08em",
+                        fontFamily: "Inter", fontSize: 9, letterSpacing: "0.08em",
                         cursor: disabled || moderating ? "not-allowed" : "pointer",
                       }}
                     >{icon} {moderating ? "..." : label}</button>
@@ -1014,7 +1051,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                         background: disabled ? "rgba(255,255,255,0.04)" : `${color}15`,
                         border: `1px solid ${disabled ? "rgba(255,255,255,0.08)" : color + "40"}`,
                         color: disabled ? "var(--text-muted)" : color,
-                        fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.08em",
+                        fontFamily: "Inter", fontSize: 9, letterSpacing: "0.08em",
                         cursor: disabled || moderating ? "not-allowed" : "pointer",
                       }}
                     >{icon} {moderating ? "..." : label}</button>
@@ -1024,7 +1061,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                 {/* Danger Zone — Delete Account */}
                 <div style={{ marginBottom: 20, padding: "14px", borderRadius: 10, background: "rgba(255,40,40,0.04)", border: `1px solid ${C.red}25` }}>
                   <div className="font-orbitron" style={{ fontSize: 9, color: C.red, letterSpacing: "0.15em", marginBottom: 8 }}>⚠ DANGER ZONE</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Rajdhani", marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter", marginBottom: 10 }}>
                     Permanently delete this trainee and all their data. This cannot be undone.
                   </div>
                   {!showDeleteConfirm ? (
@@ -1034,7 +1071,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                       style={{
                         width: "100%", padding: "10px", borderRadius: 8,
                         background: `${C.red}15`, border: `1px solid ${C.red}50`,
-                        color: C.red, fontFamily: "Orbitron", fontSize: 10,
+                        color: C.red, fontFamily: "Inter", fontSize: 10,
                         letterSpacing: "0.1em", cursor: "pointer",
                       }}
                     >🗑 DELETE ACCOUNT</button>
@@ -1045,11 +1082,11 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                         <span style={{ fontSize: 20, lineHeight: 1.2 }}>⚠️</span>
                         <div>
                           <div className="font-orbitron" style={{ fontSize: 10, color: C.red, marginBottom: 4 }}>PERMANENT DELETE WARNING</div>
-                          <div style={{ fontSize: 11, fontFamily: "Rajdhani", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 11, fontFamily: "Inter", color: "var(--text-secondary)", lineHeight: 1.5 }}>
                             You are about to permanently delete <strong style={{ color: "#fff" }}>{t?.name}</strong>.<br />
                             The following will be <strong style={{ color: C.red }}>permanently removed</strong>:
                           </div>
-                          <ul style={{ fontSize: 11, fontFamily: "Rajdhani", color: "var(--text-muted)", margin: "6px 0 0 0", paddingLeft: 16, lineHeight: 1.8 }}>
+                          <ul style={{ fontSize: 11, fontFamily: "Inter", color: "var(--text-muted)", margin: "6px 0 0 0", paddingLeft: 16, lineHeight: 1.8 }}>
                             <li>Account &amp; login credentials</li>
                             <li>All quiz attempts &amp; scores</li>
                             <li>Module progress &amp; completions</li>
@@ -1072,7 +1109,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                           width: "100%", boxSizing: "border-box",
                           background: "rgba(0,0,0,0.4)", border: `1px solid ${deleteConfirmText === "DELETE" ? C.red : "rgba(255,255,255,0.1)"}`,
                           borderRadius: 8, color: deleteConfirmText === "DELETE" ? C.red : "#fff",
-                          fontSize: 13, fontFamily: "Orbitron", letterSpacing: "0.15em",
+                          fontSize: 13, fontFamily: "Inter", letterSpacing: "0.15em",
                           padding: "10px 12px", outline: "none", marginBottom: 12,
                           transition: "border-color 0.15s",
                         }}
@@ -1083,7 +1120,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                           style={{
                             flex: 1, padding: "10px", borderRadius: 8,
                             background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
-                            color: "var(--text-muted)", fontFamily: "Orbitron", fontSize: 10,
+                            color: "var(--text-muted)", fontFamily: "Inter", fontSize: 10,
                             letterSpacing: "0.08em", cursor: "pointer",
                           }}
                         >CANCEL</button>
@@ -1106,7 +1143,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                             background: deleteConfirmText === "DELETE" ? `${C.red}25` : "rgba(255,255,255,0.03)",
                             border: `1px solid ${deleteConfirmText === "DELETE" ? C.red : "rgba(255,255,255,0.06)"}`,
                             color: deleteConfirmText === "DELETE" ? C.red : "var(--text-muted)",
-                            fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.08em",
+                            fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
                             cursor: deleteConfirmText === "DELETE" && !moderating ? "pointer" : "not-allowed",
                             transition: "all 0.15s",
                           }}
@@ -1119,7 +1156,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                 {/* Moderation log */}
                 <div className="font-orbitron" style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.15em", marginBottom: 8 }}>ACTION HISTORY</div>
                 {modLog.length === 0 ? (
-                  <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "30px 0", fontSize: 12, fontFamily: "Rajdhani" }}>No moderation actions yet</div>
+                  <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "30px 0", fontSize: 12, fontFamily: "Inter" }}>No moderation actions yet</div>
                 ) : modLog.map(entry => {
                   const entryColor = ['block','suspend','mute'].includes(entry.action) ? C.red : C.green;
                   return (
@@ -1131,9 +1168,9 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                         <span className="font-orbitron" style={{ fontSize: 10, color: entryColor, letterSpacing: "0.08em" }}>
                           {entry.action.toUpperCase()}
                         </span>
-                        <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Orbitron" }}>{timeAgo(entry.ts)}</span>
+                        <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}>{timeAgo(entry.ts)}</span>
                       </div>
-                      {entry.reason && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Rajdhani", marginTop: 4 }}>{entry.reason}</div>}
+                      {entry.reason && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter", marginTop: 4 }}>{entry.reason}</div>}
                     </div>
                   );
                 })}
@@ -1161,7 +1198,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                         background: evalRating === val ? `${color}18` : "rgba(255,255,255,0.02)",
                         border: `1px solid ${evalRating === val ? color : "rgba(255,255,255,0.08)"}`,
                         color: evalRating === val ? color : "var(--text-muted)",
-                        fontFamily: "Orbitron", fontSize: 11, letterSpacing: "0.05em",
+                        fontFamily: "Inter", fontSize: 11, letterSpacing: "0.05em",
                         textAlign: "left", transition: "all 0.15s",
                         boxShadow: evalRating === val ? `0 0 8px ${color}20` : "none",
                       }}>{label}</button>
@@ -1229,7 +1266,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                     border: `1px solid ${evalSaved ? C.green : C.gold}50`,
                     borderRadius: 10, cursor: evalSaving ? "wait" : "pointer",
                     color: evalSaved ? C.green : C.gold,
-                    fontFamily: "Orbitron", fontSize: 11, letterSpacing: "0.1em",
+                    fontFamily: "Inter", fontSize: 11, letterSpacing: "0.1em",
                     transition: "all 0.3s",
                   }}
                 >
@@ -1240,7 +1277,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                 {detail.evaluation && (
                   <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
                     <div className="font-orbitron" style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.1em", marginBottom: 6 }}>LAST SAVED EVALUATION</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Inter" }}>
                       Rating: <strong style={{ color: C.gold }}>{detail.evaluation.rating}</strong>
                       &nbsp;·&nbsp; Updated: {fmtDate(detail.evaluation.updated_at)}
                     </div>
@@ -1274,7 +1311,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                   }}
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>Enter to send · Shift+Enter newline</span>
+                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}>Enter to send · Shift+Enter newline</span>
                   <button
                     disabled={acting || !msgText.trim()}
                     onClick={() => { const txt = msgText; act("message", { text: txt }, () => { setMsgText(""); sessionStorage.removeItem(`tls_admin_msg_${traineeId}`); }); }}
@@ -1284,7 +1321,7 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                       border: `1px solid ${C.blue}35`, borderRadius: 8,
                       cursor: msgText.trim() ? "pointer" : "default",
                       color: msgText.trim() ? "#020810" : "var(--text-muted)",
-                      fontFamily: "Orbitron", fontSize: 10, fontWeight: 700,
+                      fontFamily: "Inter", fontSize: 10, fontWeight: 700,
                     }}
                   >{acting ? "..." : "SEND"}</button>
                 </div>
@@ -1481,7 +1518,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
           <span style={{ fontSize: 18 }}>🛡️</span>
           <span className="font-orbitron" style={{ fontSize: 11, letterSpacing: "0.15em", color: C.green }}>BACKUP · EXPORT · RESTORE</span>
           {stats && (
-            <span style={{ fontSize: 8, fontFamily: "Orbitron", letterSpacing: "0.1em", background: "rgba(0,210,106,0.12)", border: "1px solid rgba(0,210,106,0.35)", color: C.green, padding: "2px 8px", borderRadius: 10 }}>
+            <span style={{ fontSize: 8, fontFamily: "Inter", letterSpacing: "0.1em", background: "rgba(0,210,106,0.12)", border: "1px solid rgba(0,210,106,0.35)", color: C.green, padding: "2px 8px", borderRadius: 10 }}>
               {stats.totalBackups} SNAPSHOTS
             </span>
           )}
@@ -1502,7 +1539,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ padding: "10px 8px", textAlign: "center", background: "rgba(0,0,0,0.3)", border: `1px solid ${color}20`, borderRadius: 8 }}>
                   <div className="font-orbitron" style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
-                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.06em", marginTop: 2 }}>{label}</div>
+                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.06em", marginTop: 2 }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -1513,13 +1550,13 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
             {[{ dot: C.green, label: "Daily auto-backup" }, { dot: C.gold, label: "Weekly auto-backup" }].map(({ dot, label }) => (
               <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, display: "inline-block", boxShadow: `0 0 5px ${dot}` }} />
-                <span style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>{label}</span>
+                <span style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "Inter" }}>{label}</span>
               </div>
             ))}
             {stats && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
                 {Object.entries(stats.counts).map(([label, count]) => count > 0 && (
-                  <span key={label} style={{ fontSize: 9, fontFamily: "Orbitron", color: labelColor(label), background: `${labelColor(label)}10`, border: `1px solid ${labelColor(label)}25`, padding: "2px 7px", borderRadius: 8 }}>
+                  <span key={label} style={{ fontSize: 9, fontFamily: "Inter", color: labelColor(label), background: `${labelColor(label)}10`, border: `1px solid ${labelColor(label)}25`, padding: "2px 7px", borderRadius: 8 }}>
                     {label}: {count}
                   </span>
                 ))}
@@ -1529,7 +1566,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
 
           {/* Message */}
           {msg && (
-            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, fontSize: 12, fontFamily: "Rajdhani",
+            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, fontSize: 12, fontFamily: "Inter",
               background: msg.ok ? "rgba(0,210,106,0.08)" : "rgba(255,77,77,0.08)",
               border: `1px solid ${msg.ok ? C.green : C.red}30`,
               color: msg.ok ? C.green : C.red,
@@ -1540,7 +1577,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 16 }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
-                padding: "8px 4px", borderRadius: 8, fontFamily: "Orbitron", fontSize: 8, letterSpacing: "0.06em",
+                padding: "8px 4px", borderRadius: 8, fontFamily: "Inter", fontSize: 8, letterSpacing: "0.06em",
                 background: tab === t.id ? `${t.color}18` : "rgba(0,0,0,0.2)",
                 border: `1px solid ${tab === t.id ? t.color + "50" : "rgba(255,255,255,0.06)"}`,
                 color: tab === t.id ? t.color : "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
@@ -1555,20 +1592,20 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
               <input
                 value={note} onChange={e => setNote(e.target.value)}
                 placeholder="Label / note (e.g. v2.1 before quiz update)"
-                style={{ width: "100%", boxSizing: "border-box", marginBottom: 8, padding: "9px 12px", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.cyan}20`, borderRadius: 8, color: "#fff", fontSize: 12, outline: "none", fontFamily: "Rajdhani" }}
+                style={{ width: "100%", boxSizing: "border-box", marginBottom: 8, padding: "9px 12px", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.cyan}20`, borderRadius: 8, color: "#fff", fontSize: 12, outline: "none", fontFamily: "Inter" }}
               />
               <button onClick={createBackup} disabled={creating} style={{
                 width: "100%", padding: "11px", borderRadius: 8,
                 background: creating ? "rgba(0,174,239,0.04)" : "rgba(0,174,239,0.12)",
                 border: `1px solid ${C.cyan}${creating ? "15" : "45"}`,
                 color: creating ? "var(--text-muted)" : C.cyan,
-                fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.1em", cursor: creating ? "not-allowed" : "pointer",
+                fontFamily: "Inter", fontSize: 10, letterSpacing: "0.1em", cursor: creating ? "not-allowed" : "pointer",
               }}>{creating ? "⏳ CREATING SNAPSHOT..." : "💾 SNAPSHOT DATABASE NOW"}</button>
 
               <div style={{ marginTop: 14, padding: "10px 12px", background: "rgba(0,0,0,0.2)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="font-orbitron" style={{ fontSize: 8, color: "var(--text-muted)", letterSpacing: "0.1em", marginBottom: 6 }}>WHAT'S INCLUDED</div>
                 {['trainees & auth', 'quiz attempts & scores', 'chat messages & attachments', 'activity logs', 'moderation log', 'modules & questions', 'instructor notes', 'trainee alerts', 'module progress'].map(item => (
-                  <div key={item} style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "Rajdhani", padding: "2px 0", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div key={item} style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "Inter", padding: "2px 0", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ color: C.green, fontSize: 9 }}>✓</span> {item}
                   </div>
                 ))}
@@ -1585,20 +1622,20 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 <button onClick={() => exportData('json')} style={{
                   padding: "12px 8px", borderRadius: 8, textAlign: "center",
                   background: "rgba(201,166,107,0.07)", border: `1px solid ${C.gold}25`,
-                  color: C.gold, fontFamily: "Orbitron", fontSize: 8, letterSpacing: "0.06em", cursor: "pointer",
+                  color: C.gold, fontFamily: "Inter", fontSize: 8, letterSpacing: "0.06em", cursor: "pointer",
                 }}>
                   <div style={{ fontSize: 20, marginBottom: 4 }}>📄</div>
                   <div>DATABASE.JSON</div>
-                  <div style={{ fontSize: 7, color: "var(--text-muted)", marginTop: 3, fontFamily: "Rajdhani" }}>All tables as JSON</div>
+                  <div style={{ fontSize: 7, color: "var(--text-muted)", marginTop: 3, fontFamily: "Inter" }}>All tables as JSON</div>
                 </button>
                 <button onClick={() => exportData('sql')} style={{
                   padding: "12px 8px", borderRadius: 8, textAlign: "center",
                   background: "rgba(201,166,107,0.07)", border: `1px solid ${C.gold}25`,
-                  color: C.gold, fontFamily: "Orbitron", fontSize: 8, letterSpacing: "0.06em", cursor: "pointer",
+                  color: C.gold, fontFamily: "Inter", fontSize: 8, letterSpacing: "0.06em", cursor: "pointer",
                 }}>
                   <div style={{ fontSize: 20, marginBottom: 4 }}>🗃️</div>
                   <div>DATABASE.SQL</div>
-                  <div style={{ fontSize: 7, color: "var(--text-muted)", marginTop: 3, fontFamily: "Rajdhani" }}>SQL INSERT statements</div>
+                  <div style={{ fontSize: 7, color: "var(--text-muted)", marginTop: 3, fontFamily: "Inter" }}>SQL INSERT statements</div>
                 </button>
               </div>
 
@@ -1609,13 +1646,13 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 background: exporting === 'project' ? "rgba(0,174,239,0.04)" : "rgba(0,174,239,0.08)",
                 border: `1px solid ${C.cyan}${exporting === 'project' ? "15" : "35"}`,
                 color: exporting === 'project' ? "var(--text-muted)" : C.cyan,
-                fontFamily: "Orbitron", cursor: exporting === 'project' ? "not-allowed" : "pointer",
+                fontFamily: "Inter", cursor: exporting === 'project' ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", gap: 12,
               }}>
                 <span style={{ fontSize: 24 }}>📁</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 10, letterSpacing: "0.1em" }}>{exporting === 'project' ? "⏳ BUILDING ZIP..." : "EXPORT SOURCE CODE (.ZIP)"}</div>
-                  <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Rajdhani", marginTop: 2 }}>Full codebase without node_modules · Redeploy anywhere</div>
+                  <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 2 }}>Full codebase without node_modules · Redeploy anywhere</div>
                 </div>
               </button>
 
@@ -1626,13 +1663,13 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 background: exporting === 'migration' ? "rgba(192,132,252,0.04)" : "rgba(192,132,252,0.08)",
                 border: `1px solid ${exporting === 'migration' ? "rgba(192,132,252,0.15)" : "rgba(192,132,252,0.35)"}`,
                 color: exporting === 'migration' ? "var(--text-muted)" : "#c084fc",
-                fontFamily: "Orbitron", cursor: exporting === 'migration' ? "not-allowed" : "pointer",
+                fontFamily: "Inter", cursor: exporting === 'migration' ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", gap: 12,
               }}>
                 <span style={{ fontSize: 24 }}>🚀</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 10, letterSpacing: "0.1em" }}>{exporting === 'migration' ? "⏳ BUILDING PACKAGE..." : "MIGRATION PACKAGE (.ZIP)"}</div>
-                  <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Rajdhani", marginTop: 2 }}>Source + Database + Files + README · Move to any platform</div>
+                  <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 2 }}>Source + Database + Files + README · Move to any platform</div>
                 </div>
               </button>
               <div style={{ padding: "10px 12px", background: "rgba(192,132,252,0.05)", border: "1px solid rgba(192,132,252,0.15)", borderRadius: 8 }}>
@@ -1646,7 +1683,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 ].map(([path, desc]) => (
                   <div key={path} style={{ marginBottom: 4 }}>
                     <span style={{ fontSize: 9, color: "#c084fc", fontFamily: "monospace" }}>{path}</span>
-                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Rajdhani" }}> — {desc}</span>
+                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}> — {desc}</span>
                   </div>
                 ))}
               </div>
@@ -1657,7 +1694,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
           {tab === 'import' && (
             <div>
               <div className="font-orbitron" style={{ fontSize: 9, color: C.cyan, letterSpacing: "0.15em", marginBottom: 10 }}>RESTORE FROM BACKUP FILE</div>
-              <div style={{ padding: "12px", background: "rgba(255,209,102,0.05)", border: `1px solid ${C.gold}20`, borderRadius: 8, marginBottom: 14, fontSize: 11, color: C.gold, fontFamily: "Rajdhani", lineHeight: 1.6 }}>
+              <div style={{ padding: "12px", background: "rgba(255,209,102,0.05)", border: `1px solid ${C.gold}20`, borderRadius: 8, marginBottom: 14, fontSize: 11, color: C.gold, fontFamily: "Inter", lineHeight: 1.6 }}>
                 ⚠ Upload a TLS Trainer backup JSON file. Current data will be replaced. A pre-restore snapshot is saved automatically.
               </div>
 
@@ -1679,15 +1716,15 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 {importFile ? (
                   <>
                     <div style={{ fontSize: 28, marginBottom: 6 }}>📄</div>
-                    <div style={{ fontSize: 12, color: C.cyan, fontFamily: "Orbitron" }}>{importFile.name}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Rajdhani", marginTop: 3 }}>{formatBytes(importFile.size)}</div>
-                    <button onClick={e => { e.stopPropagation(); setImportFile(null); }} style={{ marginTop: 8, fontSize: 10, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: "Orbitron" }}>✕ REMOVE</button>
+                    <div style={{ fontSize: 12, color: C.cyan, fontFamily: "Inter" }}>{importFile.name}</div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 3 }}>{formatBytes(importFile.size)}</div>
+                    <button onClick={e => { e.stopPropagation(); setImportFile(null); }} style={{ marginTop: 8, fontSize: 10, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: "Inter" }}>✕ REMOVE</button>
                   </>
                 ) : (
                   <>
                     <div style={{ fontSize: 28, marginBottom: 6 }}>📥</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.08em" }}>TAP TO SELECT BACKUP FILE</div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Rajdhani", marginTop: 4 }}>Accepts TLS-backup-*.json files</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>TAP TO SELECT BACKUP FILE</div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 4 }}>Accepts TLS-backup-*.json files</div>
                   </>
                 )}
               </div>
@@ -1700,7 +1737,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                   background: !importFile ? "rgba(255,255,255,0.02)" : importing ? "rgba(0,174,239,0.04)" : "rgba(0,174,239,0.12)",
                   border: `1px solid ${!importFile ? "rgba(255,255,255,0.05)" : importing ? C.cyan + "15" : C.cyan + "50"}`,
                   color: !importFile ? "var(--text-muted)" : importing ? "var(--text-muted)" : C.cyan,
-                  fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.1em",
+                  fontFamily: "Inter", fontSize: 10, letterSpacing: "0.1em",
                   cursor: !importFile || importing ? "not-allowed" : "pointer",
                 }}
               >{importing ? "⏳ RESTORING..." : "♻ RESTORE FROM FILE"}</button>
@@ -1714,7 +1751,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                   '4. Online flags reset for all trainees',
                   '5. App continues — no restart needed',
                 ].map(s => (
-                  <div key={s} style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "Rajdhani", padding: "2px 0" }}>{s}</div>
+                  <div key={s} style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "Inter", padding: "2px 0" }}>{s}</div>
                 ))}
               </div>
             </div>
@@ -1725,11 +1762,11 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
             <div>
               <div className="font-orbitron" style={{ fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.15em", marginBottom: 10 }}>
                 SNAPSHOT HISTORY {loading && <span style={{ color: C.cyan }}>· Loading...</span>}
-                <button onClick={load} style={{ marginLeft: 8, background: "none", border: "none", color: C.cyan, cursor: "pointer", fontSize: 9, fontFamily: "Orbitron" }}>↻ REFRESH</button>
+                <button onClick={load} style={{ marginLeft: 8, background: "none", border: "none", color: C.cyan, cursor: "pointer", fontSize: 9, fontFamily: "Inter" }}>↻ REFRESH</button>
               </div>
 
               {!loading && backups.length === 0 && (
-                <div style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)", fontSize: 12, fontFamily: "Rajdhani" }}>
+                <div style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)", fontSize: 12, fontFamily: "Inter" }}>
                   No snapshots yet. Create one from the Database tab.
                 </div>
               )}
@@ -1744,21 +1781,21 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                   <div key={b.id} style={{ marginBottom: 10, padding: "12px 14px", borderRadius: 10, background: "rgba(0,0,0,0.25)", border: `1px solid ${labelColor(b.label)}20` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                       <div>
-                        <span style={{ fontSize: 9, fontFamily: "Orbitron", color: labelColor(b.label), background: `${labelColor(b.label)}15`, border: `1px solid ${labelColor(b.label)}35`, padding: "2px 8px", borderRadius: 10, letterSpacing: "0.08em" }}>
+                        <span style={{ fontSize: 9, fontFamily: "Inter", color: labelColor(b.label), background: `${labelColor(b.label)}15`, border: `1px solid ${labelColor(b.label)}35`, padding: "2px 8px", borderRadius: 10, letterSpacing: "0.08em" }}>
                           {b.label.toUpperCase()}
                         </span>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Orbitron", marginLeft: 8 }}>{timeAgoStr(b.created_at)}</span>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", marginLeft: 8 }}>{timeAgoStr(b.created_at)}</span>
                       </div>
-                      <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>{formatBytes(b.size_bytes)}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>{formatBytes(b.size_bytes)}</span>
                     </div>
-                    {b.note && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Rajdhani", marginBottom: 5 }}>{b.note}</div>}
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Rajdhani", marginBottom: 8 }}>
+                    {b.note && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter", marginBottom: 5 }}>{b.note}</div>}
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", marginBottom: 8 }}>
                       {totalRows} rows · {new Date(b.created_at).toLocaleString("en-SA", { timeZone: "Asia/Riyadh", dateStyle: "medium", timeStyle: "short" })}
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                       {(['trainees', 'quiz_attempts', 'chat_messages', 'moderation_log'] as const).map(key => (
                         typeof bCounts[key] === 'number' && (
-                          <span key={key} style={{ fontSize: 8, fontFamily: "Orbitron", color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", padding: "2px 7px", borderRadius: 7 }}>
+                          <span key={key} style={{ fontSize: 8, fontFamily: "Inter", color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", padding: "2px 7px", borderRadius: 7 }}>
                             {key.replace('_', ' ')}: {bCounts[key]}
                           </span>
                         )
@@ -1768,20 +1805,20 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                       <button onClick={() => downloadBackup(b)} style={{
                         flex: 1, padding: "7px 4px", borderRadius: 7,
                         background: "rgba(0,174,239,0.07)", border: `1px solid ${C.cyan}20`,
-                        color: C.cyan, fontFamily: "Orbitron", fontSize: 8, letterSpacing: "0.05em", cursor: "pointer",
+                        color: C.cyan, fontFamily: "Inter", fontSize: 8, letterSpacing: "0.05em", cursor: "pointer",
                       }}>⬇ DOWNLOAD</button>
                       <button onClick={() => setConfirmRestore(b)} disabled={!!restoring} style={{
                         flex: 1, padding: "7px 4px", borderRadius: 7,
                         background: isRestoring ? "rgba(255,255,255,0.02)" : "rgba(0,210,106,0.07)",
                         border: `1px solid ${isRestoring ? "rgba(255,255,255,0.04)" : C.green + "25"}`,
                         color: isRestoring ? "var(--text-muted)" : C.green,
-                        fontFamily: "Orbitron", fontSize: 8, letterSpacing: "0.05em", cursor: restoring ? "not-allowed" : "pointer",
+                        fontFamily: "Inter", fontSize: 8, letterSpacing: "0.05em", cursor: restoring ? "not-allowed" : "pointer",
                       }}>{isRestoring ? "..." : "♻ RESTORE"}</button>
                       <button onClick={() => deleteBackup(b.id)} disabled={!!deleting || b.label === 'pre-restore'} style={{
                         padding: "7px 10px", borderRadius: 7,
                         background: "rgba(255,77,77,0.05)", border: `1px solid ${C.red}15`,
                         color: isDeleting ? "var(--text-muted)" : C.red,
-                        fontFamily: "Orbitron", fontSize: 8, cursor: deleting || b.label === 'pre-restore' ? "not-allowed" : "pointer",
+                        fontFamily: "Inter", fontSize: 8, cursor: deleting || b.label === 'pre-restore' ? "not-allowed" : "pointer",
                         opacity: b.label === 'pre-restore' ? 0.3 : 1,
                       }} title={b.label === 'pre-restore' ? "Pre-restore snapshots cannot be deleted" : "Delete"}>{isDeleting ? "..." : "🗑"}</button>
                     </div>
@@ -1805,21 +1842,21 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 <div style={{ fontSize: 32, textAlign: "center", marginBottom: 10 }}>♻️</div>
                 <div className="font-orbitron" style={{ fontSize: 13, color: C.gold, textAlign: "center", marginBottom: 8 }}>RESTORE SNAPSHOT?</div>
                 <div style={{ padding: "10px 14px", background: "rgba(0,0,0,0.3)", borderRadius: 8, marginBottom: 10, border: `1px solid ${labelColor(confirmRestore.label)}25` }}>
-                  <div style={{ fontSize: 11, color: labelColor(confirmRestore.label), fontFamily: "Orbitron" }}>{confirmRestore.label.toUpperCase()}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Rajdhani", marginTop: 3 }}>{confirmRestore.note || "No note"}</div>
-                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>{new Date(confirmRestore.created_at).toLocaleString("en-SA", { timeZone: "Asia/Riyadh" })}</div>
+                  <div style={{ fontSize: 11, color: labelColor(confirmRestore.label), fontFamily: "Inter" }}>{confirmRestore.label.toUpperCase()}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter", marginTop: 3 }}>{confirmRestore.note || "No note"}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>{new Date(confirmRestore.created_at).toLocaleString("en-SA", { timeZone: "Asia/Riyadh" })}</div>
                 </div>
-                <div style={{ padding: "8px 12px", background: "rgba(255,209,102,0.05)", border: `1px solid ${C.gold}18`, borderRadius: 8, marginBottom: 14, fontSize: 11, color: C.gold, fontFamily: "Rajdhani", lineHeight: 1.5 }}>
+                <div style={{ padding: "8px 12px", background: "rgba(255,209,102,0.05)", border: `1px solid ${C.gold}18`, borderRadius: 8, marginBottom: 14, fontSize: 11, color: C.gold, fontFamily: "Inter", lineHeight: 1.5 }}>
                   ⚠ Current data will be overwritten. A pre-restore snapshot is saved automatically.
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setConfirmRestore(null)} style={{
                     flex: 1, padding: "10px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                    color: "var(--text-muted)", fontFamily: "Orbitron", fontSize: 10, cursor: "pointer",
+                    color: "var(--text-muted)", fontFamily: "Inter", fontSize: 10, cursor: "pointer",
                   }}>CANCEL</button>
                   <button onClick={() => doRestore(confirmRestore)} style={{
                     flex: 1, padding: "10px", borderRadius: 8, background: "rgba(0,210,106,0.14)", border: `1px solid ${C.green}45`,
-                    color: C.green, fontFamily: "Orbitron", fontSize: 10, cursor: "pointer",
+                    color: C.green, fontFamily: "Inter", fontSize: 10, cursor: "pointer",
                   }}>CONFIRM RESTORE</button>
                 </div>
               </div>
@@ -1840,20 +1877,20 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 <div style={{ fontSize: 32, textAlign: "center", marginBottom: 10 }}>📥</div>
                 <div className="font-orbitron" style={{ fontSize: 13, color: C.cyan, textAlign: "center", marginBottom: 8 }}>IMPORT & RESTORE?</div>
                 <div style={{ padding: "10px 14px", background: "rgba(0,0,0,0.3)", borderRadius: 8, marginBottom: 10, border: `1px solid ${C.cyan}20` }}>
-                  <div style={{ fontSize: 11, color: C.cyan, fontFamily: "Orbitron" }}>{importFile.name}</div>
-                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Rajdhani", marginTop: 3 }}>{formatBytes(importFile.size)}</div>
+                  <div style={{ fontSize: 11, color: C.cyan, fontFamily: "Inter" }}>{importFile.name}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 3 }}>{formatBytes(importFile.size)}</div>
                 </div>
-                <div style={{ padding: "8px 12px", background: "rgba(255,209,102,0.05)", border: `1px solid ${C.gold}18`, borderRadius: 8, marginBottom: 14, fontSize: 11, color: C.gold, fontFamily: "Rajdhani", lineHeight: 1.5 }}>
+                <div style={{ padding: "8px 12px", background: "rgba(255,209,102,0.05)", border: `1px solid ${C.gold}18`, borderRadius: 8, marginBottom: 14, fontSize: 11, color: C.gold, fontFamily: "Inter", lineHeight: 1.5 }}>
                   ⚠ All current data will be replaced with this backup's data. A pre-restore snapshot is saved first.
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setConfirmImport(false)} style={{
                     flex: 1, padding: "10px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                    color: "var(--text-muted)", fontFamily: "Orbitron", fontSize: 10, cursor: "pointer",
+                    color: "var(--text-muted)", fontFamily: "Inter", fontSize: 10, cursor: "pointer",
                   }}>CANCEL</button>
                   <button onClick={doImportFile} style={{
                     flex: 1, padding: "10px", borderRadius: 8, background: "rgba(0,174,239,0.14)", border: `1px solid ${C.cyan}45`,
-                    color: C.cyan, fontFamily: "Orbitron", fontSize: 10, cursor: "pointer",
+                    color: C.cyan, fontFamily: "Inter", fontSize: 10, cursor: "pointer",
                   }}>CONFIRM IMPORT</button>
                 </div>
               </div>
@@ -1924,7 +1961,7 @@ function TelegramPanel({ adminPw }: { adminPw: string }) {
           <span style={{ fontSize: 18 }}>📡</span>
           <span className="font-orbitron" style={{ fontSize: 11, letterSpacing: "0.15em", color: C.cyan }}>TELEGRAM NOTIFICATIONS</span>
           {config?.enabled && (
-            <span style={{ fontSize: 8, fontFamily: "Orbitron", letterSpacing: "0.1em", background: "rgba(0,210,106,0.15)", border: "1px solid rgba(0,210,106,0.4)", color: C.green, padding: "2px 8px", borderRadius: 10 }}>ACTIVE</span>
+            <span style={{ fontSize: 8, fontFamily: "Inter", letterSpacing: "0.1em", background: "rgba(0,210,106,0.15)", border: "1px solid rgba(0,210,106,0.4)", color: C.green, padding: "2px 8px", borderRadius: 10 }}>ACTIVE</span>
           )}
         </div>
         <span style={{ color: "var(--text-muted)", fontSize: 14, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
@@ -1933,7 +1970,7 @@ function TelegramPanel({ adminPw }: { adminPw: string }) {
       {open && (
         <div style={{ background: "rgba(6,12,24,0.97)", border: "1px solid rgba(0,174,239,0.2)", borderTop: "none", borderRadius: "0 0 12px 12px", padding: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Rajdhani" }}>Enable Telegram Notifications</span>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Inter" }}>Enable Telegram Notifications</span>
             <button onClick={() => setEnabled(e => !e)} style={{
               width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
               background: enabled ? C.green : "rgba(0,174,239,0.15)", position: "relative", transition: "background 0.25s",
@@ -1951,7 +1988,7 @@ function TelegramPanel({ adminPw }: { adminPw: string }) {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={save} disabled={saving} className="tac-btn tac-btn-primary" style={{ flex: 1, opacity: saving ? 0.6 : 1 }}>{saving ? "SAVING..." : "SAVE SETTINGS"}</button>
-            <button onClick={test} disabled={testing} style={{ flex: 1, opacity: testing ? 0.6 : 1, background: "rgba(0,210,106,0.1)", border: "1px solid rgba(0,210,106,0.35)", borderRadius: 8, color: C.green, fontFamily: "Orbitron", fontSize: 11, padding: "10px", cursor: "pointer" }}>{testing ? "SENDING..." : "🔔 TEST"}</button>
+            <button onClick={test} disabled={testing} style={{ flex: 1, opacity: testing ? 0.6 : 1, background: "rgba(0,210,106,0.1)", border: "1px solid rgba(0,210,106,0.35)", borderRadius: 8, color: C.green, fontFamily: "Inter", fontSize: 11, padding: "10px", cursor: "pointer" }}>{testing ? "SENDING..." : "🔔 TEST"}</button>
           </div>
           {msg && (
             <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: msg.ok ? "rgba(0,210,106,0.1)" : "rgba(255,77,77,0.1)", border: `1px solid ${msg.ok ? "rgba(0,210,106,0.35)" : "rgba(255,77,77,0.35)"}`, fontSize: 11, color: msg.ok ? C.green : C.red }}>{msg.text}</div>
@@ -1993,7 +2030,7 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
         padding: "5px 10px", borderRadius: 8, border: `1px solid ${color}35`,
         background: done ? `${color}25` : `${color}10`,
         color: done ? color : `${color}cc`,
-        fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.06em",
+        fontFamily: "Inter", fontSize: 9, letterSpacing: "0.06em",
         cursor: busy ? "not-allowed" : "pointer",
         opacity: busy ? 0.6 : 1,
         transition: "all 0.15s",
@@ -2013,15 +2050,20 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const [filter, setFilter] = useState<"all" | "online" | "offline">("all");
   const [sortBy, setSortBy] = useState<"xp" | "completedModules" | "currentStreak">("xp");
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  // Restore selectedId from sessionStorage so modal survives iOS app switch / forced reload
   const [selectedId, setSelectedId] = useState<string | null>(() => sessionStorage.getItem("tls_admin_selected") || null);
+  const [retakeRequests, setRetakeRequests] = useState<Array<{ id: number; trainee_id: string; trainee_name: string; module_id: number; module_name: string; ts: number }>>([]);
+  const [retakeActioning, setRetakeActioning] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/trainees", { headers: { "x-admin-password": adminPw } });
+      const [res, retakeRes] = await Promise.all([
+        fetch("/api/admin/trainees", { headers: { "x-admin-password": adminPw } }),
+        fetch("/api/admin/retake-requests", { headers: { "x-admin-password": adminPw } }),
+      ]);
       if (!res.ok) { setError("Session expired. Please log in again."); return; }
       const data = await res.json() as Trainee[];
       setTrainees(data); setLastRefresh(new Date());
+      if (retakeRes.ok) setRetakeRequests(await retakeRes.json() as any[]);
     } catch { setError("Failed to load data."); }
     finally { setLoading(false); }
   }, [adminPw]);
@@ -2078,7 +2120,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
               style={{
                 padding: "5px 12px", background: "rgba(255,77,77,0.08)", border: "1px solid rgba(255,77,77,0.25)",
-                borderRadius: 8, cursor: "pointer", color: C.red, fontSize: 10, fontFamily: "Orbitron", letterSpacing: "0.06em",
+                borderRadius: 8, cursor: "pointer", color: C.red, fontSize: 10, fontFamily: "Inter", letterSpacing: "0.06em",
               }}
             >LOGOUT</button>
           </div>
@@ -2106,7 +2148,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           ].map(({ label, value, color }) => (
             <div key={label} className="glass-card" style={{ padding: "10px 8px", textAlign: "center", border: `1px solid ${color}25` }}>
               <div className="font-orbitron" style={{ fontSize: 16, fontWeight: 700, color }}>{value}</div>
-              <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.08em", marginTop: 2 }}>{label}</div>
+              <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em", marginTop: 2 }}>{label}</div>
             </div>
           ))}
         </div>
@@ -2118,7 +2160,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           <div style={{ display: "flex", gap: 6 }}>
             {(["all", "online", "offline"] as const).map(f => (
               <button key={f} onClick={() => setFilter(f)} style={{
-                padding: "5px 12px", borderRadius: 20, fontSize: 10, fontFamily: "Orbitron",
+                padding: "5px 12px", borderRadius: 20, fontSize: 10, fontFamily: "Inter",
                 cursor: "pointer", letterSpacing: "0.06em",
                 background: filter === f ? C.cyan : "rgba(255,255,255,0.04)",
                 border: `1px solid ${filter === f ? C.cyan : "rgba(255,255,255,0.1)"}`,
@@ -2129,7 +2171,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} style={{
             background: "rgba(8,15,28,0.95)", border: `1px solid ${C.cyan}25`,
             borderRadius: 20, padding: "5px 10px", color: "var(--text-secondary)",
-            fontSize: 10, fontFamily: "Orbitron", cursor: "pointer", outline: "none",
+            fontSize: 10, fontFamily: "Inter", cursor: "pointer", outline: "none",
           }}>
             <option value="xp">Sort: XP</option>
             <option value="completedModules">Sort: Modules</option>
@@ -2141,6 +2183,55 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       <div style={{ padding: "12px 16px", paddingBottom: 80 }}>
         <BackupPanel adminPw={adminPw} />
         <TelegramPanel adminPw={adminPw} />
+
+        {/* ── RETAKE REQUESTS ── */}
+        {retakeRequests.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div className="section-label" style={{ color: C.yellow, display: "flex", alignItems: "center", gap: 8 }}>
+              🔁 RETAKE REQUESTS
+              <span style={{ background: C.yellow, color: "#020810", borderRadius: 10, padding: "1px 7px", fontSize: 9, fontWeight: 700 }}>
+                {retakeRequests.length}
+              </span>
+            </div>
+            {retakeRequests.map(req => (
+              <div key={req.id} className="glass-card" style={{ padding: "12px 14px", marginBottom: 8, border: `1px solid ${C.yellow}30` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{req.trainee_name}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                      Module: <span style={{ color: C.yellow }}>{req.module_name}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                      {new Date(req.ts).toLocaleString("en-SA", { timeZone: "Asia/Riyadh" })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button
+                      disabled={retakeActioning === req.id}
+                      onClick={async () => {
+                        setRetakeActioning(req.id);
+                        await fetch(`/api/admin/retake-request/${req.id}/approve`, { method: "POST", headers: { "x-admin-password": adminPw } });
+                        setRetakeRequests(r => r.filter(x => x.id !== req.id));
+                        setRetakeActioning(null);
+                      }}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.green}50`, background: `${C.green}12`, color: C.green, fontSize: 10, cursor: "pointer", fontFamily: "Inter" }}
+                    >APPROVE</button>
+                    <button
+                      disabled={retakeActioning === req.id}
+                      onClick={async () => {
+                        setRetakeActioning(req.id);
+                        await fetch(`/api/admin/retake-request/${req.id}/deny`, { method: "POST", headers: { "x-admin-password": adminPw } });
+                        setRetakeRequests(r => r.filter(x => x.id !== req.id));
+                        setRetakeActioning(null);
+                      }}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.red}50`, background: `${C.red}12`, color: C.red, fontSize: 10, cursor: "pointer", fontFamily: "Inter" }}
+                    >DENY</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {loading && [...Array(3)].map((_, i) => (
           <div key={i} className="glass-card" style={{ height: 90, opacity: 0.4, marginBottom: 10, animation: "pulse-glow 1.5s ease infinite" }} />
@@ -2200,7 +2291,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   border: `2px solid ${t.online ? C.green : "rgba(255,255,255,0.12)"}`,
                   boxShadow: t.online ? `0 0 10px ${C.green}40` : "none",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "Orbitron", fontSize: 16, fontWeight: 700,
+                  fontFamily: "Inter", fontSize: 16, fontWeight: 700,
                   color: t.online ? C.green : C.cyan, position: "relative",
                 }}>
                   {t.name.charAt(0).toUpperCase()}
@@ -2219,13 +2310,13 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                       {t.name.toUpperCase()}
                     </div>
                     {(t.role === "admin" || t.role === "instructor") && (
-                      <span style={{ fontSize: 8, padding: "2px 6px", background: `${C.gold}18`, border: `1px solid ${C.gold}40`, borderRadius: 10, color: C.gold, fontFamily: "Orbitron" }}>
+                      <span style={{ fontSize: 8, padding: "2px 6px", background: `${C.gold}18`, border: `1px solid ${C.gold}40`, borderRadius: 10, color: C.gold, fontFamily: "Inter" }}>
                         {t.role.toUpperCase()}
                       </span>
                     )}
                     {t.status && t.status !== 'active' && (
                       <span style={{
-                        fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Orbitron",
+                        fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Inter",
                         background: t.status === 'blocked' ? `${C.red}18` : t.status === 'suspended' ? `${C.yellow}18` : `${C.gold}18`,
                         border: `1px solid ${t.status === 'blocked' ? C.red : t.status === 'suspended' ? C.yellow : C.gold}40`,
                         color: t.status === 'blocked' ? C.red : t.status === 'suspended' ? C.yellow : C.gold,
@@ -2243,7 +2334,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 {/* Level + tap hint */}
                 <div style={{ flexShrink: 0, textAlign: "center", background: `${C.gold}12`, border: `1px solid ${C.gold}35`, borderRadius: 8, padding: "6px 10px" }}>
                   <div className="font-orbitron" style={{ fontSize: 14, fontWeight: 700, color: C.gold }}>{level}</div>
-                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Orbitron" }}>LVL</div>
+                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter" }}>LVL</div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.cyan} strokeWidth="2" style={{ flexShrink: 0, opacity: 0.5 }}>
                   <path d="M9 18l6-6-6-6"/>
@@ -2259,8 +2350,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   { label: "BADGES", value: String(t.earnedBadges), color: C.blue },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "Orbitron" }}>{value}</div>
-                    <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.06em" }}>{label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "Inter" }}>{value}</div>
+                    <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.06em" }}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -2268,8 +2359,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               {/* XP progress */}
               <div style={{ marginTop: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Orbitron" }}>XP to next level</span>
-                  <span style={{ fontSize: 9, color: C.gold, fontFamily: "Orbitron" }}>{pct}%</span>
+                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}>XP to next level</span>
+                  <span style={{ fontSize: 9, color: C.gold, fontFamily: "Inter" }}>{pct}%</span>
                 </div>
                 <div className="progress-bar" style={{ height: 4 }}>
                   <div className="progress-fill" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.yellow})` }} />
@@ -2280,8 +2371,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               {t.totalModules > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Orbitron" }}>Module completion</span>
-                    <span style={{ fontSize: 9, color: C.cyan, fontFamily: "Orbitron" }}>{progressPct}%</span>
+                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}>Module completion</span>
+                    <span style={{ fontSize: 9, color: C.cyan, fontFamily: "Inter" }}>{progressPct}%</span>
                   </div>
                   <div className="progress-bar" style={{ height: 4 }}>
                     <div className="progress-fill" style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${C.cyan}, ${C.blue})` }} />
@@ -2305,7 +2396,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   <QuickModBtn traineeId={t.id} action="unmute"   label="🔊 Unmute"   color={C.blue}   adminPw={adminPw} onDone={fetchData} />
                 ) : null}
                 <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-                  <span style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.08em" }}>TAP FOR DETAILS →</span>
+                  <span style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>TAP FOR DETAILS →</span>
                 </div>
               </div>
             </div>

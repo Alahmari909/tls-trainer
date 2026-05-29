@@ -100,7 +100,7 @@ export default function Card() {
               margin: "0 auto 16px",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-              <span style={{ fontFamily: "Orbitron", fontSize: 30, fontWeight: 900, color: "white" }}>
+              <span style={{ fontFamily: "Inter", fontSize: 30, fontWeight: 900, color: "white" }}>
                 {initials}
               </span>
             </div>
@@ -163,7 +163,7 @@ export default function Card() {
                     {item.icon}
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.1em" }}>
+                    <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.1em" }}>
                       {item.label}
                     </div>
                     <div style={{ fontSize: 13, color: "var(--text-primary)", marginTop: 1 }}>
@@ -194,10 +194,10 @@ export default function Card() {
                 }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter" }}>
                   {loading ? "—" : `${stats?.totalXp ?? 0} XP total`}
                 </span>
-                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Rajdhani" }}>
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter" }}>
                   {xpProgress}/500 to next level
                 </span>
               </div>
@@ -220,7 +220,7 @@ export default function Card() {
                   border: `1px solid ${badge.active ? badge.color + "50" : "rgba(255,255,255,0.1)"}`,
                   borderRadius: 20,
                   fontSize: 11, color: badge.active ? badge.color : "var(--text-muted)",
-                  fontFamily: "Rajdhani", fontWeight: 600
+                  fontFamily: "Inter", fontWeight: 600
                 }}>
                   {badge.active ? "✓" : "○"} {badge.label}
                 </div>

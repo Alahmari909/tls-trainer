@@ -119,7 +119,7 @@ function AdminSheet({
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 4 }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" }} />
           </div>
-          <div style={{ padding: "6px 20px 12px", fontSize: 10, color: "rgba(0,174,239,0.7)", fontFamily: "Orbitron", letterSpacing: "0.1em", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div style={{ padding: "6px 20px 12px", fontSize: 10, color: "rgba(0,174,239,0.7)", fontFamily: "Inter", letterSpacing: "0.1em", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             MESSAGE — {contactName.toUpperCase()}
           </div>
           {items.map(item => (
@@ -130,7 +130,7 @@ function AdminSheet({
                 display: "flex", alignItems: "center", width: "100%", textAlign: "left",
                 background: "none", border: "none", cursor: "pointer",
                 padding: "15px 22px", fontSize: 15,
-                fontFamily: "Rajdhani, sans-serif", fontWeight: 600,
+                fontFamily: "Inter, sans-serif", fontWeight: 600,
                 color: item.danger ? "#FF4D4D" : "var(--text-primary)",
                 borderBottom: "1px solid rgba(255,255,255,0.04)",
                 WebkitTapHighlightColor: "transparent",
@@ -144,7 +144,7 @@ function AdminSheet({
               display: "block", width: "calc(100% - 32px)", margin: "10px 16px 8px",
               background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 12, padding: "13px", color: "var(--text-secondary)",
-              fontSize: 14, fontFamily: "Rajdhani, sans-serif", fontWeight: 600,
+              fontSize: 14, fontFamily: "Inter, sans-serif", fontWeight: 600,
               cursor: "pointer", WebkitTapHighlightColor: "transparent",
             }}
           >Cancel</button>
@@ -166,7 +166,7 @@ function AdminSheet({
         <button key={item.label} onClick={item.action} style={{
           display: "block", width: "100%", textAlign: "left",
           background: "none", border: "none", cursor: "pointer",
-          padding: "9px 14px", fontSize: 12, fontFamily: "Rajdhani, sans-serif",
+          padding: "9px 14px", fontSize: 12, fontFamily: "Inter, sans-serif",
           color: item.danger ? "#FF4D4D" : "var(--text-secondary)",
         }}
           onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,174,239,0.08)")}
@@ -283,11 +283,11 @@ function PrivMsgBubble({
         <>
           <div style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: 4, opacity: swipeAction === "delete" ? 1 : 0.3, pointerEvents: "none" }}>
             <span style={{ fontSize: 16 }}>🗑</span>
-            <span style={{ fontSize: 9, color: "#FF4D4D", fontFamily: "Orbitron" }}>DELETE</span>
+            <span style={{ fontSize: 9, color: "#FF4D4D", fontFamily: "Inter" }}>DELETE</span>
           </div>
           <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: 4, opacity: swipeAction === "pin" ? 1 : 0.3, pointerEvents: "none" }}>
             <span style={{ fontSize: 16 }}>📌</span>
-            <span style={{ fontSize: 9, color: C.cyan, fontFamily: "Orbitron" }}>PIN</span>
+            <span style={{ fontSize: 9, color: C.cyan, fontFamily: "Inter" }}>PIN</span>
           </div>
         </>
       )}
@@ -312,14 +312,14 @@ function PrivMsgBubble({
             background: `linear-gradient(135deg, ${C.cyan}40, #071426)`,
             border: `1.5px solid ${C.cyan}50`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: "Orbitron", fontSize: 10, color: C.cyan,
+            fontFamily: "Inter", fontSize: 10, color: C.cyan,
             marginRight: 8, marginTop: 2,
           }}>{contactAvatar}</div>
         )}
         <div style={{ maxWidth: "74%" }}>
           {/* Pin indicator */}
           {msg.pinned && (
-            <div style={{ fontSize: 9, color: C.cyan, fontFamily: "Orbitron", marginBottom: 3, paddingLeft: 4 }}>
+            <div style={{ fontSize: 9, color: C.cyan, fontFamily: "Inter", marginBottom: 3, paddingLeft: 4 }}>
               📌 PINNED
             </div>
           )}
@@ -453,7 +453,7 @@ export default function PrivateChat() {
           border: `2px solid ${activeContact.online ? C.green : "rgba(255,255,255,0.15)"}`,
           boxShadow: activeContact.online ? `0 0 10px ${C.green}50` : "none",
           display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", fontFamily: "Orbitron", fontSize: 14, fontWeight: 700, color: C.cyan, position: "relative",
+          cursor: "pointer", fontFamily: "Inter", fontSize: 14, fontWeight: 700, color: C.cyan, position: "relative",
         }}>
           {activeContact.avatar}
           <span style={{
@@ -470,7 +470,7 @@ export default function PrivateChat() {
             <div className="font-orbitron" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
               {activeContact.name.toUpperCase()}
             </div>
-            <span style={{ fontSize: 8, color: C.cyan, fontFamily: "Orbitron", background: `${C.cyan}15`, padding: "1px 6px", borderRadius: 3 }}>
+            <span style={{ fontSize: 8, color: C.cyan, fontFamily: "Inter", background: `${C.cyan}15`, padding: "1px 6px", borderRadius: 3 }}>
               {activeContact.rank}
             </span>
           </div>
@@ -497,10 +497,10 @@ export default function PrivateChat() {
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
           </svg>
-          <span style={{ fontSize: 7, color: C.green, fontFamily: "Orbitron", letterSpacing: "0.05em" }}>VOICE</span>
+          <span style={{ fontSize: 7, color: C.green, fontFamily: "Inter", letterSpacing: "0.05em" }}>VOICE</span>
         </div>
 
-        <div style={{ padding: "4px 8px", border: `1px solid ${C.cyan}30`, borderRadius: 5, fontSize: 8, color: C.cyan, fontFamily: "Orbitron", letterSpacing: "0.1em" }}>
+        <div style={{ padding: "4px 8px", border: `1px solid ${C.cyan}30`, borderRadius: 5, fontSize: 8, color: C.cyan, fontFamily: "Inter", letterSpacing: "0.1em" }}>
           🔒 PRIVATE
         </div>
       </div>
@@ -516,7 +516,7 @@ export default function PrivateChat() {
                 border: activeContact.id === c.id ? `1px solid ${C.cyan}50` : "1px solid rgba(255,255,255,0.08)",
                 background: activeContact.id === c.id ? `${C.cyan}10` : "rgba(255,255,255,0.03)",
               }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", margin: "0 auto 4px", background: `linear-gradient(135deg, ${C.cyan}40, #071426)`, border: `1.5px solid ${c.online ? C.green : "rgba(255,255,255,0.1)"}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Orbitron", fontSize: 12, color: C.cyan }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", margin: "0 auto 4px", background: `linear-gradient(135deg, ${C.cyan}40, #071426)`, border: `1.5px solid ${c.online ? C.green : "rgba(255,255,255,0.1)"}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter", fontSize: 12, color: C.cyan }}>
                   {c.avatar}
                 </div>
                 <div style={{ fontSize: 9, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{c.name.split(" ")[0]}</div>
@@ -530,7 +530,7 @@ export default function PrivateChat() {
       {/* Admin swipe hint */}
       {isAdmin && (
         <div style={{ flexShrink: 0, padding: "4px 14px", background: "rgba(0,174,239,0.04)", borderBottom: `1px solid ${C.cyan}10`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 9, color: "rgba(0,174,239,0.45)", fontFamily: "Orbitron", letterSpacing: "0.06em" }}>
+          <span style={{ fontSize: 9, color: "rgba(0,174,239,0.45)", fontFamily: "Inter", letterSpacing: "0.06em" }}>
             ← SWIPE DELETE &nbsp;·&nbsp; HOLD FOR MENU &nbsp;·&nbsp; SWIPE PIN →
           </span>
         </div>
@@ -552,7 +552,7 @@ export default function PrivateChat() {
 
         {typing && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg, ${C.cyan}40, #071426)`, border: `1.5px solid ${C.cyan}50`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Orbitron", fontSize: 10, color: C.cyan, flexShrink: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg, ${C.cyan}40, #071426)`, border: `1.5px solid ${C.cyan}50`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter", fontSize: 10, color: C.cyan, flexShrink: 0 }}>
               {activeContact.avatar}
             </div>
             <div style={{ padding: "10px 14px", borderRadius: "16px 16px 16px 4px", background: "rgba(255,255,255,0.05)", border: `1px solid ${C.cyan}20`, display: "flex", gap: 4, alignItems: "center" }}>
@@ -570,7 +570,7 @@ export default function PrivateChat() {
             flexShrink: 0, padding: "5px 12px", borderRadius: 20,
             border: `1px solid ${C.cyan}30`, background: `${C.cyan}08`,
             color: C.cyan, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap",
-            fontFamily: "Rajdhani, sans-serif",
+            fontFamily: "Inter, sans-serif",
           }}>{r}</button>
         ))}
       </div>
@@ -583,7 +583,7 @@ export default function PrivateChat() {
               <div key={i} style={{ width: 3, borderRadius: 2, height: h, background: C.green, animation: `blink ${0.6 + i * 0.1}s ease infinite`, opacity: 0.7 }} />
             ))}
           </div>
-          <span style={{ fontSize: 10, color: C.green, fontFamily: "Orbitron", letterSpacing: "0.08em" }}>VOICE CHANNEL READY</span>
+          <span style={{ fontSize: 10, color: C.green, fontFamily: "Inter", letterSpacing: "0.08em" }}>VOICE CHANNEL READY</span>
           <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginLeft: "auto" }}>End-to-end encrypted</span>
         </div>
       )}
@@ -605,7 +605,7 @@ export default function PrivateChat() {
             flex: 1, background: "rgba(255,255,255,0.04)",
             border: `1px solid ${C.cyan}25`, borderRadius: 24,
             padding: "10px 16px", color: "var(--text-primary)",
-            fontSize: 13, outline: "none", fontFamily: "Rajdhani, sans-serif",
+            fontSize: 13, outline: "none", fontFamily: "Inter, sans-serif",
           }}
         />
         <button

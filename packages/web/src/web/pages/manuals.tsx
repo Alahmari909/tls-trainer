@@ -163,7 +163,7 @@ export default function Manuals() {
             </div>
             {favorites.size > 0 && (
               <div style={{
-                fontSize: 9, fontFamily: "Orbitron", color: "#FFD166",
+                fontSize: 9, fontFamily: "Inter", color: "#FFD166",
                 background: "rgba(255,209,102,0.12)", border: "1px solid rgba(255,209,102,0.3)",
                 borderRadius: 4, padding: "2px 7px", letterSpacing: "0.07em",
               }}>
@@ -191,7 +191,7 @@ export default function Manuals() {
             placeholder="Search documents..."
             style={{
               flex: 1, background: "none", border: "none", outline: "none",
-              color: "var(--text-primary)", fontSize: 13, fontFamily: "Rajdhani, sans-serif",
+              color: "var(--text-primary)", fontSize: 13, fontFamily: "Inter, sans-serif",
             }}
           />
           {search && (
@@ -214,7 +214,7 @@ export default function Manuals() {
                 style={{
                   flexShrink: 0, padding: "5px 12px",
                   borderRadius: 6, cursor: "pointer", fontSize: 9,
-                  fontFamily: "Orbitron", letterSpacing: "0.08em",
+                  fontFamily: "Inter", letterSpacing: "0.08em",
                   background: active
                     ? (isFavTab ? "rgba(255,209,102,0.18)" : "rgba(0,174,239,0.18)")
                     : "rgba(28,38,51,0.6)",
@@ -267,7 +267,7 @@ export default function Manuals() {
                       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{manual.title}</span>
                         <span style={{
-                          fontSize: 7, color: manual.color, fontFamily: "Orbitron",
+                          fontSize: 7, color: manual.color, fontFamily: "Inter",
                           background: `${manual.color}15`, border: `1px solid ${manual.color}35`,
                           borderRadius: 3, padding: "1px 5px", letterSpacing: "0.08em", flexShrink: 0,
                         }}>
@@ -275,7 +275,7 @@ export default function Manuals() {
                         </span>
                       </div>
                       <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>{manual.subtitle}</div>
-                      <div style={{ fontSize: 9, color: manual.color, marginTop: 4, fontFamily: "Orbitron", letterSpacing: "0.06em" }}>
+                      <div style={{ fontSize: 9, color: manual.color, marginTop: 4, fontFamily: "Inter", letterSpacing: "0.06em" }}>
                         {manual.category.toUpperCase()}
                       </div>
                     </div>
@@ -305,7 +305,7 @@ export default function Manuals() {
                           padding: "5px 10px",
                           background: `${manual.color}20`, border: `1px solid ${manual.color}50`,
                           borderRadius: 5, cursor: "pointer",
-                          color: manual.color, fontFamily: "Orbitron", fontSize: 8,
+                          color: manual.color, fontFamily: "Inter", fontSize: 8,
                           letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 3,
                         }}
                       >
@@ -323,7 +323,7 @@ export default function Manuals() {
                           padding: "5px 10px",
                           background: `${manual.color}10`, border: `1px solid ${manual.color}35`,
                           borderRadius: 5, cursor: "pointer",
-                          color: manual.color, fontFamily: "Orbitron", fontSize: 8,
+                          color: manual.color, fontFamily: "Inter", fontSize: 8,
                           letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 3,
                         }}
                       >
@@ -347,7 +347,7 @@ export default function Manuals() {
 
         {/* Footer count */}
         {filtered.length > 0 && (
-          <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "var(--text-muted)", fontFamily: "Orbitron", letterSpacing: "0.08em" }}>
+          <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>
             {filtered.length} DOCUMENT{filtered.length !== 1 ? "S" : ""}
           </div>
         )}

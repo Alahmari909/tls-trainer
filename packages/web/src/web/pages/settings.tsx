@@ -3,6 +3,7 @@ import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
 import { useSettings } from "../hooks/useSettings";
 import { playAlertTone } from "../lib/audio";
+import { useLanguage, setLang, type Lang } from "../hooks/useLanguage";
 
 const C = {
   navy:  "#071426",
@@ -98,6 +99,7 @@ function SaveBanner({ visible }: { visible: boolean }) {
 export default function Settings() {
   const session = getSession();
   const [settings, updateSettings] = useSettings();
+  const { lang, t } = useLanguage();
   const [saved, setSaved] = useState(false);
   const [profile, setProfile] = useState({
     name:  session?.name  ?? "",
@@ -256,6 +258,30 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </Section>
+
+        {/* ── Language ────────────────────────────────────────────────── */}
+        <Section title="Language" titleAr="اللغة">
+          <SettingRow label="Interface Language" labelAr="لغة الواجهة" desc="Switch between English and Arabic / التبديل بين الإنجليزية والعربية" last>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(['en', 'ar'] as Lang[]).map(l => (
+                <button
+                  key={l}
+                  onClick={() => { setLang(l); showSaved(); }}
+                  style={{
+                    padding: "6px 14px", borderRadius: 20,
+                    border: `1px solid ${lang === l ? C.cyan : "rgba(255,255,255,0.1)"}`,
+                    background: lang === l ? `${C.cyan}20` : "transparent",
+                    color: lang === l ? C.cyan : "rgba(255,255,255,0.4)",
+                    fontFamily: "Inter", fontSize: 12, cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {l === 'en' ? 'English' : 'العربية'}
+                </button>
+              ))}
+            </div>
+          </SettingRow>
         </Section>
 
         {/* ── Display Preferences ─────────────────────────────────────── */}

@@ -61,7 +61,7 @@ function Avatar({ name, role }: { name: string; role: "trainee"|"admin" }) {
       background: role==="admin" ? "linear-gradient(135deg,#FF9500,#FF6B00)" : `linear-gradient(135deg,${C}40,#071426)`,
       border: role==="admin" ? "1px solid #FF950050" : `1px solid ${C}50`,
       display:"flex",alignItems:"center",justifyContent:"center",
-      fontSize:11,fontWeight:700,color:role==="admin"?"#020810":C,fontFamily:"Orbitron",
+      fontSize:11,fontWeight:700,color:role==="admin"?"#020810":C,fontFamily:"Inter",
     }}>
       {role==="admin" ? "⚡" : initials||"T"}
     </div>
@@ -76,7 +76,7 @@ function PinnedBanner({ msg, onUnpin, isAdmin }: { msg:ChatMsg; onUnpin:()=>void
         <line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
       </svg>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:9,color:C,fontFamily:"Orbitron",letterSpacing:"0.05em",marginBottom:2}}>PINNED MESSAGE</div>
+        <div style={{fontSize:9,color:C,fontFamily:"Inter",letterSpacing:"0.05em",marginBottom:2}}>PINNED MESSAGE</div>
         <div style={{fontSize:12,color:"var(--text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
           {msg.text ?? `[${msg.attachment?.file_type??"attachment"}]`}
         </div>
@@ -182,7 +182,7 @@ function AdminMenu({
         <div style={{display:"flex",justifyContent:"center",padding:"12px 0 8px"}}>
           <div style={{width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.18)"}}/>
         </div>
-        <div style={{padding:"0 20px 10px",fontSize:10,color:`${C}88`,fontFamily:"Orbitron",letterSpacing:"0.1em",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+        <div style={{padding:"0 20px 10px",fontSize:10,color:`${C}88`,fontFamily:"Inter",letterSpacing:"0.1em",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
           MESSAGE MODERATION
         </div>
         {items.map(item=>(
@@ -190,7 +190,7 @@ function AdminMenu({
             onPointerUp={()=>item.fn()}
             style={{
               display:"block",width:"100%",textAlign:"left",background:"none",border:"none",
-              padding:"16px 22px",fontSize:16,fontFamily:"Rajdhani,sans-serif",fontWeight:600,
+              padding:"16px 22px",fontSize:16,fontFamily:"Inter,sans-serif",fontWeight:600,
               color:item.danger?"#FF4D4D":"var(--text-primary)",
               borderBottom:"1px solid rgba(255,255,255,0.04)",
               cursor:"pointer",WebkitTapHighlightColor:"transparent",
@@ -203,7 +203,7 @@ function AdminMenu({
             display:"block",width:"calc(100% - 32px)",margin:"10px 16px 6px",
             background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",
             borderRadius:14,padding:"14px",color:"var(--text-secondary)",
-            fontSize:15,fontFamily:"Rajdhani,sans-serif",fontWeight:600,
+            fontSize:15,fontFamily:"Inter,sans-serif",fontWeight:600,
             cursor:"pointer",WebkitTapHighlightColor:"transparent",
           }}
         >Cancel</button>
@@ -222,7 +222,7 @@ function AdminMenu({
       {items.map(item=>(
         <button key={item.label} onClick={item.fn} style={{
           display:"block",width:"100%",textAlign:"left",background:"none",border:"none",
-          cursor:"pointer",padding:"9px 14px",fontSize:12,fontFamily:"Rajdhani,sans-serif",
+          cursor:"pointer",padding:"9px 14px",fontSize:12,fontFamily:"Inter,sans-serif",
           color:item.danger?"#FF4D4D":"var(--text-secondary)",transition:"background 0.1s",
         }}
           onMouseEnter={e=>(e.currentTarget.style.background="rgba(0,174,239,0.08)")}
@@ -401,11 +401,11 @@ const MsgBubble = memo(function MsgBubble({
         <>
           <div style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:4,opacity:swipeHint==="delete"?1:0.25,pointerEvents:"none",transition:"opacity 0.1s"}}>
             <span style={{fontSize:16}}>🗑</span>
-            <span style={{fontSize:9,color:"#FF4D4D",fontFamily:"Orbitron"}}>DELETE</span>
+            <span style={{fontSize:9,color:"#FF4D4D",fontFamily:"Inter"}}>DELETE</span>
           </div>
           <div style={{position:"absolute",left:6,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:4,opacity:swipeHint==="pin"?1:0.25,pointerEvents:"none",transition:"opacity 0.1s"}}>
             <span style={{fontSize:16}}>📌</span>
-            <span style={{fontSize:9,color:C,fontFamily:"Orbitron"}}>PIN</span>
+            <span style={{fontSize:9,color:C,fontFamily:"Inter"}}>PIN</span>
           </div>
         </>
       )}
@@ -425,7 +425,7 @@ const MsgBubble = memo(function MsgBubble({
         <div style={{maxWidth:"76%",position:"relative"}}>
           {!isMine && (
             <div style={{fontSize:10,color:"var(--text-muted)",marginBottom:3,paddingLeft:2}}>
-              <span style={{color:msg.sender_role==="admin"?"#FF9500":C,fontFamily:"Orbitron",fontSize:9}}>
+              <span style={{color:msg.sender_role==="admin"?"#FF9500":C,fontFamily:"Inter",fontSize:9}}>
                 {msg.sender_role==="admin"?"⚡ ADMIN":msg.sender_name.toUpperCase()}
               </span>
             </div>
@@ -445,7 +445,7 @@ const MsgBubble = memo(function MsgBubble({
           </div>
 
           <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,justifyContent:isMine?"flex-end":"flex-start"}}>
-            <span style={{fontSize:9,color:"var(--text-muted)",fontFamily:"Orbitron",letterSpacing:"0.04em"}}>{fmtTime(msg.ts)}</span>
+            <span style={{fontSize:9,color:"var(--text-muted)",fontFamily:"Inter",letterSpacing:"0.04em"}}>{fmtTime(msg.ts)}</span>
             {!!msg.pinned && <span style={{fontSize:9,color:C}}>📌</span>}
             {!!msg.important && <span style={{fontSize:9,color:"#FFB830"}}>⚠</span>}
           </div>
@@ -480,7 +480,7 @@ function UploadProgress({ percent, fileName, onCancel }: { percent:number; fileN
           <div style={{height:"100%",width:`${percent}%`,background:C,borderRadius:2,transition:"width 0.2s"}}/>
         </div>
       </div>
-      <span style={{fontSize:10,color:C,fontFamily:"Orbitron",minWidth:36,textAlign:"right"}}>{percent}%</span>
+      <span style={{fontSize:10,color:C,fontFamily:"Inter",minWidth:36,textAlign:"right"}}>{percent}%</span>
       <button onClick={onCancel} style={{background:"none",border:"none",color:"var(--text-muted)",cursor:"pointer",fontSize:16,padding:"0 2px"}}>×</button>
     </div>
   );
@@ -794,7 +794,7 @@ export default function Chat() {
       {/* Admin gesture hint */}
       {isAdmin && (
         <div style={{flexShrink:0,padding:"3px 14px",background:`rgba(0,174,239,0.03)`,borderBottom:`1px solid ${C}0a`,textAlign:"center"}}>
-          <span style={{fontSize:9,color:`${C}50`,fontFamily:"Orbitron",letterSpacing:"0.06em"}}>← SWIPE DELETE &nbsp;·&nbsp; HOLD MENU &nbsp;·&nbsp; SWIPE PIN →</span>
+          <span style={{fontSize:9,color:`${C}50`,fontFamily:"Inter",letterSpacing:"0.06em"}}>← SWIPE DELETE &nbsp;·&nbsp; HOLD MENU &nbsp;·&nbsp; SWIPE PIN →</span>
         </div>
       )}
 
@@ -834,10 +834,10 @@ export default function Chat() {
           <div onClick={e=>e.stopPropagation()} style={{background:"rgba(4,9,18,0.98)",border:`1px solid ${C}25`,borderRadius:14,padding:20,width:"100%",maxWidth:340,boxShadow:"0 8px 40px rgba(0,0,0,0.6)"}}>
             <div className="font-orbitron" style={{fontSize:12,color:"#FFB830",marginBottom:14}}>⚠️ WARN: {warnInput.name}</div>
             <input autoFocus value={warnText} onChange={e=>setWarnText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submitWarn()} placeholder="Reason (optional)..."
-              style={{width:"100%",background:"rgba(255,255,255,0.04)",border:`1px solid ${C}25`,borderRadius:8,padding:"10px 12px",color:"var(--text-primary)",fontSize:13,outline:"none",fontFamily:"Rajdhani,sans-serif",boxSizing:"border-box",marginBottom:12}}/>
+              style={{width:"100%",background:"rgba(255,255,255,0.04)",border:`1px solid ${C}25`,borderRadius:8,padding:"10px 12px",color:"var(--text-primary)",fontSize:13,outline:"none",fontFamily:"Inter,sans-serif",boxSizing:"border-box",marginBottom:12}}/>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>setWarnInput(null)} style={{flex:1,padding:"9px",borderRadius:8,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"var(--text-muted)",cursor:"pointer",fontSize:12}}>Cancel</button>
-              <button onClick={submitWarn} style={{flex:1,padding:"9px",borderRadius:8,border:"1px solid rgba(255,148,0,0.4)",background:"rgba(255,148,0,0.1)",color:"#FFB830",cursor:"pointer",fontSize:12,fontFamily:"Orbitron"}}>SEND WARNING</button>
+              <button onClick={submitWarn} style={{flex:1,padding:"9px",borderRadius:8,border:"1px solid rgba(255,148,0,0.4)",background:"rgba(255,148,0,0.1)",color:"#FFB830",cursor:"pointer",fontSize:12,fontFamily:"Inter"}}>SEND WARNING</button>
             </div>
           </div>
         </div>
@@ -849,7 +849,7 @@ export default function Chat() {
         {!canSend && !isAdmin && (
           <div style={{padding:"10px 14px",background:accountStatus==="muted"?"rgba(201,166,107,0.1)":"rgba(255,77,77,0.08)",borderTop:`1px solid ${accountStatus==="muted"?"rgba(201,166,107,0.3)":"rgba(255,77,77,0.25)"}`,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:16}}>{accountStatus==="muted"?"🔇":accountStatus==="suspended"?"⏸️":"🚫"}</span>
-            <span style={{fontSize:12,fontFamily:"Rajdhani,sans-serif",color:accountStatus==="muted"?"#C9A66B":"#FF4D4D"}}>
+            <span style={{fontSize:12,fontFamily:"Inter,sans-serif",color:accountStatus==="muted"?"#C9A66B":"#FF4D4D"}}>
               {accountStatus==="muted"?"You have been muted.":accountStatus==="suspended"?"Your participation is suspended.":"Your account is blocked."}
             </span>
           </div>
@@ -867,7 +867,7 @@ export default function Chat() {
                 onChange={e=>setInput(e.target.value)}
                 onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }}
                 placeholder="Message group channel..."
-                style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--text-primary)",fontSize:14,fontFamily:"Rajdhani,sans-serif",padding:"11px 0"}}
+                style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--text-primary)",fontSize:14,fontFamily:"Inter,sans-serif",padding:"11px 0"}}
               />
             </div>
             <button onClick={()=>sendMessage()} disabled={(!input.trim()&&!uploadProgress)||sending} style={{width:42,height:42,borderRadius:11,flexShrink:0,background:input.trim()&&!sending?`linear-gradient(135deg,${C},#35D4FF)`:`${C}0d`,border:`1px solid ${input.trim()&&!sending?C:`${C}20`}`,cursor:input.trim()&&!sending?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",boxShadow:input.trim()&&!sending?`0 0 14px ${C}40`:"none"}}>

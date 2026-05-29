@@ -23,16 +23,16 @@ html, body {
   padding: 0;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Roboto Condensed', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 15px;
   min-height: 100vh;
   overflow-x: hidden;
 }
 
 /* Typography scale */
-h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
-.font-inter   { font-family: 'Roboto Condensed', system-ui, sans-serif; }
-.font-rajdhani { font-family: 'Roboto Condensed', sans-serif; }
+h1, h2, h3 { font-family: 'Inter', sans-serif; }
+.font-inter   { font-family: 'Inter', system-ui, sans-serif; }
+.font-rajdhani { font-family: 'Inter', sans-serif; }
 
 /* ── Radar grid ── */
 .radar-grid {
@@ -117,8 +117,8 @@ h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
 .hud-frame::after  { top: 0; right: 0; border-width: 2px 2px 0 0; }
 
 /* ── Fonts ── */
-.font-orbitron { font-family: 'Orbitron', sans-serif; }
-.font-rajdhani { font-family: 'Rajdhani', sans-serif; }
+.font-orbitron { font-family: 'Inter', sans-serif; }
+.font-rajdhani { font-family: 'Inter', sans-serif; }
 
 /* ── Bottom nav ── */
 .bottom-nav {
@@ -145,7 +145,7 @@ h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
   text-decoration: none;
   color: var(--text-muted);
   font-size: 9px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Inter', sans-serif;
   letter-spacing: 0.06em;
   border-radius: 8px;
 }
@@ -246,7 +246,7 @@ h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
   justify-content: center;
   gap: 8px;
   padding: 11px 22px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 11px;
   letter-spacing: 0.12em;
   font-weight: 600;
@@ -284,7 +284,7 @@ h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
   gap: 5px;
   padding: 3px 10px;
   border-radius: 20px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 9px;
   letter-spacing: 0.1em;
   font-weight: 600;
@@ -309,7 +309,7 @@ h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
 
 /* ── Section label ── */
 .section-label {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 9px;
   letter-spacing: 0.25em;
   color: var(--text-muted);

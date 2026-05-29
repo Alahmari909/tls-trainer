@@ -31,7 +31,7 @@ export default function BackButton({ label, to, style }: BackButtonProps) {
         cursor: "pointer",
         color: "#00AEEF",
         fontSize: 12,
-        fontFamily: "Orbitron, sans-serif",
+        fontFamily: "Inter, sans-serif",
         fontWeight: 600,
         letterSpacing: "0.04em",
         transition: "all 0.15s",

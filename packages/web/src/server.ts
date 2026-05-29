@@ -19,13 +19,21 @@ const server = Bun.serve({
     const filePath = getStaticFilePath(url.pathname);
     const file = Bun.file(filePath);
     if (await file.exists()) {
-      return new Response(file);
+      // Hashed assets (e.g. main-abc123.js) get long cache; others get no-cache
+      const isHashed = /\/assets\/[^/]+-[a-zA-Z0-9_]{8}\.(js|css)$/.test(url.pathname);
+      return new Response(file, {
+        headers: isHashed
+          ? { "Cache-Control": "public, max-age=31536000, immutable" }
+          : { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
     }
 
     const staticPath = getStaticFilePath(url.pathname, staticDir);
     const staticFile = Bun.file(staticPath);
     if (await staticFile.exists()) {
-      return new Response(staticFile);
+      return new Response(staticFile, {
+        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
+      });
     }
 
     // Serve admin.html for /admin and all /admin/* routes
@@ -38,7 +46,10 @@ const server = Bun.serve({
 
     if (await htmlFile.exists()) {
       return new Response(htmlFile, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
       });
     }
 
@@ -46,7 +57,10 @@ const server = Bun.serve({
     const index = Bun.file(indexPath);
     if (await index.exists()) {
       return new Response(index, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
       });
     }
 

@@ -154,7 +154,7 @@ export default function Notifications() {
                   border: `1px solid ${C.cyan}30`,
                   borderRadius: 8, padding: "8px 14px",
                   color: C.cyan, fontSize: 11, cursor: "pointer",
-                  fontFamily: "Orbitron", letterSpacing: "0.06em",
+                  fontFamily: "Inter", letterSpacing: "0.06em",
                 }}>MARK ALL READ</button>
               )}
             </div>
@@ -176,7 +176,7 @@ export default function Notifications() {
                 borderRadius: 20, padding: "6px 14px",
                 color: filter === f.key ? C.navy : "rgba(255,255,255,0.5)",
                 fontSize: 12, fontWeight: 600, cursor: "pointer",
-                fontFamily: "Rajdhani", whiteSpace: "nowrap",
+                fontFamily: "Inter", whiteSpace: "nowrap",
               }}
             >{f.label}</button>
           ))}
@@ -185,13 +185,13 @@ export default function Notifications() {
         {/* List */}
         <div style={{ padding: "12px 16px 0" }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)", fontFamily: "Orbitron", fontSize: 11 }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)", fontFamily: "Inter", fontSize: 11 }}>
               LOADING...
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.25)" }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
-              <p style={{ fontFamily: "Orbitron", fontSize: 13, letterSpacing: "0.1em" }}>
+              <p style={{ fontFamily: "Inter", fontSize: 13, letterSpacing: "0.1em" }}>
                 {filter === "all" ? "NO NOTIFICATIONS" : `NO ${filter.toUpperCase()} ALERTS`}
               </p>
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
@@ -235,7 +235,7 @@ export default function Notifications() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                           <span style={{
-                            fontSize: 10, fontFamily: "Orbitron", letterSpacing: "0.06em",
+                            fontSize: 10, fontFamily: "Inter", letterSpacing: "0.06em",
                             color, background: `${color}15`,
                             padding: "1px 7px", borderRadius: 4,
                           }}>{label}</span>

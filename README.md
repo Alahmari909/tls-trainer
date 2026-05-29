@@ -1,51 +1,65 @@
-# TLS Trainer — Stable Build v1
+# TLS Trainer
+**Version:** TLS Trainer Stable Build v1  
+**Last Updated:** 2026-05-29
 
-**Transponder Landing System (TLS) Training Platform**
-Royal Saudi Air Force — Ground Radar Unit, Jeddah
-
-> Full-stack web application for TLS technician training. Includes interactive modules, quizzes, reference manuals, AI assistant, group chat, and a full admin dashboard.
+A military training platform for TLS (Transportable Landing System) radar technicians. Trainees register with name + PIN, study modules with embedded PDFs, take quizzes, and track progress. Instructors manage everything from a protected admin panel.
 
 ---
 
 ## Table of Contents
-
 1. [Quick Start](#quick-start)
-2. [Folder Structure](#folder-structure)
-3. [Environment Variables](#environment-variables)
-4. [Database](#database)
-5. [Build & Run](#build--run)
-6. [API Reference](#api-reference)
-7. [Auth Flows](#auth-flows)
-8. [Static Assets](#static-assets)
-9. [Admin Panel](#admin-panel)
-10. [Backup & Restore](#backup--restore)
-11. [Telegram Notifications](#telegram-notifications)
-12. [Deployment](#deployment)
+2. [Requirements](#requirements)
+3. [Project Structure](#project-structure)
+4. [Environment Variables](#environment-variables)
+5. [Database Setup](#database-setup)
+6. [Build & Run](#build--run)
+7. [Static Assets Setup](#static-assets-setup)
+8. [API Routes](#api-routes)
+9. [Auth Flow](#auth-flow)
+10. [Database Backup & Restore](#database-backup--restore)
+11. [Deployment](#deployment)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Clone / extract source
+cd tls-trainer
+
+# 2. Install dependencies
 bun install
 
-# 2. Set up environment
+# 3. Configure environment
 cp .env.example .env
-# Edit .env with your DATABASE_URL, ADMIN_PASSWORD, etc.
+nano .env   # fill in DATABASE_URL, DATABASE_AUTH_TOKEN, ADMIN_PASSWORD
 
-# 3. Push database schema (first time only)
-cd packages/web && bun run db:push && cd ../..
+# 4. Extract static assets (PDFs + component images)
+unzip tls-trainer-static-v1.zip -d packages/web/
+# Creates: packages/web/static/pdfs/  and  packages/web/static/components/
 
-# 4. Build & start
+# 5. Build frontend
+bun run build:web
+
+# 6. Start server
 bash start.sh
+# Server runs at http://localhost:3000
 ```
-
-Server starts on `http://localhost:3000` (or `PORT` env var).
 
 ---
 
-## Folder Structure
+## Requirements
+
+| Tool | Version |
+|------|---------|
+| Bun  | ≥ 1.1.0 |
+| Node | ≥ 20 (Bun handles this) |
+| Turso account | https://turso.tech (free tier works) |
+
+---
+
+## Project Structure
 
 ```
 tls-trainer/
@@ -53,401 +67,301 @@ tls-trainer/
 │   └── web/
 │       ├── src/
 │       │   ├── api/
-│       │   │   ├── index.ts          # All Hono API routes
-│       │   │   ├── telegram.ts       # Telegram notification sender
-│       │   │   └── database/
-│       │   │       ├── index.ts      # DB connection (Turso/libSQL)
-│       │   │       └── schema.ts     # Drizzle ORM schema
+│       │   │   ├── index.ts          ← All Hono API routes + backup logic
+│       │   │   ├── database/
+│       │   │   │   ├── schema.ts     ← Drizzle schema (all tables)
+│       │   │   │   └── index.ts      ← DB client (Turso or fallback.db)
+│       │   │   └── seed.ts           ← Quiz/module seed data
 │       │   ├── web/
 │       │   │   ├── components/
-│       │   │   │   ├── NavMenu.tsx   # Global fixed header (zIndex 200)
-│       │   │   │   └── ...
-│       │   │   └── pages/            # React page components
-│       │   └── server.ts             # Bun HTTP server (serves API + static)
-│       ├── static/
-│       │   ├── pdfs/                 # Reference manuals (PDFs, ~60MB)
-│       │   └── components/           # Large component images (~20MB)
-│       ├── public/                   # Vite public dir (favicon, small assets)
-│       ├── dist/                     # Vite build output (git-ignored)
-│       ├── fallback.db               # Local SQLite (used when DATABASE_URL not set)
-│       ├── drizzle.config.ts
-│       └── vite.config.ts
-├── start.sh                          # Production start script
-├── .env                              # Local secrets (git-ignored)
-├── .env.example                      # Template — copy to .env
-└── README.md
+│       │   │   │   └── NavMenu.tsx   ← Global fixed header (all pages)
+│       │   │   └── pages/            ← React page components
+│       │   └── server.ts             ← Bun HTTP server (Hono + static files)
+│       ├── static/                   ← Large assets (NOT in git, NOT in dist)
+│       │   ├── pdfs/                 ← 9 training PDFs (~60MB)
+│       │   └── components/           ← Component images (~20MB)
+│       ├── public/                   ← Small public assets (Vite copies to dist)
+│       ├── dist/                     ← Vite build output (gitignored)
+│       └── fallback.db               ← Local SQLite (used only if no .env DB)
+├── .env.example                      ← Safe template — copy to .env
+├── start.sh                          ← Production start script
+├── package.json
+└── turbo.json
 ```
 
 ---
 
 ## Environment Variables
 
-See `.env.example` for all variables with descriptions.
+Copy `.env.example` to `.env` and fill in values. See `.env.example` for all variables with descriptions.
 
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes* | Turso libSQL URL (`libsql://...`) |
-| `DATABASE_AUTH_TOKEN` | Yes* | Turso auth token |
-| `ADMIN_PASSWORD` | **Yes** | Admin panel password |
-| `PORT` | No | Server port (default: 3000) |
-| `AI_GATEWAY_BASE_URL` | No | AI assistant gateway URL |
-| `AI_GATEWAY_API_KEY` | No | AI gateway API key |
-| `TELEGRAM_BOT_TOKEN` | No | Telegram bot for notifications |
-| `TELEGRAM_CHAT_ID` | No | Telegram chat/channel ID |
-| `TELEGRAM_ENABLED` | No | Set `true` to activate Telegram |
-| `WEBSITE_URL` | No | Public URL (used in links/emails) |
+**Required:**
+- `DATABASE_URL` — Turso libsql URL (`libsql://your-db.turso.io`)
+- `DATABASE_AUTH_TOKEN` — Turso auth token
+- `ADMIN_PASSWORD` — Password for accessing `/admin`
 
-*If `DATABASE_URL` is not set, the server falls back to `packages/web/fallback.db` (local SQLite). **This file is not persisted across Runable deploys** — always configure a Turso DB for production.
+**Optional:**
+- `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` + `TELEGRAM_ENABLED=true` — Push notifications on trainee events
+- `S3_*` — File upload storage (Cloudflare R2 or AWS S3)
+- `PORT` — Default: `3000`
 
 ---
 
-## Database
+## Database Setup
 
-### Provider: Turso (libSQL)
+### Option A — Turso (recommended, production)
 
-1. Create an account at [turso.tech](https://turso.tech)
-2. Create a new database
-3. Copy the `Database URL` and `Auth Token` to `.env`
-4. Run schema migration: `cd packages/web && bun run db:push`
+```bash
+# Install Turso CLI
+curl -sSfL https://get.tur.so/install.sh | bash
 
-### Schema Overview
+# Create database
+turso db create tls-trainer
 
-Tables managed by Drizzle ORM (`packages/web/src/api/database/schema.ts`):
-- `modules` — Training module definitions
-- `questions` — Quiz questions per module
-- `achievements` — Badge/achievement definitions
-- `user_achievements` — Earned badges per user
-- `module_progress` — Progress per user per module
-- `streaks` — Daily activity streaks + XP
-- `users` — Legacy user records (for FK compatibility)
-- `sessions` — Auth sessions
-- `messages` — Legacy chat messages
+# Get connection URL
+turso db show tls-trainer --url
 
-Tables managed by raw SQL (`ensureTables()` in `api/index.ts` — auto-created on startup):
-- `trainees` — Trainee profiles (name, rank, unit, PIN, status, XP, level)
-- `activity_log` — All trainee events
-- `quiz_attempts` — Quiz submission records
-- `instructor_notes` — Admin notes per trainee
-- `trainee_messages` — Direct admin→trainee messages
-- `trainee_alerts` — System alerts per trainee
-- `trainee_module_progress` — Module completion per trainee
-- `trainee_evaluations` — Instructor ratings per trainee
-- `module_time_log` — Time spent per module
-- `manual_view_log` — PDF manual view history
-- `moderation_log` — Ban/suspend/mute actions
-- `chat_messages` — Group chat messages
-- `chat_attachments` — File uploads (base64 in DB)
-- `backups` — In-DB backup snapshots
+# Create auth token
+turso db tokens create tls-trainer
 
-### Fallback DB
+# Paste both into .env
+DATABASE_URL=libsql://tls-trainer-<org>.turso.io
+DATABASE_AUTH_TOKEN=<token>
+```
 
-If `DATABASE_URL` is not configured, the server uses `packages/web/fallback.db` (SQLite file). Tables are auto-created via `ensureTables()` on startup. Drizzle ORM tables must be pushed separately.
+Tables are auto-created on first server start via `ensureTables()` — no migrations needed.
+
+### Option B — Local SQLite (dev/testing only)
+
+Leave `DATABASE_URL` and `DATABASE_AUTH_TOKEN` unset. The server falls back to `packages/web/fallback.db`.
+
+### Restore existing data after setup
+
+See [Database Backup & Restore](#database-backup--restore).
 
 ---
 
 ## Build & Run
 
 ### Development
-
 ```bash
-bun run dev
+# Run server with hot reload
+PORT=4200 bun run packages/web/src/server.ts
 ```
 
-Starts Vite dev server + Bun API server with HMR.
-
-### Production Build
-
+### Production build
 ```bash
 bun run build:web
+# Output: packages/web/dist/  (~13MB)
 ```
 
-Builds React frontend to `packages/web/dist/`. The Bun server then serves:
-1. `/api/*` → Hono API handlers
-2. Static files from `packages/web/dist/` (Vite build)
-3. Static files from `packages/web/static/` (PDFs, large images — NOT bundled by Vite)
-
-### Start Production Server
-
+### Start production server
 ```bash
 bash start.sh
-# or manually:
-PORT=3000 bun run packages/web/src/server.ts
+# Runs: bun install → bun run build:web → bun run packages/web/src/server.ts
 ```
 
-### Why `static/` is separate from `public/`
-
-Vite copies `public/` into `dist/` at build time. The `static/` folder contains ~80MB of PDFs and large component images — including them in the Vite bundle would make deploys impractical. Instead, `server.ts` serves `static/` directly via a second file lookup after `dist/`.
-
----
-
-## API Reference
-
-Base path: `/api`
-
-### Trainee Auth
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/trainee/register` | Register new trainee (`name`, `rank?`, `unit?`, `pin?`) |
-| POST | `/api/trainee/login` | Login with `id` + optional `pin` |
-| POST | `/api/trainee/logout` | Mark trainee offline |
-| POST | `/api/trainee/update` | Update trainee name/rank/unit |
-| GET | `/api/trainee/me/:id` | Get own profile |
-| GET | `/api/trainee/list` | List all trainees (basic info) |
-
-### Activity & Tracking
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/activity` | Log a trainee activity event |
-| POST | `/api/heartbeat` | Heartbeat (keeps trainee "online", detects blocked status) |
-| POST | `/api/track` | General event tracker (site_open, module_open, quiz events, etc.) |
-
-### Quiz
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/quiz/attempt` | Submit quiz result (new system) |
-| POST | `/api/quiz/submit` | Submit quiz + update streaks/achievements (legacy) |
-| GET | `/api/quiz-attempts/:userId` | Get all quiz attempts for a trainee |
-
-### Modules & Progress
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/modules` | List all modules |
-| GET | `/api/modules/:id` | Get single module |
-| GET | `/api/modules/:id/questions` | Get questions for a module |
-| GET | `/api/progress/:userId` | Get module progress for a user |
-| POST | `/api/progress` | Update module progress |
-
-### Streaks & Achievements
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/streaks/:userId` | Get streak + XP data |
-| GET | `/api/achievements` | List all achievements |
-| GET | `/api/achievements/user/:userId` | Get achievements for a user (earned + unearned) |
-
-### Notifications
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/trainee/notifications/:id` | Get alerts + admin messages for trainee |
-| POST | `/api/trainee/notifications/read` | Mark all notifications read |
-
-### Group Chat
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/chat/messages?room=&since=&limit=` | Fetch chat messages (with attachments) |
-| POST | `/api/chat/send` | Send a chat message (text or with attachment) |
-| POST | `/api/chat/delete` | Admin: delete a message |
-| POST | `/api/chat/pin` | Admin: pin/unpin a message |
-| POST | `/api/chat/important` | Admin: mark message as important |
-
-### AI Assistant
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/chat/ai` | Send message to TLS AI assistant |
-
-### Admin Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/admin/login` | Admin login (returns token) |
-| GET | `/api/admin/trainees` | Full trainee list with stats |
-| GET | `/api/admin/trainee/:id` | Full trainee profile + activity |
-| POST | `/api/admin/trainee/:id/note` | Add instructor note |
-| POST | `/api/admin/trainee/:id/message` | Send direct message to trainee |
-| POST | `/api/admin/trainee/:id/alert` | Send alert to trainee |
-| POST | `/api/admin/trainee/:id/evaluate` | Set trainee evaluation/rating |
-| POST | `/api/admin/trainee/:id/delete` | Delete trainee |
-| POST | `/api/admin/trainee/:id/moderate` | Ban / suspend / mute / unban |
-| GET | `/api/admin/activity` | All activity logs (recent) |
-| GET | `/api/admin/quiz-attempts` | All quiz attempts |
-| GET | `/api/admin/stats` | Global stats (online count, attempts, etc.) |
-| GET | `/api/admin/online` | Currently online trainees |
-| POST | `/api/admin/module-progress` | Assign/update module progress |
-| GET | `/api/admin/telegram/config` | Get Telegram config |
-| POST | `/api/admin/telegram/config` | Update Telegram config |
-| POST | `/api/admin/backup/create` | Create manual backup |
-| GET | `/api/admin/backup/list` | List all backups |
-| GET | `/api/admin/backup/:id/download` | Download backup as JSON |
-| POST | `/api/admin/backup/:id/restore` | Restore from a backup |
-| DELETE | `/api/admin/backup/:id` | Delete a backup |
-| POST | `/api/admin/backup/import` | Restore from uploaded JSON file |
-| GET | `/api/admin/export/source` | Download full project source ZIP |
-| GET | `/api/admin/export/migration` | Download full migration package ZIP |
-
-### Utility
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/ping` | Health check (returns timestamp) |
-| GET | `/api/health` | Health check (returns `{status: ok}`) |
-| GET | `/api/ensure-user/:userId` | Ensure legacy user record exists |
-| GET | `/api/messages` | Get legacy chat messages |
-| POST | `/api/messages` | Post legacy chat message |
-
----
-
-## Auth Flows
-
-### Trainee Auth (No Password System)
-
-1. **First visit**: Trainee enters name, optional rank/unit, optional PIN → `POST /api/trainee/register`
-2. Returns `{ id, name, rank, unit }` — client stores in `localStorage` as `tls_trainee_session`
-3. **Returning**: Trainee enters their ID + PIN → `POST /api/trainee/login`
-4. **Session check**: On app load, reads `tls_trainee_session` from `localStorage`; if present, skips login
-5. **Heartbeat**: Client sends `POST /api/heartbeat` every 2 minutes to maintain "online" status
-6. **Blocked**: If trainee is blocked, heartbeat returns `{ forceLogout: true }` → client clears session and redirects to login
-
-### Admin Auth
-
-1. Admin navigates to `/admin`
-2. Enters `ADMIN_PASSWORD` (from env var) → `POST /api/admin/login`
-3. Server returns a session token stored in `localStorage` as `admin_token`
-4. All admin endpoints check `Authorization: Bearer <token>` header
-5. Default fallback password: `TLS@Admin2025` — **change in production**
-
----
-
-## Static Assets
-
-Large files are served from `packages/web/static/` (not bundled by Vite):
-
-```
-packages/web/static/
-├── pdfs/                      # TLS reference manuals (PDFs)
-│   ├── ATC_quick_guide_TLS.pdf
-│   ├── TLS_SWM.pdf
-│   └── ... (9 PDFs total, ~60MB)
-└── components/                # Component diagrams / images (~20MB)
-    └── *.png / *.jpg
+### With PM2
+```bash
+pm2 start "bash start.sh" --name tls-trainer
+pm2 save
+pm2 startup
 ```
 
-**Access**: `/pdfs/filename.pdf`, `/components/image.png`
-
-These files are **not** included in the Vite build. They must be present in the `static/` folder on the server. When deploying, upload them separately or include them in the server's file system before starting.
-
 ---
 
-## Admin Panel
+## Static Assets Setup
 
-Access at `/admin`. Features:
+Large files (PDFs, images) live in `packages/web/static/` — **not inside the Vite build**.
 
-- **Dashboard**: Live trainee count, online users, quiz stats
-- **Trainees**: Full list, search, per-trainee detail view
-- **Per-trainee**: Activity log, quiz history, module progress, notes, direct messaging, evaluation
-- **Moderation**: Ban / suspend / mute / unblock trainees
-- **Group Chat**: Monitor + moderate live chat
-- **Backup**: Create / restore / download / import database backups
-- **Export**: Download full source ZIP or migration package
-- **Telegram**: Configure bot notifications live
-- **Module Progress**: Assign modules, override progress
-
----
-
-## Backup & Restore
-
-### In-App Backup (Recommended)
-
-1. Go to `/admin` → Backup tab
-2. Click **Create Backup** (manual) — saves snapshot to `backups` table in DB
-3. Auto backups run automatically: daily (keeps last 7) + weekly (keeps last 4)
-4. **Download**: Click any backup → download as JSON
-5. **Restore**: Click restore on any backup (auto-snapshots current state first)
-6. **Import**: Upload a previously downloaded JSON file to restore
-
-### From Fallback DB (SQLite)
+The server serves them via a second lookup:
+1. First checks `packages/web/dist/` (Vite output)
+2. Then checks `packages/web/static/` (large assets)
 
 ```bash
-# SQL dump
-sqlite3 packages/web/fallback.db .dump > backup.sql
-
-# Restore to new SQLite
-sqlite3 new.db < backup.sql
+# Extract static assets from handoff package
+unzip tls-trainer-static-v1.zip -d packages/web/
+# Creates:
+#   packages/web/static/pdfs/        ← 9 PDFs
+#   packages/web/static/components/  ← Component images
+#   packages/web/public/             ← Small public assets
 ```
 
-### Migration to New Server
-
-Use **Admin → Export → Migration Package** — downloads a ZIP containing:
-- Full DB dump (JSON + SQL)
-- Complete source code
-- Instructions
+PDFs are accessed at: `/pdfs/ATC_quick_guide_TLS.pdf` etc.
 
 ---
 
-## Telegram Notifications
+## API Routes
 
-The app can send real-time alerts to a Telegram chat for:
-- Trainee login / logout
-- Site opens
-- Quiz completions
-- Chat messages
-- Moderation actions
-- System warnings
+All routes under `/api/`. Admin routes require header: `x-admin-password: <ADMIN_PASSWORD>`
 
-**Setup:**
-1. Create a Telegram bot via [@BotFather](https://t.me/botfather), get the token
-2. Add bot to your channel/group, get the chat ID
-3. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_ENABLED=true` in `.env`
-4. Or configure live via Admin Panel → Telegram tab
+### Public / Trainee
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/ping` | Health check |
+| GET | `/api/health` | Status check |
+| POST | `/api/trainee/register` | Register new trainee (name, rank, unit, pin) |
+| POST | `/api/trainee/login` | Login with name + PIN |
+| POST | `/api/trainee/logout` | Mark trainee offline |
+| GET | `/api/trainee/me/:id` | Get trainee profile |
+| GET | `/api/trainee/list` | List all trainees (public names) |
+| POST | `/api/activity` | Log activity event |
+| POST | `/api/heartbeat` | Update online status + last page |
+| POST | `/api/track` | Track page view / module time |
+| POST | `/api/quiz/attempt` | Submit quiz attempt |
+| GET | `/api/trainee/notifications/:id` | Get alerts for trainee |
+| POST | `/api/trainee/notifications/read` | Mark alerts as read |
 
-**Cooldowns** prevent spam:
-- Login notifications: 15 min cooldown per trainee
-- "Back online" notifications: 10 min cooldown per trainee
+### Admin (require `x-admin-password` header)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/trainees` | List all trainees with stats |
+| GET | `/api/admin/trainee/:id` | Full trainee profile + activity |
+| POST | `/api/admin/trainee/:id/status` | Set trainee status (active/muted/blocked) |
+| POST | `/api/admin/trainee/:id/note` | Add instructor note |
+| POST | `/api/admin/trainee/:id/alert` | Send alert to trainee |
+| POST | `/api/admin/trainee/:id/message` | Send private message |
+| GET | `/api/admin/trainee/:id/messages` | Get message thread |
+| GET | `/api/admin/activity` | Full activity log |
+| GET | `/api/admin/online` | Currently online trainees |
+| GET | `/api/admin/stats` | Dashboard stats |
+| GET | `/api/admin/backup/list` | List saved backups |
+| POST | `/api/admin/backup/create` | Create manual backup |
+| POST | `/api/admin/backup/restore/:id` | Restore from backup |
+| GET | `/api/admin/backup/export/json` | Download full DB as JSON |
+| GET | `/api/admin/backup/export/sql` | Download full DB as SQL |
+| POST | `/api/admin/backup/import` | Import JSON backup |
+
+---
+
+## Auth Flow
+
+### Trainees
+- Register at `/` with: Name, Rank, Unit, PIN (4 digits, optional)
+- Login at `/` with: Name + PIN
+- Session stored in `localStorage` as `tls_trainee_session` (JSON: `{id, name, rank, unit}`)
+- No JWT — server validates identity on each protected call by checking trainee exists in DB
+- Blocked/muted trainees are rejected at login
+
+### Admin
+- Access `/admin` — prompted for password
+- Password checked against `ADMIN_PASSWORD` env var
+- Admin session stored in `localStorage` as `tls_admin_auth`
+- All admin API calls send `x-admin-password` header
+
+---
+
+## Database Backup & Restore
+
+### Create a manual backup
+Admin Panel → Backup tab → "Create Backup"
+
+Or via API:
+```bash
+curl -X POST http://localhost:3000/api/admin/backup/create \
+  -H "x-admin-password: YOUR_PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d '{"label":"manual","note":"Pre-deployment snapshot"}'
+```
+
+### Export live data (download files)
+```bash
+# JSON export
+curl http://localhost:3000/api/admin/backup/export/json \
+  -H "x-admin-password: YOUR_PASSWORD" \
+  -o backup.json
+
+# SQL export
+curl http://localhost:3000/api/admin/backup/export/sql \
+  -H "x-admin-password: YOUR_PASSWORD" \
+  -o backup.sql
+```
+
+### Restore from JSON file (new server setup)
+```bash
+curl -X POST http://localhost:3000/api/admin/backup/import \
+  -H "x-admin-password: YOUR_PASSWORD" \
+  -H "Content-Type: application/json" \
+  --data-binary @backup.json
+```
+
+Or via Admin Panel → Backup tab → "Import from File" → select `.json`
+
+### Restore from SQL file (SQLite / fallback.db only)
+```bash
+sqlite3 packages/web/fallback.db < tls-database.sql
+```
+
+### Auto-backups
+Server automatically creates:
+- **Daily backup** — 1 minute after startup, then every 24h
+- **Weekly backup** — 2 minutes after startup, then every 7 days
+- Old backups are pruned (keeps last 7 daily, 4 weekly)
 
 ---
 
 ## Deployment
 
-### Runable Platform (Current)
+### Required server
+- Any Linux server with Bun installed
+- Port 3000 open (or set `PORT` env var)
+- At least 512MB RAM
 
-The app is deployed via the Runable platform. The server runs on port `4200` in production (`PORT=4200`).
+### Nginx reverse proxy (recommended)
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
 
-Static large files (`static/pdfs/`, `static/components/`) are served directly by the Bun server and are excluded from the Vite build bundle (keeps deploy size ~13MB vs 91MB).
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
-### Manual / VPS Deployment
-
-```bash
-# Install Bun
-curl -fsSL https://bun.sh/install | bash
-
-# Install deps
-bun install
-
-# Configure
-cp .env.example .env
-# Fill in DATABASE_URL, DATABASE_AUTH_TOKEN, ADMIN_PASSWORD
-
-# Build
-bun run build:web
-
-# Start
-PORT=3000 bun run packages/web/src/server.ts
+    # Large PDF serving — increase timeout
+    location /pdfs/ {
+        proxy_pass http://localhost:3000;
+        proxy_read_timeout 60s;
+    }
+}
 ```
 
-For process management with `pm2`:
+Then enable HTTPS with Certbot:
 ```bash
-npm i -g pm2
-pm2 start "bun run packages/web/src/server.ts" --name tls-trainer
-pm2 save
+certbot --nginx -d your-domain.com
 ```
 
-### Important Notes
-
-- The `static/` folder (~80MB) must be present on the server before starting
-- Run `bun run db:push` once after first deploy to create Drizzle-managed tables
-- `ensureTables()` in `api/index.ts` auto-creates all other tables on startup
-- Never commit `.env` to git — it's in `.gitignore`
+### Deploy checklist
+- [ ] `DATABASE_URL` and `DATABASE_AUTH_TOKEN` set in `.env`
+- [ ] `ADMIN_PASSWORD` set to a strong password
+- [ ] Static assets extracted to `packages/web/static/`
+- [ ] `bun run build:web` completed successfully
+- [ ] `bash start.sh` runs without errors
+- [ ] `/api/health` returns `{"status":"ok"}`
+- [ ] `/pdfs/ATC_quick_guide_TLS.pdf` accessible
+- [ ] `/admin` login works
 
 ---
 
-## Version
+## Troubleshooting
 
-**TLS Trainer Stable Build v1**
-Tagged: 2026-05-29
-Platform: Bun + Hono + React + Drizzle + Turso (libSQL)
+**Server won't start — DB connection error**  
+→ Check `DATABASE_URL` format: must be `libsql://...` (not `https://`)  
+→ Verify `DATABASE_AUTH_TOKEN` is valid (re-create via `turso db tokens create`)
+
+**PDFs return 404**  
+→ Static assets not extracted. Run: `unzip tls-trainer-static-v1.zip -d packages/web/`  
+→ Confirm `packages/web/static/pdfs/` exists and contains `.pdf` files
+
+**Admin panel shows no trainees**  
+→ Data not restored. Use Admin Panel → Backup → Import, upload `tls-database.json`
+
+**Build fails**  
+→ Run `bun install` first  
+→ Check Bun version: `bun --version` (need ≥ 1.1.0)
+
+**Fonts not loading in production**  
+→ Check `WEBSITE_URL` in `.env` matches actual domain (used for CORS)

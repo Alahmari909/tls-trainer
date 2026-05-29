@@ -169,7 +169,7 @@ function RadarCanvas({ overallStatus }: { overallStatus: StatusLevel }) {
 
         // Label
         ctx.fillStyle = `rgba(${b.warn ? "255,209,102" : "0,174,239"},${0.4 + trailRatio * 0.6})`;
-        ctx.font = `bold 7px Orbitron, monospace`;
+        ctx.font = `bold 7px Inter, sans-serif`;
         ctx.fillText(b.label, bx + 5, by - 5);
       });
 
@@ -400,14 +400,14 @@ export default function Status() {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                 <span style={{
-                  fontSize: 9, fontFamily: "Orbitron", letterSpacing: "0.08em",
+                  fontSize: 9, fontFamily: "Inter", letterSpacing: "0.08em",
                   color: statusColor(inc.level),
                   background: `${statusColor(inc.level)}18`,
                   padding: "2px 8px", borderRadius: 4, textTransform: "uppercase",
                 }}>{inc.level}</span>
                 <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{inc.date}</span>
                 <span style={{
-                  fontSize: 9, fontFamily: "Orbitron", letterSpacing: "0.06em",
+                  fontSize: 9, fontFamily: "Inter", letterSpacing: "0.06em",
                   color: inc.resolved ? C.green : C.yellow,
                   background: inc.resolved ? `${C.green}18` : `${C.yellow}18`,
                   padding: "2px 8px", borderRadius: 4,

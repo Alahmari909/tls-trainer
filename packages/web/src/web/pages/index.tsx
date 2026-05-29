@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { getSession, setSession, clearSession } from "../hooks/useTelegramTrack";
 import type { TraineeSession } from "../hooks/useTelegramTrack";
 import { unlockAudio, playAlertTone, vibrate, showToast } from "../lib/audio";
+import { useLanguage } from "../hooks/useLanguage";
 
 type Module = { id: number; title: string; order: number };
 type ProgressRow = { moduleId: number; progress: number; completed: number };
@@ -11,15 +12,6 @@ type TraineeListItem = { id: string; name: string; rank: string | null; unit: st
 type Notification = { id: number; message?: string; text?: string; alert_type?: string; sender_role?: string; read: number; ts: number };
 
 const COLORS = ["#00AEEF","#35D4FF","#00D26A","#FFD166","#00AEEF","#35D4FF","#C9A66B","#00D26A","#FF4D4D"];
-
-const quickActions = [
-  { label: "MODULES",     icon: "📡", path: "/modules",  color: "#00AEEF" },
-  { label: "TLS BASIC",   icon: "🛰️", path: "/basics",   color: "#35D4FF" },
-  { label: "QUIZ",        icon: "🎯", path: "/quiz",     color: "#00D26A" },
-  { label: "MANUALS",     icon: "📋", path: "/manuals",  color: "#C9A66B" },
-  { label: "LIVE STATUS", icon: "📶", path: "/status",   color: "#FFD166" },
-  { label: "CHAT",        icon: "💬", path: "/chat",     color: "#35D4FF" },
-];
 
 /* ── Radar rings decoration ── */
 function RadarRings() {
@@ -128,12 +120,13 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
     e.preventDefault();
     unlockAudio(); // unlock audio on first user gesture
     if (!name.trim()) { setError("Name is required"); return; }
+    if (!pin.trim() || !/^\d{4}$/.test(pin.trim())) { setError("PIN must be exactly 4 digits"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), rank: rank.trim() || undefined, unit: unit.trim() || undefined, pin: pin.trim() || undefined }),
+        body: JSON.stringify({ name: name.trim(), rank: rank.trim() || undefined, unit: unit.trim() || undefined, pin: pin.trim() }),
       });
       const data = await res.json() as { ok: boolean; id?: string; name?: string; rank?: string | null; unit?: string | null; error?: string };
       if (!data.ok || !data.id) { setError(data.error ?? "Registration failed"); return; }
@@ -203,10 +196,10 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
         <div className="font-orbitron" style={{ fontSize: 28, fontWeight: 700, color: "#fff", letterSpacing: "0.05em" }}>
           TLS TRAINER
         </div>
-        <div style={{ fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.2em", color: "#00AEEF", marginTop: 4 }}>
+        <div style={{ fontFamily: "Inter", fontSize: 9, letterSpacing: "0.2em", color: "#00AEEF", marginTop: 4 }}>
           TRANSPONDER LANDING SYSTEM
         </div>
-        <div style={{ fontFamily: "Orbitron", fontSize: 7, letterSpacing: "0.15em", color: "rgba(0,174,239,0.5)", marginTop: 6 }}>
+        <div style={{ fontFamily: "Inter", fontSize: 7, letterSpacing: "0.15em", color: "rgba(0,174,239,0.5)", marginTop: 6 }}>
           ◈ GROUND RADAR UNIT · ANPC · JEDDAH ◈
         </div>
       </div>
@@ -217,7 +210,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
           <div style={{
             padding: "12px 16px", marginBottom: 16, borderRadius: 10,
             background: "rgba(255,77,77,0.12)", border: "1px solid rgba(255,77,77,0.4)",
-            color: "#FF4D4D", fontSize: 12, fontFamily: "'Roboto Condensed', sans-serif", textAlign: "center",
+            color: "#FF4D4D", fontSize: 12, fontFamily: "Inter, sans-serif", textAlign: "center",
             lineHeight: 1.5,
           }}>
             🚫 {forceLogoutMsg}
@@ -236,7 +229,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
                 width: "100%", padding: "14px 0", marginBottom: 12,
                 background: "linear-gradient(135deg, #00AEEF20, #35D4FF15)",
                 border: "1px solid #00AEEF60", borderRadius: 10, cursor: "pointer",
-                color: "#00AEEF", fontFamily: "Orbitron", fontSize: 12, letterSpacing: "0.1em",
+                color: "#00AEEF", fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em",
               }}
             >
               + NEW TRAINEE
@@ -247,7 +240,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
                 width: "100%", padding: "14px 0",
                 background: "rgba(255,255,255,0.04)",
                 border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, cursor: "pointer",
-                color: "var(--text-secondary)", fontFamily: "Orbitron", fontSize: 12, letterSpacing: "0.1em",
+                color: "var(--text-secondary)", fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em",
               }}
             >
               RETURNING TRAINEE
@@ -268,10 +261,10 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               { label: "FULL NAME *", value: name, set: setName, placeholder: "e.g. Mohammed Al-Qahtani", type: "text" },
               { label: "RANK", value: rank, set: setRank, placeholder: "e.g. SSgt, TSgt, Capt", type: "text" },
               { label: "UNIT / SECTION", value: unit, set: setUnit, placeholder: "e.g. Ground Radar, ANPC", type: "text" },
-              { label: "PIN (optional)", value: pin, set: setPin, placeholder: "4-digit PIN for re-login", type: "password" },
+              { label: "PIN * (4 digits)", value: pin, set: setPin, placeholder: "Enter a 4-digit PIN", type: "password" },
             ].map(field => (
               <div key={field.label} style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 9, fontFamily: "Orbitron", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>{field.label}</div>
+                <div style={{ fontSize: 9, fontFamily: "Inter", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>{field.label}</div>
                 <input
                   type={field.type}
                   value={field.value}
@@ -293,7 +286,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               width: "100%", padding: "14px 0", marginTop: 4,
               background: loading ? "rgba(0,174,239,0.2)" : "linear-gradient(135deg, #00AEEF, #35D4FF)",
               border: "none", borderRadius: 10, cursor: loading ? "not-allowed" : "pointer",
-              color: "#fff", fontFamily: "Orbitron", fontSize: 12, letterSpacing: "0.1em",
+              color: "#fff", fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em",
               fontWeight: 700,
             }}>
               {loading ? "REGISTERING..." : "BEGIN TRAINING"}
@@ -310,7 +303,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               <div className="font-orbitron" style={{ fontSize: 11, color: "#00AEEF", letterSpacing: "0.15em" }}>RETURNING TRAINEE</div>
             </div>
 
-            <div style={{ fontSize: 9, fontFamily: "Orbitron", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>SELECT TRAINEE</div>
+            <div style={{ fontSize: 9, fontFamily: "Inter", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>SELECT TRAINEE</div>
             {trainees.length === 0 ? (
               <div style={{ color: "var(--text-muted)", fontSize: 12, textAlign: "center", padding: "16px 0", marginBottom: 14 }}>
                 No trainees registered yet
@@ -332,7 +325,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
                       width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
                       background: "linear-gradient(135deg, #00AEEF, #35D4FF)",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "Orbitron", fontSize: 11, fontWeight: 700, color: "#fff",
+                      fontFamily: "Inter", fontSize: 11, fontWeight: 700, color: "#fff",
                     }}>
                       {(t.name || "?").split(" ").map((w: string) => w[0]).slice(0,2).join("")}
                     </div>
@@ -349,7 +342,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 9, fontFamily: "Orbitron", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>PIN (if set)</div>
+              <div style={{ fontSize: 9, fontFamily: "Inter", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>PIN (if set)</div>
               <input
                 type="password"
                 value={loginPin}
@@ -370,7 +363,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               background: !selectedId ? "rgba(0,174,239,0.1)" : loading ? "rgba(0,174,239,0.2)" : "linear-gradient(135deg, #00AEEF, #35D4FF)",
               border: "none", borderRadius: 10, cursor: (!selectedId || loading) ? "not-allowed" : "pointer",
               color: !selectedId ? "rgba(255,255,255,0.3)" : "#fff",
-              fontFamily: "Orbitron", fontSize: 12, letterSpacing: "0.1em", fontWeight: 700,
+              fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em", fontWeight: 700,
             }}>
               {loading ? "LOGGING IN..." : "ENTER TRAINING"}
             </button>
@@ -492,7 +485,7 @@ function NotificationBell({ traineeId }: { traineeId: string }) {
             width: 16, height: 16, borderRadius: "50%",
             fontSize: 9, fontWeight: 700,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: "Orbitron",
+            fontFamily: "Inter",
             animation: "pulse-glow 1.5s ease infinite",
           }}>{unread > 9 ? "9+" : unread}</span>
         )}
@@ -539,7 +532,7 @@ function NotificationBell({ traineeId }: { traineeId: string }) {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <span style={{ fontSize: 10, color, fontFamily: "Orbitron", letterSpacing: "0.05em" }}>{label}</span>
+                    <span style={{ fontSize: 10, color, fontFamily: "Inter", letterSpacing: "0.05em" }}>{label}</span>
                     {!item.read && (
                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0, marginLeft: "auto" }} />
                     )}
@@ -597,7 +590,7 @@ function RadarHero() {
         {/* Range tick marks */}
         {rings.map((r, i) => (
           <text key={i} x={cx + r + 3} y={cx - 3}
-            fill="rgba(0,174,239,0.3)" fontSize="7" fontFamily="Orbitron, sans-serif">
+            fill="rgba(0,174,239,0.3)" fontSize="7" fontFamily="Inter, sans-serif">
             {(i + 1) * 25}
           </text>
         ))}
@@ -658,6 +651,16 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   const [streak, setStreak]     = useState<Streak>({ currentStreak: 0, longestStreak: 0, totalXp: 0 });
   const [, navigate] = useLocation();
   const clock = useLiveClock();
+  const { t } = useLanguage();
+
+  const quickActions = [
+    { labelKey: "nav_modules" as const,  icon: "📡", path: "/modules",  color: "#00AEEF" },
+    { labelKey: "tls_basic" as const,    icon: "🛰️", path: "/basics",   color: "#35D4FF" },
+    { labelKey: "nav_quiz" as const,     icon: "🎯", path: "/quiz",     color: "#00D26A" },
+    { labelKey: "manuals" as const,      icon: "📋", path: "/manuals",  color: "#C9A66B" },
+    { labelKey: "live_status" as const,  icon: "📶", path: "/status",   color: "#FFD166" },
+    { labelKey: "chat" as const,         icon: "💬", path: "/chat",     color: "#35D4FF" },
+  ];
 
   useEffect(() => {
     Promise.all([
@@ -685,10 +688,10 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   const displayMods = modules.slice(0, 4);
 
   const statusCards = [
-    { label: "Streak",   value: `${streak.currentStreak}d`, color: "#FFD166", pulse: streak.currentStreak > 0 },
-    { label: "XP",       value: streak.totalXp > 999 ? `${(streak.totalXp/1000).toFixed(1)}k` : String(streak.totalXp), color: "#35D4FF", pulse: false },
-    { label: "Modules",  value: `${completedMods}/${totalMods}`, color: "#00AEEF", pulse: false },
-    { label: "Progress", value: `${overallPct}%`, color: "#00AEEF", pulse: overallPct > 0 },
+    { label: t("streak"),   value: `${streak.currentStreak}d`, color: "#FFD166", pulse: streak.currentStreak > 0 },
+    { label: t("xp"),       value: streak.totalXp > 999 ? `${(streak.totalXp/1000).toFixed(1)}k` : String(streak.totalXp), color: "#35D4FF", pulse: false },
+    { label: t("modules"),  value: `${completedMods}/${totalMods}`, color: "#00AEEF", pulse: false },
+    { label: t("progress"), value: `${overallPct}%`, color: "#00AEEF", pulse: overallPct > 0 },
   ];
 
   const handleLogout = async () => {
@@ -739,7 +742,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         }}>
           {/* Main title */}
           <div style={{
-            fontFamily: "'Orbitron', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontSize: "clamp(28px, 8vw, 42px)",
             fontWeight: 900,
             color: "#ffffff",
@@ -751,7 +754,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             TLS TRAINER
           </div>
           <div style={{
-            fontFamily: "'Roboto Condensed', sans-serif",
+            fontFamily: "Inter, sans-serif",
             fontSize: "clamp(9px, 2.5vw, 12px)",
             fontWeight: 600,
             letterSpacing: "0.28em",
@@ -777,9 +780,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
               animation: "pulse-glow 2s ease infinite",
             }} />
             <div style={{
-              fontFamily: "'Orbitron', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontSize: 8, color: "#35D4FF", letterSpacing: "0.18em",
-            }}>SYSTEM ACTIVE</div>
+            }}>{t("system_active")}</div>
           </div>
 
           {/* XP bar */}
@@ -815,11 +818,11 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                 pointerEvents: "none",
               }} />
               <div style={{
-                fontFamily: "Orbitron", fontSize: 16, fontWeight: 700,
+                fontFamily: "Inter", fontSize: 16, fontWeight: 700,
                 color: s.color, lineHeight: 1, position: "relative",
               }}>{s.value}</div>
               <div style={{
-                fontFamily: "'Roboto Condensed', sans-serif",
+                fontFamily: "Inter, sans-serif",
                 fontSize: 9, color: "var(--text-muted)",
                 marginTop: 4, letterSpacing: "0.08em", position: "relative",
               }}>{s.label.toUpperCase()}</div>
@@ -850,11 +853,11 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
               }}>▶</div>
               <div style={{ flex: 1 }}>
                 <div style={{
-                  fontFamily: "Orbitron", fontSize: 9, color,
+                  fontFamily: "Inter", fontSize: 9, color,
                   letterSpacing: "0.14em", marginBottom: 4,
                 }}>CONTINUE TRAINING</div>
                 <div style={{
-                  fontFamily: "'Roboto Condensed', sans-serif",
+                  fontFamily: "Inter, sans-serif",
                   fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
                 }}>
                   {mod?.title ?? `Module ${inProgress.moduleId}`}
@@ -866,7 +869,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                   }} />
                 </div>
               </div>
-              <div style={{ fontFamily: "Orbitron", fontSize: 13, color, flexShrink: 0 }}>
+              <div style={{ fontFamily: "Inter", fontSize: 13, color, flexShrink: 0 }}>
                 {Math.round(inProgress.progress)}%
               </div>
             </div>
@@ -877,13 +880,13 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       {/* ── QUICK ACCESS ── */}
       <div style={{ padding: "18px 16px 0" }}>
         <div style={{
-          fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.22em",
+          fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
           color: "var(--text-muted)", marginBottom: 12,
-        }}>QUICK ACCESS</div>
+        }}>{t("quick_access")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {quickActions.map(a => (
             <div
-              key={a.label}
+              key={a.labelKey}
               onClick={() => navigate(a.path)}
               className="glass-card"
               style={{
@@ -904,9 +907,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             >
               <div style={{ fontSize: 22, marginBottom: 7, lineHeight: 1 }}>{a.icon}</div>
               <div style={{
-                fontFamily: "Orbitron", fontSize: 8,
+                fontFamily: "Inter", fontSize: 8,
                 color: a.color, letterSpacing: "0.1em",
-              }}>{a.label}</div>
+              }}>{t(a.labelKey)}</div>
             </div>
           ))}
         </div>
@@ -915,11 +918,11 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       {/* ── TRAINING MODULES ── */}
       <div style={{ padding: "20px 16px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.22em", color: "var(--text-muted)" }}>
-            TRAINING MODULES
+          <div style={{ fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em", color: "var(--text-muted)" }}>
+            {t("training_modules")}
           </div>
           {overallPct > 0 && (
-            <div style={{ fontFamily: "Orbitron", fontSize: 9, color: "#00AEEF" }}>
+            <div style={{ fontFamily: "Inter", fontSize: 9, color: "#00AEEF" }}>
               {overallPct}% COMPLETE
             </div>
           )}
@@ -951,18 +954,18 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                     background: `${color}15`, border: `1px solid ${color}40`,
                     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   }}>
-                    <span style={{ fontFamily: "Orbitron", fontSize: 11, fontWeight: 700, color }}>
+                    <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 700, color }}>
                       {String(mod.order).padStart(2, "0")}
                     </span>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
                       <div style={{
-                        fontFamily: "'Roboto Condensed', sans-serif",
+                        fontFamily: "Inter, sans-serif",
                         fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
                       }}>{mod.title}</div>
                       {pct > 0 && (
-                        <span style={{ fontFamily: "Orbitron", fontSize: 9, color, marginLeft: 8 }}>
+                        <span style={{ fontFamily: "Inter", fontSize: 9, color, marginLeft: 8 }}>
                           {Math.round(pct)}%
                         </span>
                       )}
@@ -990,11 +993,11 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           <div style={{
             textAlign: "center", padding: "13px",
             border: "1px solid rgba(0,174,239,0.3)", borderRadius: 10, marginTop: 6,
-            color: "#00AEEF", fontFamily: "Orbitron", fontSize: 11,
+            color: "#00AEEF", fontFamily: "Inter", fontSize: 11,
             letterSpacing: "0.12em", cursor: "pointer",
             background: "rgba(0,174,239,0.04)",
           }}>
-            VIEW ALL 9 MODULES →
+            {t("view_all_modules")}
           </div>
         </Link>
       </div>
@@ -1002,9 +1005,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       {/* ── RECENT ACTIVITY ── */}
       <div style={{ padding: "0 16px 40px" }}>
         <div style={{
-          fontFamily: "Orbitron", fontSize: 9, letterSpacing: "0.22em",
+          fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
           color: "var(--text-muted)", marginBottom: 12,
-        }}>RECENT ACTIVITY</div>
+        }}>{t("recent_activity")}</div>
         <div className="glass-card" style={{ padding: "4px 0", border: "1px solid rgba(0,174,239,0.1)" }}>
           {progress.length > 0 ? (
             progress.sort((a,b) => b.progress - a.progress).slice(0, 3).map((p, i, arr) => {
@@ -1025,13 +1028,13 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{
-                      fontFamily: "'Roboto Condensed', sans-serif",
+                      fontFamily: "Inter, sans-serif",
                       fontSize: 13, color: "var(--text-secondary)",
                     }}>
                       {p.completed ? "Completed" : "In Progress"} — {mod?.title ?? `Module ${p.moduleId}`}
                     </div>
                     <div style={{
-                      fontFamily: "'Roboto Condensed', sans-serif",
+                      fontFamily: "Inter, sans-serif",
                       fontSize: 11, color: "var(--text-muted)", marginTop: 2,
                     }}>{Math.round(p.progress)}% done</div>
                   </div>
@@ -1055,8 +1058,8 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                   display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
                 }}>{item.icon}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "'Roboto Condensed', sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>{item.text}</div>
-                  <div style={{ fontFamily: "'Roboto Condensed', sans-serif", fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{item.time}</div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>{item.text}</div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{item.time}</div>
                 </div>
               </div>
             ))
@@ -1068,10 +1071,10 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       <div style={{ padding: "0 16px 32px", textAlign: "center" }}>
         <button onClick={handleLogout} style={{
           background: "none", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8,
-          color: "var(--text-muted)", fontFamily: "Orbitron", fontSize: 9,
+          color: "var(--text-muted)", fontFamily: "Inter", fontSize: 9,
           letterSpacing: "0.1em", padding: "8px 20px", cursor: "pointer",
         }}>
-          LOGOUT
+          {t("logout")}
         </button>
       </div>
     </div>

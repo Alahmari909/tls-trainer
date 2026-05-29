@@ -169,7 +169,7 @@ export default function NavMenu() {
             </div>
             <div style={{
               fontSize: 8, color: "rgba(0,174,239,0.6)", letterSpacing: "0.06em",
-              fontFamily: "Orbitron, monospace", marginTop: 2, whiteSpace: "nowrap",
+              fontFamily: "Inter, sans-serif", marginTop: 2, whiteSpace: "nowrap",
             }}>
               {formatDateTime(now)}
             </div>
@@ -181,7 +181,7 @@ export default function NavMenu() {
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, minWidth: 0, padding: "0 8px" }}>
             <div style={{ minWidth: 0, textAlign: "center" }}>
               <div style={{
-                fontFamily: "'Roboto Condensed', sans-serif", fontSize: 13, fontWeight: 700,
+                fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 700,
                 color: "#ffffff", letterSpacing: "0.04em",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 lineHeight: 1.2,
@@ -190,7 +190,7 @@ export default function NavMenu() {
               </div>
               {(session.rank || session.unit) && (
                 <div style={{
-                  fontFamily: "'Roboto Condensed', sans-serif", fontSize: 10, fontWeight: 500,
+                  fontFamily: "Inter, sans-serif", fontSize: 10, fontWeight: 500,
                   color: "#00AEEF", letterSpacing: "0.06em",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   lineHeight: 1.2,
@@ -268,7 +268,7 @@ export default function NavMenu() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div className="font-orbitron" style={{ fontSize: 11, color: "#00AEEF", letterSpacing: "0.2em" }}>NAVIGATION</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, fontFamily: "Rajdhani" }}>Select training module</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, fontFamily: "Inter" }}>Select training module</div>
             </div>
             <button onClick={() => setOpen(false)} style={{
               background: "rgba(0,174,239,0.08)", border: "1px solid rgba(0,174,239,0.2)",
@@ -295,7 +295,7 @@ export default function NavMenu() {
                   background: isActive ? "linear-gradient(90deg, rgba(0,174,239,0.12), rgba(0,174,239,0.03))" : "transparent",
                   borderLeft: `2px solid ${isActive ? "#00AEEF" : "transparent"}`,
                   transition: "all 0.15s",
-                  fontFamily: "Rajdhani, sans-serif",
+                  fontFamily: "Inter, sans-serif",
                   fontSize: 15, fontWeight: isActive ? 600 : 400,
                   letterSpacing: "0.03em",
                   animationDelay: `${i * 0.03}s`,
@@ -325,7 +325,7 @@ export default function NavMenu() {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div className="online-dot" />
-            <span style={{ fontFamily: "Orbitron", fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
+            <span style={{ fontFamily: "Inter", fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
               SYSTEM ONLINE
             </span>
           </div>
@@ -339,7 +339,7 @@ export default function NavMenu() {
                 padding: "4px 10px",
                 cursor: "pointer",
                 color: "#ff6b6b",
-                fontFamily: "Orbitron, monospace",
+                fontFamily: "Inter, sans-serif",
                 fontSize: 8,
                 fontWeight: 700,
                 letterSpacing: "0.1em",

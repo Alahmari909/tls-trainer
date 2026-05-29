@@ -4,7 +4,6 @@ import { telegramTrack, getSession, clearSession } from "./hooks/useTelegramTrac
 import type { TraineeSession } from "./hooks/useTelegramTrack";
 import NavMenu from "./components/NavMenu";
 import { Provider } from "./components/provider";
-import { AgentFeedback } from "@runablehq/website-runtime";
 import { unlockAudio, _toastListeners, showToast } from "./lib/audio";
 import type { ToastItem } from "./lib/audio";
 
@@ -385,7 +384,7 @@ function App() {
           </Switch>
         </Suspense>
       </AuthGate>
-      {import.meta.env.DEV && <AgentFeedback />}
+      {import.meta.env.DEV && <></>}
     </Provider>
   );
 }
