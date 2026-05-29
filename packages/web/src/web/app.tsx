@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { telegramTrack, getSession, clearSession } from "./hooks/useTelegramTrack";
 import type { TraineeSession } from "./hooks/useTelegramTrack";
 import NavMenu from "./components/NavMenu";
+import Sidebar from "./components/Sidebar";
 import { Provider } from "./components/provider";
 import { unlockAudio, _toastListeners, showToast } from "./lib/audio";
 import type { ToastItem } from "./lib/audio";
@@ -319,7 +320,7 @@ function GlobalToast() {
             <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{emoji}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 9, fontFamily: "Orbitron", letterSpacing: "0.12em",
+                fontSize: 9, fontFamily: "Inter", letterSpacing: "0.12em",
                 color, marginBottom: 4, textTransform: "uppercase",
               }}>
                 {t.alertType === "message" ? "MESSAGE FROM INSTRUCTOR" : `INSTRUCTOR ALERT · ${t.alertType.toUpperCase()}`}
@@ -360,31 +361,35 @@ function App() {
         }
       `}</style>
       <PagePersistence />
-      <NavMenu />
       <GlobalToast />
-      <AuthGate>
-        <Suspense fallback={null}>
-          <Switch>
-            <Route path="/" component={Index} />
-            <Route path="/basics" component={Basics} />
-            <Route path="/advanced" component={Advanced} />
-            <Route path="/modules" component={Modules} />
-            <Route path="/manuals" component={Manuals} />
-            <Route path="/quiz" component={QuizList} />
-            <Route path="/quiz/:moduleId" component={Quiz} />
-            <Route path="/achievements" component={Achievements} />
-            <Route path="/chat" component={Chat} />
-            <Route path="/private-chat" component={PrivateChat} />
-            <Route path="/status" component={Status} />
-            <Route path="/notifications" component={Notifications} />
-            <Route path="/settings" component={Settings} />
-            <Route path="/card" component={Card} />
-            <Route path="/about" component={About} />
-            <Route path="/admin" component={Admin} />
-          </Switch>
-        </Suspense>
-      </AuthGate>
-      {import.meta.env.DEV && <></>}
+      <div className="app-shell">
+        <Sidebar />
+        <div className="app-content">
+          <NavMenu />
+          <AuthGate>
+            <Suspense fallback={null}>
+              <Switch>
+                <Route path="/" component={Index} />
+                <Route path="/basics" component={Basics} />
+                <Route path="/advanced" component={Advanced} />
+                <Route path="/modules" component={Modules} />
+                <Route path="/manuals" component={Manuals} />
+                <Route path="/quiz" component={QuizList} />
+                <Route path="/quiz/:moduleId" component={Quiz} />
+                <Route path="/achievements" component={Achievements} />
+                <Route path="/chat" component={Chat} />
+                <Route path="/private-chat" component={PrivateChat} />
+                <Route path="/status" component={Status} />
+                <Route path="/notifications" component={Notifications} />
+                <Route path="/settings" component={Settings} />
+                <Route path="/card" component={Card} />
+                <Route path="/about" component={About} />
+                <Route path="/admin" component={Admin} />
+              </Switch>
+            </Suspense>
+          </AuthGate>
+        </div>
+      </div>
     </Provider>
   );
 }
