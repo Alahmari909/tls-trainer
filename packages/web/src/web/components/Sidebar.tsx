@@ -84,6 +84,17 @@ const navItems = [
       </svg>
     )
   },
+  {
+    path: "/card",
+    label: "ID CARD",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <circle cx="8" cy="12" r="2"/>
+        <path d="M14 9h4M14 12h4M14 15h4"/>
+      </svg>
+    )
+  },
 ];
 
 export default function Sidebar() {
