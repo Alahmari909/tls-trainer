@@ -187,3 +187,17 @@ export const messages = sqliteTable("messages", {
   text: text("text").notNull(),
   createdAt: integer("created_at").notNull().default(0),
 });
+
+// Quiz Answer Tracking — stores each question's answer per attempt
+export const quizAnswers = sqliteTable("quiz_answers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  attemptId: integer("attempt_id").notNull(),   // FK to quiz_attempts.id
+  traineeId: text("trainee_id").notNull(),
+  moduleId: integer("module_id").notNull(),
+  questionId: integer("question_id").notNull(),
+  questionText: text("question_text").notNull(),
+  selectedOption: text("selected_option").notNull(), // a, b, c, d
+  correctOption: text("correct_option").notNull(),
+  isCorrect: integer("is_correct").notNull().default(0),
+  ts: integer("ts").notNull(),
+});

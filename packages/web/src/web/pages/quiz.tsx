@@ -122,8 +122,7 @@ export default function Quiz() {
     if (answered || !q) return;
     setSelected(opt);
     setAnswered(true);
-    const correctOpt = (q.correctOption ?? q.correct_option ?? '');
-    const correct = opt.toLowerCase() === correctOpt.toLowerCase();
+    const correct = opt.toLowerCase() === q.correctOption.toLowerCase();
     if (correct) setScore(s => s + 1);
     setResults(prev => [...prev, { correct, selected: opt, question: q! }]);
     // Sound feedback — only if enabled in settings
@@ -136,7 +135,7 @@ export default function Quiz() {
     if (current + 1 >= questions.length) {
       setFinished(true);
       const lastCorrect = selected != null && questions[current] != null
-        ? selected.toLowerCase() === (questions[current]!.correctOption ?? questions[current]!.correct_option ?? '').toLowerCase()
+        ? selected.toLowerCase() === questions[current]!.correctOption.toLowerCase()
         : false;
       const finalResults = answered
         ? results
@@ -164,6 +163,26 @@ export default function Quiz() {
           if (status === 403) { setSubmitError(data.message ?? 'Submission blocked.'); return; }
           setXpEarned(data.xpEarned ?? 0);
           setNewBadges(data.newlyUnlocked ?? []);
+          // Save per-question answers
+          const attemptId = data.attemptId;
+          if (attemptId) {
+            fetch('/api/quiz/answers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                attemptId,
+                traineeId,
+                moduleId,
+                answers: finalResults.map(r => ({
+                  questionId: r.question.id,
+                  questionText: r.question.question,
+                  selectedOption: r.selected,
+                  correctOption: (r.question.correctOption ?? r.question.correct_option ?? ''),
+                  isCorrect: r.correct,
+                })),
+              }),
+            }).catch(() => {});
+          }
         })
         .catch(() => {});
 

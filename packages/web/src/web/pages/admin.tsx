@@ -64,6 +64,69 @@ function fmtDate(ms: number) {
   return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+// ─── Quiz Answer Breakdown Component ──────────────────────────────────────────
+function QuizAnswerBreakdown({ attemptId, traineeId, adminPw }: { attemptId: number; traineeId: string; adminPw: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [answers, setAnswers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (answers.length > 0) { setExpanded(e => !e); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/quiz-answers/${traineeId}`, {
+        headers: { 'x-admin-password': adminPw }
+      });
+      const all = await res.json();
+      const filtered = all.filter((a: any) => a.attempt_id === attemptId);
+      setAnswers(filtered);
+      setExpanded(true);
+    } catch {}
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button onClick={load} style={{
+        background: "transparent", border: "1px solid rgba(0,174,239,0.2)",
+        color: "#00AEEF", borderRadius: 6, padding: "4px 10px",
+        fontSize: 10, fontFamily: "Inter", cursor: "pointer", letterSpacing: "0.06em",
+      }}>
+        {loading ? "..." : expanded ? "▲ HIDE ANSWERS" : "▼ SHOW ANSWERS"}
+      </button>
+      {expanded && answers.length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+          {answers.map((a: any, i: number) => (
+            <div key={i} style={{
+              padding: "8px 10px", borderRadius: 8,
+              background: a.is_correct ? "rgba(0,210,106,0.05)" : "rgba(255,77,77,0.05)",
+              border: `1px solid ${a.is_correct ? "#00D26A" : "#FF4D4D"}20`,
+              fontSize: 11, fontFamily: "Inter",
+            }}>
+              <div style={{ color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>{a.question_text}</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <span style={{ color: a.is_correct ? "#00D26A" : "#FF4D4D" }}>
+                  {a.is_correct ? "✅" : "❌"} Answered: <b>{a.selected_option?.toUpperCase()}</b>
+                </span>
+                {!a.is_correct && (
+                  <span style={{ color: "#00D26A" }}>
+                    ✓ Correct: <b>{a.correct_option?.toUpperCase()}</b>
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {expanded && answers.length === 0 && (
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 6 }}>
+          No detailed answers recorded for this attempt.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [pw, setPw] = useState("");
@@ -838,6 +901,8 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
                       <span>✅ {a.correct}  ❌ {a.wrong}</span>
                       <span>{timeAgo(a.ts)}</span>
                     </div>
+                    {/* Per-question breakdown button */}
+                    <QuizAnswerBreakdown attemptId={a.id} traineeId={detail.trainee.id} adminPw={adminPw} />
                   </div>
                 ))}
               </div>

@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   modules, questions, achievements, userAchievements,
-  moduleProgress, streaks, messages, users, sessions,
+  moduleProgress, streaks, messages, users, sessions, quizAnswers,
 } from "./database/schema";
 
 // ── Raw SQL client (libsql) ───────────────────────────────────────────────────
@@ -870,6 +870,10 @@ const app = new Hono()
       [traineeId, moduleId, moduleName, score, total, correct, wrong, pct, passed, now]
     );
 
+    // Get the inserted attempt ID
+    const [lastAttempt] = await sql(`SELECT id FROM quiz_attempts WHERE trainee_id=? AND module_id=? AND ts=?`, [traineeId, moduleId, now]);
+    const attemptId = (lastAttempt as any)?.id ?? null;
+
     const existing = await sql(
       `SELECT id, progress, completed FROM trainee_module_progress WHERE trainee_id=? AND module_id=?`,
       [traineeId, moduleId]
@@ -891,7 +895,7 @@ const app = new Hono()
     }
 
     await logActivity(traineeId, 'quiz_finish', { moduleId, moduleName, score, total, pct, passed });
-    return c.json({ ok: true, pct, passed: passed === 1 }, 200);
+    return c.json({ ok: true, pct, passed: passed === 1, attemptId }, 200);
   })
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -987,7 +991,10 @@ const app = new Hono()
   })
   .post('/quiz/submit', async (c) => {
     const body = await c.req.json();
-    const { userId, moduleId, score, total } = body as { userId: string; moduleId: number; score: number; total: number };
+    const { userId, moduleId, score, total, answers } = body as {
+      userId: string; moduleId: number; score: number; total: number;
+      answers?: { questionId: number; questionText: string; selectedOption: string; correctOption: string; isCorrect: boolean }[];
+    };
     const [statusRow] = await sql(`SELECT status FROM trainees WHERE id=?`, [userId]).catch(() => [null]);
     if (statusRow?.status === 'suspended') return c.json({ error: 'suspended', message: 'Your account is suspended. Quiz submissions are disabled.' }, 403);
     if (statusRow?.status === 'blocked') return c.json({ error: 'blocked', message: 'Your account has been blocked.' }, 403);
@@ -1043,6 +1050,36 @@ const app = new Hono()
     if (finalStreak >= 30) await unlock('streak_30');
 
     return c.json({ ok: true, xpEarned, pct, newlyUnlocked }, 200);
+  })
+  // Save individual question answers
+  .post('/quiz/answers', async (c) => {
+    const body = await c.req.json();
+    const { attemptId, traineeId, moduleId, answers } = body as {
+      attemptId: number;
+      traineeId: string;
+      moduleId: number;
+      answers: { questionId: number; questionText: string; selectedOption: string; correctOption: string; isCorrect: boolean }[];
+    };
+    if (!answers?.length) return c.json({ ok: true }, 200);
+    const now = Date.now();
+    // Create quiz_answers table if not exists
+    await sql(`CREATE TABLE IF NOT EXISTS quiz_answers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      attempt_id INTEGER NOT NULL,
+      trainee_id TEXT NOT NULL,
+      module_id INTEGER NOT NULL,
+      question_id INTEGER NOT NULL,
+      question_text TEXT NOT NULL,
+      selected_option TEXT NOT NULL,
+      correct_option TEXT NOT NULL,
+      is_correct INTEGER NOT NULL DEFAULT 0,
+      ts INTEGER NOT NULL
+    )`, []);
+    for (const a of answers) {
+      await sql(`INSERT INTO quiz_answers (attempt_id, trainee_id, module_id, question_id, question_text, selected_option, correct_option, is_correct, ts) VALUES (?,?,?,?,?,?,?,?,?)`,
+        [attemptId, traineeId, moduleId, a.questionId, a.questionText, a.selectedOption, a.correctOption, a.isCorrect ? 1 : 0, now]);
+    }
+    return c.json({ ok: true }, 200);
   })
   .get('/streaks/:userId', async (c) => {
     const userId = c.req.param('userId');
@@ -1414,6 +1451,41 @@ const app = new Hono()
     const pw = c.req.header('x-admin-password');
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     const id = c.req.param('id');
+
+  // GET /admin/quiz-answers/:traineeId — per-question answers for a trainee
+  .get('/admin/quiz-answers/:traineeId', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const traineeId = c.req.param('traineeId');
+    const rows = await sql(`
+      SELECT qa.*, qat.module_name, qat.pct, qat.passed
+      FROM quiz_answers qa
+      LEFT JOIN quiz_attempts qat ON qat.id = qa.attempt_id
+      WHERE qa.trainee_id = ?
+      ORDER BY qa.ts DESC
+    `, [traineeId]).catch(() => []);
+    return c.json(rows, 200);
+  })
+  // GET /admin/missed-questions — most missed questions across all trainees
+  .get('/admin/missed-questions', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const rows = await sql(`
+      SELECT 
+        question_id,
+        question_text,
+        module_id,
+        COUNT(*) as total_attempts,
+        SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) as wrong_count,
+        ROUND(SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as wrong_pct
+      FROM quiz_answers
+      GROUP BY question_id
+      HAVING total_attempts >= 1
+      ORDER BY wrong_pct DESC
+      LIMIT 20
+    `, []).catch(() => []);
+    return c.json(rows, 200);
+  })
 
     const traineesRows = await sql(
       `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level FROM trainees WHERE id=?`, [id]
