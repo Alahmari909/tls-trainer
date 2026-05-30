@@ -2669,7 +2669,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── DASHBOARD VIEW ── stat cards + overview ── */}
       {activeView === "dashboard" && !loading && (
-        <div style={{ padding: "16px 16px 0" }}>
+        <div className="admin-view" style={{ padding: "16px 16px 0" }}>
           {/* Large stat banner */}
           <div style={{
             background: "linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,255,136,0.02))",
@@ -2766,7 +2766,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── REPORTS VIEW ── */}
       {activeView === "reports" && (
-        <div style={{ padding: "16px" }}>
+        <div className="admin-view" style={{ padding: "16px" }}>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>REPORTS</div>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>ANALYTICS</div>
           {!loading && trainees.length > 0 && (
@@ -2807,7 +2807,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── SETTINGS VIEW ── */}
       {activeView === "settings" && (
-        <div style={{ padding: "16px" }}>
+        <div className="admin-view" style={{ padding: "16px" }}>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>SYSTEM</div>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>SETTINGS</div>
 
@@ -2851,16 +2851,16 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       )}
 
       {/* ── IMPORTED TRAINEE PAGES ── dark wrapper keeps admin shell consistent */}
-      {activeView === "modules"       && <div style={{ background: "#050f05", minHeight: "100vh" }}><Modules /></div>}
-      {activeView === "manuals"       && <div style={{ background: "#050f05", minHeight: "100vh" }}><Manuals /></div>}
-      {activeView === "quiz"          && <div style={{ background: "#050f05", minHeight: "100vh" }}><QuizList /></div>}
-      {activeView === "status"        && <div style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
-      {activeView === "notifications" && <div style={{ background: "#050f05", minHeight: "100vh" }}><Notifications /></div>}
-      {activeView === "about"         && <div style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
+      {activeView === "modules"       && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Modules /></div>}
+      {activeView === "manuals"       && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Manuals /></div>}
+      {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList /></div>}
+      {activeView === "status"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
+      {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications /></div>}
+      {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
 
       {/* ── CHAT VIEW ── General / Private sub-tabs */}
       {activeView === "chat" && (
-        <div style={{ background: "#050f05", minHeight: "100vh" }}>
+        <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}>
           {/* Sub-tab strip */}
           <div style={{ display: "flex", borderBottom: "1px solid rgba(0,255,136,0.1)", background: "#071207" }}>
             {(["general", "private"] as const).map(tab => (
@@ -2884,7 +2884,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── TRAINEES VIEW (default list) ── */}
       {(activeView === "trainees" || activeView === "dashboard") && (
-      <div style={{ padding: activeView === "trainees" ? "16px 16px 0" : "0 16px 0" }}>
+      <div className="admin-view" style={{ padding: activeView === "trainees" ? "16px 16px 0" : "0 16px 0" }}>
         {activeView === "trainees" && (
           <>
             <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 4 }}>PERSONNEL</div>

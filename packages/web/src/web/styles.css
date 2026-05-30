@@ -663,3 +663,8 @@ html {
 input, textarea, select {
   font-size: 16px !important;
 }
+
+/* ── Admin panel view entrance ── */
+.admin-view {
+  animation: pageEnter 0.25s ease-out;
+}
