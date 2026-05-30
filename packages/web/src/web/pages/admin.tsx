@@ -758,6 +758,34 @@ function TraineeDetailModal({
                       const ratingLabel = (r: string) => ({ excellent: '⭐⭐⭐ Excellent', good: '⭐⭐ Good', weak: '⚠️ Weak', needs_review: '🔍 Needs Review', pending: '⏳ Pending' }[r] ?? r);
                       const fmtMs = (ms: number) => { const h = Math.floor(ms/3600000); const m = Math.floor((ms%3600000)/60000); return h > 0 ? `${h}h ${m}m` : `${m}m`; };
                       const fmtDt = (ms: number) => ms ? new Date(ms).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : '—';
+
+                      // Fetch per-question answers for strength/weakness analysis
+                      let answersData: Array<{ question_text: string; is_correct: number; module_id: number }> = [];
+                      try {
+                        const answersRes = await fetch(`/api/admin/quiz-answers/${traineeId}`, { headers: { 'x-admin-password': adminPw } });
+                        if (answersRes.ok) answersData = await answersRes.json();
+                      } catch {}
+
+                      // Group by question — find most missed
+                      const qMap = new Map<string, { text: string; total: number; wrong: number }>();
+                      for (const a of answersData) {
+                        const key = String(a.question_text);
+                        const existing = qMap.get(key) ?? { text: a.question_text, total: 0, wrong: 0 };
+                        existing.total++;
+                        if (!a.is_correct) existing.wrong++;
+                        qMap.set(key, existing);
+                      }
+                      const missedQuestions = Array.from(qMap.values()).filter(q => q.total > 0).sort((a, b) => (b.wrong/b.total) - (a.wrong/a.total)).slice(0, 10);
+                      const strongQuestions = Array.from(qMap.values()).filter(q => q.total > 0 && q.wrong === 0).slice(0, 5);
+
+                      const weaknessSection = missedQuestions.filter(q => q.wrong > 0).length > 0
+                        ? `<h2>⚠️ AREAS NEEDING IMPROVEMENT</h2><table><tr><th>#</th><th>Question</th><th>Wrong</th><th>Attempts</th><th>Miss Rate</th></tr>${missedQuestions.filter(q => q.wrong > 0).map((q, i) => `<tr><td>${i+1}</td><td>${q.text}</td><td style="color:#cc2200;font-weight:600">${q.wrong}</td><td>${q.total}</td><td style="color:#cc2200;font-weight:600">${Math.round(q.wrong/q.total*100)}%</td></tr>`).join('')}</table>`
+                        : '';
+
+                      const strengthSection = strongQuestions.length > 0
+                        ? `<h2>✅ STRONG AREAS</h2><table><tr><th>#</th><th>Question</th><th>Attempts</th></tr>${strongQuestions.map((q, i) => `<tr><td>${i+1}</td><td>${q.text}</td><td style="color:#00a550;font-weight:600">${q.total}</td></tr>`).join('')}</table>`
+                        : '';
+
                       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Trainee Report - ${rpt.trainee.name}</title>
 <style>
   body { font-family: Arial, sans-serif; background: #fff; color: #222; max-width: 900px; margin: 0 auto; padding: 32px; }
@@ -823,6 +851,7 @@ ${rpt.quizAttempts.map(a => `<tr><td>${a.module_name ?? '—'}</td><td>${a.pct}%
 ${rpt.notes.length > 0 ? `
 <h2>INSTRUCTOR NOTES</h2>
 ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt(n.ts)}:</strong> ${n.note}</div>`).join('')}` : ''}
+${weaknessSection}${strengthSection}
 <div class="footer">TLS Trainer System — Confidential Training Report</div>
 </body></html>`;
                       const w = window.open('', '_blank');
