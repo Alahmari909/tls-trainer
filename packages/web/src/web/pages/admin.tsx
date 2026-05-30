@@ -2440,6 +2440,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
   // ── Menu dropdown ─────────────────────────────────────────────────────────────
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -2627,14 +2628,16 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                     <React.Fragment key={link.id}>
                       <button
                         onClick={() => { setActiveView(link.id as AdminView); setMenuOpen(false); }}
+                        onMouseEnter={() => setHoveredItem(link.id)}
+                        onMouseLeave={() => setHoveredItem(null)}
                         style={{
                           display: "flex", alignItems: "center", gap: 8,
                           width: "100%", padding: "10px 14px",
-                          background: activeView === link.id ? "rgba(0,255,136,0.1)" : "none",
+                          background: hoveredItem === link.id || activeView === link.id ? "rgba(0,255,136,0.12)" : "transparent",
                           border: "none", borderBottom: "1px solid rgba(0,255,136,0.07)",
-                          color: activeView === link.id ? "#00FF88" : "rgba(255,255,255,0.7)",
+                          color: hoveredItem === link.id || activeView === link.id ? "#00FF88" : "rgba(255,255,255,0.6)",
                           fontSize: 11, fontFamily: "Inter", cursor: "pointer",
-                          textAlign: "left",
+                          textAlign: "left", transition: "background 0.15s, color 0.15s",
                         }}
                       >
                         <span>{link.icon}</span>{link.label}
