@@ -514,7 +514,7 @@ function AIInstructor() {
   const [loading,   setLoading]   = useState(false);
   const [showAll,   setShowAll]   = useState(false);
   const [aiStatus,  setAiStatus]  = useState<{ qualified: boolean; questionsUsed: number; questionsRemaining: number; resetsIn: string } | null>(null);
-  const [lockState, setLockState] = useState<"locked" | "limit" | null>(null);
+  const [lockState, setLockState] = useState<"limit" | null>(null);
   const [limitMsg,  setLimitMsg]  = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
@@ -530,10 +530,9 @@ function AIInstructor() {
       .then(r => r.json())
       .then((d: any) => {
         setAiStatus(d);
-        if (!d.qualified) setLockState("locked");
-        else if (d.questionsRemaining === 0) {
+        if (d.questionsRemaining === 0) {
           setLockState("limit");
-          setLimitMsg(`Resets in ${d.resetsIn}`);
+          setLimitMsg("Resets tomorrow.");
         }
       })
       .catch(() => {});
@@ -554,14 +553,9 @@ function AIInstructor() {
         body: JSON.stringify({ message: q, history: history.slice(-10), userId: isAdmin ? undefined : trainee.id }),
       });
       const data = await res.json() as { reply?: string; error?: string; message?: string };
-      if (data.error === "locked") {
-        setLockState("locked");
-        setHistory(prev => prev.slice(0, -1)); // remove optimistic user msg
-        return;
-      }
       if (data.error === "limit") {
         setLockState("limit");
-        setLimitMsg(data.message ?? "");
+        setLimitMsg(data.message ?? "Resets tomorrow.");
         setHistory(prev => prev.slice(0, -1));
         return;
       }
@@ -575,31 +569,6 @@ function AIInstructor() {
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
     }
   };
-
-  // ── Locked screen ──────────────────────────────────────────────────────────
-  if (lockState === "locked") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "32px 24px", textAlign: "center", gap: 16 }}>
-        <div style={{ fontSize: 52 }}>🔒</div>
-        <div className="font-orbitron" style={{ fontSize: 14, color: "#ff4444", letterSpacing: "0.08em" }}>AI INSTRUCTOR LOCKED</div>
-        <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "Inter", lineHeight: 1.7, maxWidth: 280 }}>
-          Complete <strong style={{ color: "var(--text-primary)" }}>2 modules</strong> with a score of <strong style={{ color: C }}>80%+</strong> to unlock the AI Instructor.
-        </div>
-        <div style={{ marginTop: 4, padding: "10px 18px", background: `rgba(0,174,239,0.06)`, border: `1px solid ${C}30`, borderRadius: 10, fontSize: 12, color: "var(--text-muted)", fontFamily: "Inter" }}>
-          {aiStatus ? `${aiStatus.questionsUsed === 0 ? "0" : aiStatus.questionsUsed} / 20 questions used` : "Progress not loaded yet"}
-        </div>
-        <a href="/modules" style={{
-          display: "inline-block", marginTop: 8, padding: "11px 28px",
-          background: `linear-gradient(135deg,${C},#35D4FF)`, borderRadius: 12,
-          color: "#020810", fontFamily: "Orbitron,monospace", fontSize: 11,
-          fontWeight: 700, letterSpacing: "0.08em", textDecoration: "none",
-          boxShadow: `0 0 18px ${C}40`,
-        }}>
-          VIEW MODULES
-        </a>
-      </div>
-    );
-  }
 
   // ── Limit reached screen ────────────────────────────────────────────────────
   if (lockState === "limit") {
@@ -615,10 +584,10 @@ function AIInstructor() {
           20 / 20
         </div>
         <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "Inter", lineHeight: 1.7, maxWidth: 260 }}>
-          You've used all <strong style={{ color: "var(--text-primary)" }}>20 questions</strong> for this 72-hour window.
+          You've used all <strong style={{ color: "var(--text-primary)" }}>20 questions</strong> for today.
         </div>
         <div style={{ fontSize: 12, color: C, fontFamily: "Inter", padding: "8px 16px", background: `rgba(0,174,239,0.06)`, border: `1px solid ${C}25`, borderRadius: 10 }}>
-          🕐 {limitMsg || aiStatus?.resetsIn ? `Resets in ${aiStatus?.resetsIn}` : "Check back soon"}
+          🕐 {limitMsg || "Resets tomorrow."}
         </div>
       </div>
     );
@@ -708,12 +677,12 @@ function AIInstructor() {
 
       {/* Usage counter (trainees only) */}
       {!isAdmin && aiStatus && (
-        <div style={{ flexShrink: 0, padding: "4px 14px 0", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ flexShrink: 0, padding: "6px 14px 2px", display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, height: 3, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${(aiStatus.questionsUsed / 20) * 100}%`, background: aiStatus.questionsRemaining <= 5 ? "#FF9500" : C, borderRadius: 3, transition: "width 0.3s" }} />
           </div>
-          <div style={{ fontSize: 10, color: aiStatus.questionsRemaining <= 5 ? "#FF9500" : "var(--text-muted)", fontFamily: "Inter", whiteSpace: "nowrap", minWidth: 52, textAlign: "right" }}>
-            {aiStatus.questionsUsed}/20 used
+          <div style={{ fontSize: 10, color: aiStatus.questionsRemaining <= 5 ? "#FF9500" : "var(--text-muted)", fontFamily: "Inter", whiteSpace: "nowrap", minWidth: 80, textAlign: "right" }}>
+            {aiStatus.questionsRemaining} / 20 remaining
           </div>
         </div>
       )}

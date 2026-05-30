@@ -1143,61 +1143,31 @@ const app = new Hono()
   // GET /ai/status/:userId
   .get('/ai/status/:userId', async (c) => {
     const userId = c.req.param('userId');
-    const window72h = Date.now() - 72 * 60 * 60 * 1000;
-    // qualified: ≥2 distinct modules passed with pct ≥ 80
-    const passedModules = await sql(
-      `SELECT COUNT(DISTINCT module_id) as cnt FROM quiz_attempts WHERE trainee_id=? AND passed=1 AND pct>=80`,
-      [userId]
-    );
-    const qualified = (passedModules[0]?.cnt ?? 0) >= 2;
-    // usage in last 72h
+    const window24h = Date.now() - 24 * 60 * 60 * 1000;
+    // usage in last 24h
     const usageRows = await sql(
       `SELECT ts FROM activity_log WHERE trainee_id=? AND event='ai_question' AND ts>=? ORDER BY ts ASC`,
-      [userId, window72h]
+      [userId, window24h]
     );
     const questionsUsed = usageRows.length;
     const questionsRemaining = Math.max(0, 20 - questionsUsed);
-    // reset = oldest question ts + 72h
-    let resetsIn = '72h 0m';
-    if (usageRows.length > 0) {
-      const oldestTs = usageRows[0].ts as number;
-      const resetAt = oldestTs + 72 * 60 * 60 * 1000;
-      const diffMs = Math.max(0, resetAt - Date.now());
-      const diffH = Math.floor(diffMs / 3600000);
-      const diffM = Math.floor((diffMs % 3600000) / 60000);
-      resetsIn = `${diffH}h ${diffM}m`;
-    }
-    return c.json({ qualified, questionsUsed, questionsRemaining, resetsIn }, 200);
+    return c.json({ qualified: true, questionsUsed, questionsRemaining, resetsIn: 'tomorrow' }, 200);
   })
   .post('/chat/ai', async (c) => {
     const body = await c.req.json();
     const { message, history = [], userId } = body as { message: string; userId?: string; history: { role: 'user' | 'assistant'; content: string }[] };
 
-    // ── Access control (skip for admin / no userId) ──────────────────────────
+    // ── Rate limit: 20 questions per 24h (skip for admin / no userId) ────────
     if (userId) {
-      const window72h = Date.now() - 72 * 60 * 60 * 1000;
-      // 1. Qualification check
-      const passedModules = await sql(
-        `SELECT COUNT(DISTINCT module_id) as cnt FROM quiz_attempts WHERE trainee_id=? AND passed=1 AND pct>=80`,
-        [userId]
-      );
-      if ((passedModules[0]?.cnt ?? 0) < 2) {
-        return c.json({ error: 'locked', message: 'Complete 2 modules with 80%+ to unlock AI Instructor' }, 200);
-      }
-      // 2. Rate limit: 20 questions per 72h
+      const window24h = Date.now() - 24 * 60 * 60 * 1000;
       const usageRows = await sql(
-        `SELECT ts FROM activity_log WHERE trainee_id=? AND event='ai_question' AND ts>=? ORDER BY ts ASC`,
-        [userId, window72h]
+        `SELECT ts FROM activity_log WHERE trainee_id=? AND event='ai_question' AND ts>=?`,
+        [userId, window24h]
       );
       if (usageRows.length >= 20) {
-        const oldestTs = usageRows[0].ts as number;
-        const resetAt = oldestTs + 72 * 60 * 60 * 1000;
-        const diffMs = Math.max(0, resetAt - Date.now());
-        const diffH = Math.floor(diffMs / 3600000);
-        const diffM = Math.floor((diffMs % 3600000) / 60000);
-        return c.json({ error: 'limit', message: `You have reached your 20 questions limit. Resets in ${diffH}h ${diffM}m` }, 200);
+        return c.json({ error: 'limit', message: 'You have reached your 20 questions limit. Resets tomorrow.' }, 200);
       }
-      // 3. Log usage before answering
+      // Log usage before answering
       await sqlRun(`INSERT INTO activity_log (trainee_id, event, detail, page, ts) VALUES (?, 'ai_question', ?, 'ai_chat', ?)`,
         [userId, message.slice(0, 120), Date.now()]);
     }
