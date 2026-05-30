@@ -26,6 +26,7 @@ const PrivateChat = lazy(() => import("./pages/private-chat"));
 const About = lazy(() => import("./pages/about"));
 const Admin = lazy(() => import("./pages/admin"));
 const Leaderboard = lazy(() => import("./pages/leaderboard"));
+const Radar = lazy(() => import("./pages/radar"));
 
 // Re-export for anything that imported from app.tsx directly
 export { unlockAudio, showToast } from "./lib/audio";
@@ -400,6 +401,7 @@ function App() {
                 <Route path="/card" component={Card} />
                 <Route path="/about" component={About} />
                 <Route path="/leaderboard" component={Leaderboard} />
+                <Route path="/radar" component={Radar} />
               </Switch>
             </Suspense>
           </AuthGate>

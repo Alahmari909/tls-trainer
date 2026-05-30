@@ -63,6 +63,7 @@ const navItems = [
   { path: "/achievements", label: "Achievements",  icon: "🏅",  tag: "PROFILE" },
   { path: "/chat",         label: "AI Instructor", icon: "💬",  tag: "AI" },
   { path: "/private-chat", label: "Comms",         icon: "🔒",  tag: "COMMS" },
+  { path: "/radar",         label: "Radar",         icon: "📡",  tag: "RADAR"  },
   { path: "/status",       label: "System Status", icon: "📶",  tag: "STATUS" },
   { path: "/notifications",label: "Notifications", icon: "🔔",  tag: "ALERTS" },
   { path: "/settings",     label: "Settings",      icon: "⚙️",  tag: "CONFIG" },
