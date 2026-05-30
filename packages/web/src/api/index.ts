@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from "hono/cors";
 import { eq, and, desc } from "drizzle-orm";
-import { generateText, createGateway } from "ai";
+// AI SDK import removed — using direct Anthropic fetch instead
 import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
 import { db } from "./database";
 import * as fflate from 'fflate';
@@ -333,6 +333,7 @@ S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
 AI_GATEWAY_BASE_URL=
 AI_GATEWAY_API_KEY=
+ANTHROPIC_API_KEY=
 BETTER_AUTH_SECRET=
 ADMIN_PASSWORD=
 TELEGRAM_BOT_TOKEN=
@@ -1141,18 +1142,41 @@ const app = new Hono()
   .post('/chat/ai', async (c) => {
     const body = await c.req.json();
     const { message, history = [] } = body as { message: string; history: { role: 'user' | 'assistant'; content: string }[] };
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return c.json({ reply: 'عذراً، مفتاح API غير مضبوط من قِبَل المسؤول.\nSorry, AI API key is not configured. Please contact the administrator.' }, 200);
+    }
     const systemPrompt = `You are a TLS (Transponder Landing System) expert instructor for the Royal Saudi Air Force (RSAF) Ground Radar unit in Jeddah, Saudi Arabia. Answer any question about TLS, ILS, aviation navigation, radar systems, and related technical topics — including system components, operation, calibration, maintenance, alarm analysis, signal theory, DDM, VSWR, transponder encoding, glide slope, localizer, integrity monitoring, and startup procedures. Be precise, technical, and educational. Reply in Arabic first, then English. Keep responses focused and useful for a field technician.`;
     try {
-      const gateway = createGateway({ baseURL: process.env.AI_GATEWAY_BASE_URL, apiKey: process.env.AI_GATEWAY_API_KEY });
-      const { text } = await generateText({
-        model: gateway("openai/gpt-5.4-mini"),
-        system: systemPrompt,
-        messages: [...history.slice(-10).map((m: any) => ({ role: m.role, content: m.content })), { role: 'user' as const, content: message }],
-        maxTokens: 500, temperature: 0.7,
+      const messages = [
+        ...history.slice(-10).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user' as const, content: message },
+      ];
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 600,
+          system: systemPrompt,
+          messages,
+        }),
       });
-      return c.json({ reply: text ?? 'لا توجد إجابة.\nNo reply received.' }, 200);
-    } catch (e) {
-      return c.json({ reply: 'عذراً، تعذر الاتصال.\nSorry, connection failed.' }, 200);
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('[AI] Anthropic error:', res.status, err);
+        return c.json({ reply: `عذراً، خطأ من خدمة الذكاء الاصطناعي (${res.status}).\nSorry, AI service error (${res.status}).` }, 200);
+      }
+      const data = await res.json() as any;
+      const text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
+      return c.json({ reply: text }, 200);
+    } catch (e: any) {
+      console.error('[AI] fetch error:', e?.message);
+      return c.json({ reply: 'عذراً، تعذر الاتصال بخدمة الذكاء الاصطناعي.\nSorry, could not reach the AI service.' }, 200);
     }
   })
   .get('/messages', async (c) => {
