@@ -122,7 +122,8 @@ export default function Quiz() {
     if (answered || !q) return;
     setSelected(opt);
     setAnswered(true);
-    const correct = opt.toLowerCase() === q.correctOption.toLowerCase();
+    const correctAns = (q.correctOption ?? q.correct_option ?? '').toLowerCase();
+    const correct = opt.toLowerCase() === correctAns;
     if (correct) setScore(s => s + 1);
     setResults(prev => [...prev, { correct, selected: opt, question: q! }]);
     // Sound feedback — only if enabled in settings
@@ -135,7 +136,7 @@ export default function Quiz() {
     if (current + 1 >= questions.length) {
       setFinished(true);
       const lastCorrect = selected != null && questions[current] != null
-        ? selected.toLowerCase() === questions[current]!.correctOption.toLowerCase()
+        ? selected.toLowerCase() === (questions[current]!.correctOption ?? questions[current]!.correct_option ?? '').toLowerCase()
         : false;
       const finalResults = answered
         ? results
