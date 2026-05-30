@@ -406,41 +406,102 @@ body {
   min-width: 0;
 }
 
-/* ── Sidebar (desktop only) ── */
+/* ── Sidebar (hidden — replaced by topbar) ── */
 .sidebar {
   display: none !important;
 }
 
+/* ── Desktop topbar ── */
+.desktop-topbar {
+  display: none;
+}
+
 @media (min-width: 768px) {
-  .sidebar {
-    display: flex !important;
-    flex-direction: column;
-    width: 220px;
-    min-width: 220px;
-    height: 100vh;
-    position: sticky;
-    top: 0;
+  .desktop-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 52px;
     background: rgba(3, 8, 20, 0.98);
-    border-right: 1px solid rgba(0, 174, 239, 0.15);
-    padding: 20px 0;
-    z-index: 50;
-    overflow-y: auto;
+    border-bottom: 1px solid rgba(0, 174, 239, 0.15);
+    padding: 0 20px;
+    z-index: 200;
+    backdrop-filter: blur(20px);
+  }
+
+  .page {
+    padding-top: 68px;
+    padding-bottom: 0;
+  }
+
+  .app-content {
+    padding-top: 0;
+    max-width: 100vw;
   }
 
   /* Hide bottom nav on desktop */
   .bottom-nav {
     display: none !important;
   }
+}
 
-  /* Remove bottom padding from page on desktop */
-  .page {
-    padding-bottom: 0;
-  }
+.topbar-menu-btn {
+  display: flex; align-items: center; gap: 10px;
+  background: none; border: none; cursor: pointer;
+  color: #00d4ff; font-family: 'Inter', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  padding: 6px 10px; border-radius: 8px;
+  transition: background 0.15s;
+}
+.topbar-menu-btn:hover { background: rgba(0, 174, 239, 0.08); }
 
-  /* Content area max width on large screens */
-  .app-content {
-    max-width: calc(100vw - 220px);
-  }
+.topbar-brand { font-family: 'Inter', sans-serif; }
+
+.topbar-dropdown {
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: #080f1e; border: 1px solid rgba(0, 174, 239, 0.2);
+  border-radius: 12px; overflow: hidden; z-index: 999;
+  min-width: 200px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+}
+
+.topbar-dropdown-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px;
+  text-decoration: none; font-size: 11px;
+  font-family: 'Inter', sans-serif; letter-spacing: 0.08em;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+
+.topbar-dropdown-active-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #00d4ff; margin-left: auto;
+  box-shadow: 0 0 6px #00d4ff;
+}
+
+.topbar-user {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.topbar-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #00AEEF, #0066cc);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  font-family: 'Inter', sans-serif; flex-shrink: 0;
+}
+
+.topbar-user-name {
+  font-size: 12px; font-weight: 600; color: #fff;
+  font-family: 'Inter', sans-serif; letter-spacing: 0.04em;
+}
+
+.topbar-user-rank {
+  font-size: 9px; color: rgba(255, 255, 255, 0.4);
+  font-family: 'Inter', sans-serif; letter-spacing: 0.06em; margin-top: 1px;
 }
 
 @media (min-width: 1200px) {
