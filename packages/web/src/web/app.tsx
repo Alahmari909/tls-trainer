@@ -342,6 +342,9 @@ function App() {
   useScrollPersistence();
   usePWAMeta();
 
+  const [location] = useLocation();
+  const isAdminRoute = location === "/admin" || location.startsWith("/admin");
+
   // Unlock audio on any user interaction
   useEffect(() => {
     const unlock = () => { unlockAudio(); };
@@ -352,6 +355,17 @@ function App() {
       document.removeEventListener("touchstart", unlock);
     };
   }, []);
+
+  // Admin gets its own fully isolated shell — no sidebar, no nav, no shared elements
+  if (isAdminRoute) {
+    return (
+      <Provider>
+        <Suspense fallback={null}>
+          <Admin />
+        </Suspense>
+      </Provider>
+    );
+  }
 
   return (
     <Provider>
@@ -385,7 +399,6 @@ function App() {
                 <Route path="/settings" component={Settings} />
                 <Route path="/card" component={Card} />
                 <Route path="/about" component={About} />
-                <Route path="/admin" component={Admin} />
                 <Route path="/leaderboard" component={Leaderboard} />
               </Switch>
             </Suspense>
