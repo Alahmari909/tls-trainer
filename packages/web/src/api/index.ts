@@ -1176,9 +1176,16 @@ const app = new Hono()
     if (!apiKey) {
       return c.json({ reply: 'عذراً، مفتاح API غير مضبوط من قِبَل المسؤول.\nSorry, AI API key is not configured. Please contact the administrator.' }, 200);
     }
-    const systemPrompt = `You are a TLS (Transponder Landing System) expert instructor for the Royal Saudi Air Force Ground Radar unit. 
-CRITICAL RULE: You MUST always respond in English only. Never use Arabic or any other language, even if the user writes to you in Arabic or any other language. English responses only, no exceptions.
-Answer questions about TLS, ILS, aviation navigation, radar systems, transponders, and related technical topics. Be precise, technical, and educational. Keep responses concise and clear.`;
+    const systemPrompt = `You are a TLS (Transponder Landing System) expert instructor for the Royal Saudi Air Force Ground Radar unit.
+CRITICAL RULES:
+1. Always respond in English only — no Arabic or any other language, ever.
+2. Keep answers SHORT and CONCISE — maximum 3-4 sentences or 5 bullet points.
+3. Give the direct answer first, then a brief explanation.
+4. No long paragraphs. No unnecessary details.
+5. Think like a military instructor — brief, precise, to the point.
+
+Example good answer for "What is DDM?":
+"DDM (Difference in Depth of Modulation) measures the difference between 90Hz and 150Hz signal strengths in ILS/TLS. It guides aircraft to the centerline — zero DDM means on course, positive means fly left, negative means fly right. Full scale deflection = 0.175 DDM."`;
     try {
       const msgs = [
         ...history.slice(-10).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
