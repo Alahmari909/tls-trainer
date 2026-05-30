@@ -148,10 +148,11 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const session = getSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -164,6 +165,26 @@ export default function Sidebar() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    if (!session?.id) return;
+    const fetchUnread = () => {
+      fetch(`/api/trainee/notifications/${session.id}`)
+        .then(r => r.json())
+        .then(data => {
+          const unread = [
+            ...(data.alerts || []),
+            ...(data.messages || [])
+          ].filter((n: any) => !n.read).length;
+          setUnreadCount(unread);
+        })
+        .catch(() => {});
+    };
+    fetchUnread();
+    const id = setInterval(fetchUnread, 30000);
+    return () => clearInterval(id);
+  }, [session?.id]);
 
   if (!session) return null;
 
@@ -223,6 +244,37 @@ export default function Sidebar() {
               })}
             </div>
           )}
+        </div>
+
+        {/* Right: bell icon */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          <button
+            onClick={() => setLocation("/notifications")}
+            style={{
+              position: "relative", background: "transparent", border: "none",
+              cursor: "pointer", padding: "6px", color: "rgba(255,255,255,0.3)",
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+            aria-label="Notifications"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {unreadCount > 0 && (
+              <span style={{
+                position: "absolute", top: 2, right: 2,
+                background: "#FF4D4D", color: "#fff",
+                borderRadius: "50%", width: 16, height: 16,
+                fontSize: 9, fontWeight: 700, fontFamily: "Inter",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Animated shimmer glow overlay (decorative, behind everything) */}
