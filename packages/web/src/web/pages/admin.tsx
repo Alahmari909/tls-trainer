@@ -2299,21 +2299,21 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
 }
 
 // ─── Admin Nav Items ──────────────────────────────────────────────────────────
-const ADMIN_NAV = [
-  { id: "dashboard", label: "Dashboard", icon: "⚡" },
-  { id: "trainees",  label: "Trainees",  icon: "👥" },
-  { id: "reports",   label: "Reports",   icon: "📊" },
-  { id: "settings",  label: "Settings",  icon: "⚙️" },
-] as const;
+// ADMIN_NAV kept for type reference only — navigation is entirely via ☰ MENU dropdown
+const ADMIN_NAV = [] as const;
 
 const NAV_LINKS = [
-  { id: "modules",       label: "Modules",       icon: "📡" },
-  { id: "manuals",       label: "Manuals",        icon: "📋" },
-  { id: "quiz",          label: "Quiz",           icon: "🎯" },
-  { id: "chat",          label: "Chat",           icon: "💬" },
-  { id: "status",        label: "System Status",  icon: "📶" },
-  { id: "notifications", label: "Notifications",  icon: "🔔" },
-  { id: "about",         label: "About",          icon: "ℹ️" },
+  { id: "dashboard",     label: "Dashboard",      icon: "⚡", divider: false },
+  { id: "trainees",      label: "Trainees",       icon: "👥", divider: false },
+  { id: "reports",       label: "Reports",        icon: "📊", divider: false },
+  { id: "settings",      label: "Settings",       icon: "⚙️", divider: true  },
+  { id: "modules",       label: "Modules",        icon: "📡", divider: false },
+  { id: "manuals",       label: "Manuals",        icon: "📋", divider: false },
+  { id: "quiz",          label: "Quiz",           icon: "🎯", divider: false },
+  { id: "chat",          label: "Chat",           icon: "💬", divider: false },
+  { id: "status",        label: "System Status",  icon: "📶", divider: false },
+  { id: "notifications", label: "Notifications",  icon: "🔔", divider: false },
+  { id: "about",         label: "About",          icon: "ℹ️", divider: false },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
@@ -2476,6 +2476,16 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 
 
+  // ── Admin mode flag — suppresses Telegram tracking inside imported pages ──────
+  const IMPORTED_VIEWS = ["modules", "manuals", "quiz", "chat", "status", "notifications", "about"];
+  useEffect(() => {
+    if (IMPORTED_VIEWS.includes(activeView)) {
+      sessionStorage.setItem("tls_admin_mode", "1");
+    } else {
+      sessionStorage.removeItem("tls_admin_mode");
+    }
+  }, [activeView]);
+
   const fetchData = useCallback(async () => {
     try {
       const [res, retakeRes] = await Promise.all([
@@ -2620,21 +2630,26 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   minWidth: 160, boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
                 }}>
                   {NAV_LINKS.map(link => (
-                    <button
-                      key={link.id}
-                      onClick={() => { setActiveView(link.id as AdminView); setMenuOpen(false); }}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        width: "100%", padding: "10px 14px",
-                        background: activeView === link.id ? "rgba(0,255,136,0.1)" : "none",
-                        border: "none", borderBottom: "1px solid rgba(0,255,136,0.07)",
-                        color: activeView === link.id ? "#00FF88" : "rgba(255,255,255,0.7)",
-                        fontSize: 11, fontFamily: "Inter", cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <span>{link.icon}</span>{link.label}
-                    </button>
+                    <React.Fragment key={link.id}>
+                      <button
+                        onClick={() => { setActiveView(link.id as AdminView); setMenuOpen(false); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          width: "100%", padding: "10px 14px",
+                          background: activeView === link.id ? "rgba(0,255,136,0.1)" : "none",
+                          border: "none", borderBottom: "1px solid rgba(0,255,136,0.07)",
+                          color: activeView === link.id ? "#00FF88" : "rgba(255,255,255,0.7)",
+                          fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span>{link.icon}</span>{link.label}
+                        {link.id === "trainees" && retakeRequests.length > 0 && (
+                          <span style={{ marginLeft: "auto", background: "#FFD700", color: "#000", borderRadius: 10, padding: "0 5px", fontSize: 8, fontWeight: 700 }}>{retakeRequests.length}</span>
+                        )}
+                      </button>
+                      {link.divider && <div style={{ height: 1, background: "rgba(0,255,136,0.2)", margin: "2px 0" }} />}
+                    </React.Fragment>
                   ))}
                 </div>
               )}
@@ -2652,39 +2667,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           </div>
         </div>
 
-        {/* Nav tabs */}
-        <div style={{
-          display: "flex", gap: 0, marginTop: 4,
-          borderTop: "1px solid rgba(0,255,136,0.06)",
-          overflowX: "auto",
-        }}>
-          {ADMIN_NAV.map(nav => (
-            <button
-              key={nav.id}
-              onClick={() => setActiveView(nav.id)}
-              style={{
-                padding: "10px 14px", background: "none", border: "none",
-                borderBottom: activeView === nav.id
-                  ? "2px solid #00FF88"
-                  : "2px solid transparent",
-                color: activeView === nav.id ? "#00FF88" : "rgba(255,255,255,0.3)",
-                fontFamily: "Inter", fontSize: 10, letterSpacing: "0.1em",
-                cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                display: "flex", alignItems: "center", gap: 5,
-                transition: "color 0.15s",
-              }}
-            >
-              <span style={{ fontSize: 12 }}>{nav.icon}</span>
-              {nav.label.toUpperCase()}
-              {nav.id === "trainees" && retakeRequests.length > 0 && (
-                <span style={{
-                  background: "#FFD700", color: "#000", borderRadius: 10,
-                  padding: "0px 5px", fontSize: 8, fontWeight: 700,
-                }}>{retakeRequests.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
       </div>
 
       {error && (

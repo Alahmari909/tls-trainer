@@ -37,6 +37,8 @@ function getIds(): { userId: string; traineeName: string } {
 }
 
 async function track(payload: Record<string, unknown>) {
+  // Suppress all tracking when viewed inside the admin panel
+  if (sessionStorage.getItem("tls_admin_mode")) return;
   try {
     const ids = getIds();
     await fetch("/api/track", {
