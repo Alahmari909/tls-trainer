@@ -40,7 +40,6 @@ function statusLabel(s: StatusLevel) {
 // ── Radar canvas ────────────────────────────────────────────────────────────
 function RadarCanvas({ overallStatus }: { overallStatus: StatusLevel }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const angleRef  = useRef(0);
 
   const blipDefs = useRef([
     { angle: 0.4,  dist: 0.52, label: "DB"  },
@@ -59,104 +58,58 @@ function RadarCanvas({ overallStatus }: { overallStatus: StatusLevel }) {
     const CX = SIZE / 2, CY = SIZE / 2, R = SIZE / 2 - 8;
     const sweepColor = statusColor(overallStatus);
 
-    let raf: number;
-    const draw = () => {
-      angleRef.current = (angleRef.current + 0.012) % (2 * Math.PI);
-      const sweep = angleRef.current;
+    ctx.clearRect(0, 0, SIZE, SIZE);
 
-      ctx.clearRect(0, 0, SIZE, SIZE);
+    // Outer circle
+    ctx.beginPath();
+    ctx.arc(CX, CY, R, 0, 2 * Math.PI);
+    ctx.strokeStyle = `${sweepColor}25`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-      // Outer circle
+    // Rings
+    for (const ratio of [0.25, 0.5, 0.75]) {
       ctx.beginPath();
-      ctx.arc(CX, CY, R, 0, 2 * Math.PI);
-      ctx.strokeStyle = `${sweepColor}25`;
-      ctx.lineWidth = 1.5;
+      ctx.arc(CX, CY, R * ratio, 0, 2 * Math.PI);
+      ctx.strokeStyle = `${sweepColor}12`;
+      ctx.lineWidth = 1;
       ctx.stroke();
+    }
 
-      // Rings
-      for (const ratio of [0.25, 0.5, 0.75]) {
-        ctx.beginPath();
-        ctx.arc(CX, CY, R * ratio, 0, 2 * Math.PI);
-        ctx.strokeStyle = `${sweepColor}12`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-
-      // Crosshairs
-      for (const a of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
-        ctx.beginPath();
-        ctx.moveTo(CX, CY);
-        ctx.lineTo(CX + Math.cos(a) * R, CY + Math.sin(a) * R);
-        ctx.strokeStyle = `${sweepColor}10`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-
-      // Sweep sector
-      const SWEEP_ARC = Math.PI / 3;
-      for (let s = 0; s < 24; s++) {
-        const ratio  = s / 24;
-        const startA = sweep - SWEEP_ARC * (1 - ratio);
-        const endA   = sweep - SWEEP_ARC * (1 - (s + 1) / 24);
-        ctx.beginPath();
-        ctx.moveTo(CX, CY);
-        ctx.arc(CX, CY, R, startA, endA);
-        ctx.closePath();
-        const rgb = sweepColor === C.green  ? "0,210,106"
-                  : sweepColor === C.yellow ? "255,209,102"
-                  : sweepColor === C.red    ? "255,77,77"
-                  : "0,174,239";
-        ctx.fillStyle = `rgba(${rgb},${0.08 * ratio})`;
-        ctx.fill();
-      }
-
-      // Sweep line
-      ctx.save();
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = sweepColor;
+    // Crosshairs
+    for (const a of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
       ctx.beginPath();
       ctx.moveTo(CX, CY);
-      ctx.lineTo(CX + Math.cos(sweep) * R, CY + Math.sin(sweep) * R);
-      ctx.strokeStyle = `${sweepColor}cc`;
-      ctx.lineWidth = 1.5;
+      ctx.lineTo(CX + Math.cos(a) * R, CY + Math.sin(a) * R);
+      ctx.strokeStyle = `${sweepColor}10`;
+      ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.restore();
+    }
 
-      // Center dot
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(CX, CY, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = sweepColor;
+    ctx.fill();
+
+    // Blips
+    blipDefs.current.forEach(b => {
+      const bx = CX + Math.cos(b.angle) * R * b.dist;
+      const by = CY + Math.sin(b.angle) * R * b.dist;
+
+      ctx.save();
+      ctx.shadowBlur  = 10;
+      ctx.shadowColor = sweepColor;
       ctx.beginPath();
-      ctx.arc(CX, CY, 3, 0, 2 * Math.PI);
+      ctx.arc(bx, by, 3, 0, 2 * Math.PI);
       ctx.fillStyle = sweepColor;
       ctx.fill();
+      ctx.restore();
 
-      // Blips
-      blipDefs.current.forEach(b => {
-        const bx = CX + Math.cos(b.angle) * R * b.dist;
-        const by = CY + Math.sin(b.angle) * R * b.dist;
-        const diff = (sweep - b.angle + 2 * Math.PI) % (2 * Math.PI);
-        const lit  = diff < 0.12;
-        const trailRatio = Math.max(0, 1 - diff / (Math.PI * 1.5));
-
-        ctx.save();
-        ctx.shadowBlur  = lit ? 16 : 6 * trailRatio;
-        ctx.shadowColor = sweepColor;
-        ctx.beginPath();
-        ctx.arc(bx, by, lit ? 4 : 3, 0, 2 * Math.PI);
-        ctx.fillStyle = lit
-          ? "#fff"
-          : `${sweepColor}${Math.round(trailRatio * 200).toString(16).padStart(2, "0")}`;
-        ctx.fill();
-        ctx.restore();
-
-        ctx.fillStyle = `rgba(0,174,239,${0.4 + trailRatio * 0.6})`;
-        ctx.font = "bold 7px Inter, sans-serif";
-        ctx.fillText(b.label, bx + 5, by - 5);
-      });
-
-      raf = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => cancelAnimationFrame(raf);
+      ctx.fillStyle = `rgba(0,174,239,0.8)`;
+      ctx.font = "bold 7px Inter, sans-serif";
+      ctx.fillText(b.label, bx + 5, by - 5);
+    });
   }, [overallStatus]);
 
   return <canvas ref={canvasRef} width={220} height={220} style={{ display: "block" }} />;
