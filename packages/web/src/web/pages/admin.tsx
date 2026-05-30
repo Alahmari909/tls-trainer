@@ -2312,6 +2312,49 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const [retakeActioning, setRetakeActioning] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<AdminView>("dashboard");
 
+  // ── Theme toggle ─────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState<"dark" | "light">(() => (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark");
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "light") {
+      root.style.setProperty("--bg-primary", "#f0f4f8");
+      root.style.setProperty("--bg-secondary", "#e2eaf3");
+      root.style.setProperty("--text-primary", "#1a1a2e");
+      root.style.setProperty("--text-secondary", "#2d3748");
+      root.style.setProperty("--text-muted", "#64748b");
+      root.style.setProperty("--card-bg", "#ffffff");
+    } else {
+      root.style.setProperty("--bg-primary", "#071426");
+      root.style.setProperty("--bg-secondary", "#0a1e38");
+      root.style.setProperty("--text-primary", "#ffffff");
+      root.style.setProperty("--text-secondary", "rgba(255,255,255,0.75)");
+      root.style.setProperty("--text-muted", "rgba(255,255,255,0.35)");
+      root.style.setProperty("--card-bg", "rgba(255,255,255,0.04)");
+    }
+    localStorage.setItem("tls_theme", theme);
+  }, [theme]);
+
+  // ── Nav dropdown ─────────────────────────────────────────────────────────────
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const NAV_LINKS = [
+    { emoji: "📡", label: "TLS Basics", path: "/basics" },
+    { emoji: "⬡", label: "Modules", path: "/modules" },
+    { emoji: "🎯", label: "Quiz", path: "/quiz" },
+    { emoji: "📋", label: "Manuals", path: "/manuals" },
+    { emoji: "📶", label: "Live Status", path: "/status" },
+    { emoji: "🏆", label: "Leaderboard", path: "/leaderboard" },
+  ];
+
   const fetchData = useCallback(async () => {
     try {
       const [res, retakeRes] = await Promise.all([
@@ -2402,8 +2445,9 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             </div>
           </div>
 
-          {/* Right side: online pill + logout */}
+          {/* Right side: online pill + theme + menu + logout */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Online pill */}
             <div style={{
               display: "flex", alignItems: "center", gap: 5,
               background: online.length > 0 ? "rgba(0,204,102,0.12)" : "rgba(255,255,255,0.04)",
@@ -2420,6 +2464,65 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 {online.length} LIVE
               </span>
             </div>
+
+            {/* Theme toggle */}
+            <button
+              onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              style={{
+                width: 32, height: 32, borderRadius: 8, cursor: "pointer",
+                background: "rgba(0,255,136,0.07)",
+                border: "1px solid rgba(0,255,136,0.25)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 15, flexShrink: 0, transition: "background 0.2s",
+              }}
+            >{theme === "dark" ? "🌞" : "🌙"}</button>
+
+            {/* Nav dropdown */}
+            <div ref={menuRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                style={{
+                  padding: "5px 10px", background: "rgba(0,255,136,0.07)",
+                  border: "1px solid rgba(0,255,136,0.25)",
+                  borderRadius: 8, cursor: "pointer", color: "#00FF88",
+                  fontSize: 9, fontFamily: "Inter", letterSpacing: "0.08em",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}
+              >☰ MENU</button>
+              {menuOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 8px)", right: 0,
+                  background: "#030d03", border: "1px solid rgba(0,255,136,0.25)",
+                  borderRadius: 12, overflow: "hidden", zIndex: 9999,
+                  minWidth: 180, boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                }}>
+                  {NAV_LINKS.map(link => (
+                    <a
+                      key={link.path}
+                      href={link.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMenuOpen(false)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "11px 16px", textDecoration: "none",
+                        color: "rgba(255,255,255,0.85)", fontSize: 12,
+                        fontFamily: "Inter", letterSpacing: "0.03em",
+                        borderBottom: "1px solid rgba(0,255,136,0.07)",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,255,136,0.08)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <span style={{ fontSize: 14 }}>{link.emoji}</span>
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
               style={{
