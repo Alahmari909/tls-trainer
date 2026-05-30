@@ -2317,12 +2317,11 @@ const NAV_LINKS = [
   { id: "notifications", label: "Notifications",  icon: "🔔", divider: false },
   { id: "about",         label: "About",          icon: "ℹ️", divider: false },
   { id: "documents",     label: "Documents",      icon: "📄", divider: false },
-  { id: "radar_gallery",  label: "Radar Gallery",  icon: "📷", divider: false },
   { id: "common_faults",  label: "Common Faults",  icon: "⚠️", divider: false },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "radar_gallery" | "common_faults";
+  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -2703,154 +2702,6 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
   );
 }
 
-// ─── Admin Dashboard ──────────────────────────────────────────────────────────
-// ── Radar Gallery Admin Panel ─────────────────────────────────────────────────
-interface RGItem { id: number; title: string; caption: string; sort_order: number; created_at: number; }
-
-function AdminRadarGallery({ adminPw }: { adminPw: string }) {
-  const [items, setItems]         = useState<RGItem[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [editId, setEditId]       = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editCaption, setEditCaption] = useState("");
-  const [newTitle, setNewTitle]   = useState("");
-  const [newCaption, setNewCaption] = useState("");
-  const [newFile, setNewFile]     = useState<File | null>(null);
-  const [msg, setMsg]             = useState("");
-
-  const load = async () => {
-    const r = await fetch("/api/radar/gallery");
-    const d = await r.json() as { items: RGItem[] };
-    setItems(d.items ?? []);
-    setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
-
-  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 3000); };
-
-  const handleUpload = async () => {
-    if (!newFile || !newTitle.trim()) { flash("⚠️ Title and image required"); return; }
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("image", newFile);
-    fd.append("title", newTitle.trim());
-    fd.append("caption", newCaption.trim());
-    fd.append("sort_order", String(items.length));
-    const r = await fetch("/api/admin/radar/gallery", { method: "POST", headers: { "x-admin-pw": adminPw }, body: fd });
-    setUploading(false);
-    if (r.ok) { flash("✅ Image added"); setNewTitle(""); setNewCaption(""); setNewFile(null); load(); }
-    else flash("❌ Upload failed");
-  };
-
-  const handleSaveEdit = async (id: number) => {
-    await fetch(`/api/admin/radar/gallery/${id}`, {
-      method: "PATCH",
-      headers: { "x-admin-pw": adminPw, "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editTitle, caption: editCaption }),
-    });
-    setEditId(null); flash("✅ Saved"); load();
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this image?")) return;
-    await fetch(`/api/admin/radar/gallery/${id}`, { method: "DELETE", headers: { "x-admin-pw": adminPw } });
-    flash("🗑️ Deleted"); load();
-  };
-
-  const bg = "#03080f";
-  const accent = "#00FF88";
-  const inp = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "#fff", padding: "8px 12px", fontFamily: "Inter", fontSize: 13, width: "100%", boxSizing: "border-box" as const };
-
-  return (
-    <div style={{ background: bg, minHeight: "100vh", padding: "24px 20px", maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ fontFamily: "Orbitron,monospace", fontSize: 13, color: accent, letterSpacing: "0.12em", marginBottom: 4 }}>📷 RADAR GALLERY MANAGER</div>
-      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 24 }}>Upload and manage field visuals shown on the Radar page</div>
-
-      {msg && (
-        <div style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: accent, fontSize: 12 }}>{msg}</div>
-      )}
-
-      {/* Upload new */}
-      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12, padding: "18px 18px 20px", marginBottom: 28 }}>
-        <div style={{ fontSize: 11, color: accent, fontWeight: 700, letterSpacing: "0.1em", marginBottom: 14 }}>+ ADD NEW IMAGE</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <input placeholder="Title *  e.g. ESA Fault — Phase Jitter High" style={inp} value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-          <textarea
-            placeholder="Caption — describe what happened, fault code, date, fix applied…"
-            style={{ ...inp, minHeight: 80, resize: "vertical" as const }}
-            value={newCaption}
-            onChange={e => setNewCaption(e.target.value)}
-          />
-          <input type="file" accept="image/*" onChange={e => setNewFile(e.target.files?.[0] ?? null)}
-            style={{ ...inp, padding: "6px 12px" }} />
-          <button
-            onClick={handleUpload}
-            disabled={uploading}
-            style={{
-              padding: "10px 24px", background: uploading ? "rgba(0,255,136,0.05)" : "rgba(0,255,136,0.12)",
-              border: "1px solid rgba(0,255,136,0.4)", borderRadius: 8,
-              color: accent, fontFamily: "monospace", fontWeight: 700,
-              fontSize: 12, cursor: "pointer", letterSpacing: "0.08em",
-              alignSelf: "flex-start",
-            }}
-          >
-            {uploading ? "UPLOADING…" : "UPLOAD IMAGE"}
-          </button>
-        </div>
-      </div>
-
-      {/* Existing items */}
-      {loading && <div style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>LOADING…</div>}
-      {!loading && items.length === 0 && (
-        <div style={{ textAlign: "center", padding: 40, color: "rgba(255,255,255,0.25)", fontFamily: "monospace" }}>No images yet. Upload the first one above.</div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {items.map(item => (
-          <div key={item.id} style={{
-            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,255,136,0.12)",
-            borderRadius: 10, padding: "14px 16px",
-          }}>
-            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-              <img
-                src={`/api/radar/gallery/${item.id}/image`}
-                alt={item.title}
-                style={{ width: 90, height: 68, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid rgba(0,255,136,0.15)" }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {editId === item.id ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input style={inp} value={editTitle} onChange={e => setEditTitle(e.target.value)} />
-                    <textarea style={{ ...inp, minHeight: 60, resize: "vertical" as const }} value={editCaption} onChange={e => setEditCaption(e.target.value)} />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => handleSaveEdit(item.id)} style={{ padding: "6px 14px", background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.4)", borderRadius: 6, color: accent, fontSize: 11, cursor: "pointer" }}>SAVE</button>
-                      <button onClick={() => setEditId(null)} style={{ padding: "6px 14px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, color: "rgba(255,255,255,0.5)", fontSize: 11, cursor: "pointer" }}>CANCEL</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ color: "#fff", fontSize: 13, fontFamily: "Orbitron,monospace", marginBottom: 5, letterSpacing: "0.04em" }}>{item.title}</div>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, lineHeight: 1.5 }}>{item.caption || <span style={{ opacity: 0.4, fontStyle: "italic" }}>No caption</span>}</div>
-                    <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                      <button
-                        onClick={() => { setEditId(item.id); setEditTitle(item.title); setEditCaption(item.caption ?? ""); }}
-                        style={{ padding: "5px 12px", background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", borderRadius: 6, color: "#00AEEF", fontSize: 10, cursor: "pointer" }}
-                      >EDIT</button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        style={{ padding: "5px 12px", background: "rgba(255,77,77,0.1)", border: "1px solid rgba(255,77,77,0.3)", borderRadius: 6, color: "#FF4D4D", fontSize: 10, cursor: "pointer" }}
-                      >DELETE</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () => void }) {
   const [trainees, setTrainees] = useState<Trainee[]>([]);
@@ -3340,9 +3191,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       </div>}
 
       {/* ── RADAR GALLERY ADMIN ── */}
-      {activeView === "radar_gallery" && (
-        <AdminRadarGallery adminPw={adminPw} />
-      )}
 
       {activeView === "common_faults" && (
         <AdminFaults adminPw={adminPw} />

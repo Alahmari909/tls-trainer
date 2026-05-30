@@ -178,15 +178,6 @@ async function ensureTables() {
       table_counts TEXT NOT NULL DEFAULT '{}',
       data TEXT NOT NULL
     )`);
-    await client.execute(`CREATE TABLE IF NOT EXISTS radar_gallery (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      caption TEXT,
-      image_data TEXT NOT NULL,
-      mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
-    )`);
     await client.execute(`CREATE TABLE IF NOT EXISTS common_faults (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -2227,79 +2218,6 @@ Example good answer for "What is DDM?":
       manualLogs,
       generatedAt: Date.now(),
     }, 200);
-  });
-
-// ── Radar Gallery ─────────────────────────────────────────────────────────────
-app
-  // GET /radar/gallery — list all items (no image data, just meta)
-  .get('/radar/gallery', async (c) => {
-    const rows = await sql(
-      `SELECT id, title, caption, mime_type, sort_order, created_at FROM radar_gallery ORDER BY sort_order ASC, id ASC`
-    );
-    return c.json({ ok: true, items: rows }, 200);
-  })
-
-  // GET /radar/gallery/:id/image — serve image binary
-  .get('/radar/gallery/:id/image', async (c) => {
-    const id = c.req.param('id');
-    const [row] = await sql(`SELECT image_data, mime_type, title FROM radar_gallery WHERE id=?`, [id]);
-    if (!row) return c.json({ error: 'Not found' }, 404);
-    const buf = Buffer.from(row.image_data as string, 'base64');
-    return new Response(buf, {
-      headers: {
-        'Content-Type': row.mime_type as string,
-        'Content-Disposition': `inline; filename="${(row.title as string).replace(/\s/g, '_')}.jpg"`,
-        'Cache-Control': 'public, max-age=86400',
-      },
-    });
-  })
-
-  // POST /admin/radar/gallery — add new item (admin only)
-  .post('/admin/radar/gallery', async (c) => {
-    const pw = c.req.header('x-admin-pw') ?? '';
-    if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
-    const formData = await c.req.formData();
-    const file = formData.get('image') as File | null;
-    const title = (formData.get('title') as string | null) ?? 'Radar Image';
-    const caption = (formData.get('caption') as string | null) ?? '';
-    const sort_order = parseInt((formData.get('sort_order') as string | null) ?? '0', 10);
-    if (!file) return c.json({ error: 'No image provided' }, 400);
-    if (file.size > 15 * 1024 * 1024) return c.json({ error: 'File too large (max 15MB)' }, 400);
-    const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString('base64');
-    const now = Date.now();
-    await sqlRun(
-      `INSERT INTO radar_gallery (title, caption, image_data, mime_type, sort_order, created_at) VALUES (?,?,?,?,?,?)`,
-      [title, caption, base64, file.type || 'image/jpeg', sort_order, now]
-    );
-    const [row] = await sql(`SELECT id FROM radar_gallery WHERE rowid=last_insert_rowid()`);
-    return c.json({ ok: true, id: row?.id }, 201);
-  })
-
-  // PATCH /admin/radar/gallery/:id — update title/caption/sort
-  .patch('/admin/radar/gallery/:id', async (c) => {
-    const pw = c.req.header('x-admin-pw') ?? '';
-    if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    const body = await c.req.json() as { title?: string; caption?: string; sort_order?: number };
-    const fields: string[] = [];
-    const vals: unknown[] = [];
-    if (body.title !== undefined)      { fields.push('title=?');      vals.push(body.title); }
-    if (body.caption !== undefined)    { fields.push('caption=?');    vals.push(body.caption); }
-    if (body.sort_order !== undefined) { fields.push('sort_order=?'); vals.push(body.sort_order); }
-    if (fields.length === 0) return c.json({ error: 'Nothing to update' }, 400);
-    vals.push(id);
-    await sqlRun(`UPDATE radar_gallery SET ${fields.join(',')} WHERE id=?`, vals);
-    return c.json({ ok: true }, 200);
-  })
-
-  // DELETE /admin/radar/gallery/:id
-  .delete('/admin/radar/gallery/:id', async (c) => {
-    const pw = c.req.header('x-admin-pw') ?? '';
-    if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    await sqlRun(`DELETE FROM radar_gallery WHERE id=?`, [id]);
-    return c.json({ ok: true }, 200);
   });
 
 // ── Common Faults ──────────────────────────────────────────────────────────────
