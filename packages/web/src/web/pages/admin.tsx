@@ -2355,6 +2355,9 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
     { emoji: "🏆", label: "Leaderboard", path: "/leaderboard" },
   ];
 
+  // ── Inline page viewer ───────────────────────────────────────────────────────
+  const [adminPage, setAdminPage] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     try {
       const [res, retakeRes] = await Promise.all([
@@ -2397,6 +2400,20 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
       paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
     } as React.CSSProperties}>
+
+      {/* ── Inline page viewer ── */}
+      {adminPage && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "#050f05", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: "rgba(0,0,0,0.8)", borderBottom: "1px solid rgba(0,255,136,0.2)" }}>
+            <button onClick={() => setAdminPage(null)} style={{ background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.3)", color: "#00FF88", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "Inter", fontSize: 12 }}>
+              ← BACK TO ADMIN
+            </button>
+            <span style={{ color: "#00FF88", fontFamily: "Inter", fontSize: 11, letterSpacing: "0.1em" }}>{adminPage.replace("/", "").toUpperCase()}</span>
+          </div>
+          <iframe src={adminPage} style={{ flex: 1, border: "none", width: "100%" }} />
+        </div>
+      )}
+
       {/* Detail modal */}
       {selectedId && (
         <TraineeDetailModal
@@ -2498,15 +2515,13 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   minWidth: 180, boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
                 }}>
                   {NAV_LINKS.map(link => (
-                    <a
+                    <button
                       key={link.path}
-                      href={link.path}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setMenuOpen(false)}
+                      onClick={() => { setAdminPage(link.path); setMenuOpen(false); }}
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
-                        padding: "11px 16px", textDecoration: "none",
+                        padding: "11px 16px", width: "100%", textAlign: "left",
+                        background: "transparent", border: "none", cursor: "pointer",
                         color: "rgba(255,255,255,0.85)", fontSize: 12,
                         fontFamily: "Inter", letterSpacing: "0.03em",
                         borderBottom: "1px solid rgba(0,255,136,0.07)",
@@ -2517,7 +2532,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                     >
                       <span style={{ fontSize: 14 }}>{link.emoji}</span>
                       {link.label}
-                    </a>
+                    </button>
                   ))}
                 </div>
               )}
