@@ -178,12 +178,13 @@ export default function Sidebar() {
     <>
       {/* ── Desktop topbar (768px+) ── */}
       <header className="desktop-topbar">
-        {/* Left: hamburger menu */}
-        <div ref={menuRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
+        {/* Left: hamburger + TLS TRAINER label */}
+        <div ref={menuRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: 10, zIndex: 10 }}>
           <button
             className="topbar-menu-btn"
             onClick={() => setMenuOpen(o => !o)}
             aria-label="Open navigation"
+            style={{ zIndex: 10, position: "relative" }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6"/>
@@ -191,6 +192,10 @@ export default function Sidebar() {
               <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
+          <div className="topbar-brand-block" style={{ zIndex: 10, position: "relative" }}>
+            <span className="topbar-logo-text">TLS TRAINER</span>
+            <span className="topbar-logo-sub">TRANSPONDER LANDING SYSTEM</span>
+          </div>
 
           {/* Dropdown */}
           {menuOpen && (
@@ -220,15 +225,8 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Center: animated logo banner */}
-        <div className="topbar-logo-banner">
-          <span className="topbar-logo-icon">⊕</span>
-          <span className="topbar-logo-text">TLS TRAINER</span>
-          <span className="topbar-logo-sub">TRANSPONDER LANDING SYSTEM</span>
-        </div>
-
-        {/* Right: spacer to balance hamburger */}
-        <div style={{ width: 44 }} />
+        {/* Animated shimmer glow overlay (decorative, behind everything) */}
+        <div className="topbar-glow-overlay" aria-hidden="true" />
       </header>
 
       {/* ── Mobile bottom nav (hidden on desktop via CSS) ── */}

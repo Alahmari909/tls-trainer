@@ -432,7 +432,6 @@ body {
   .desktop-topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 56px;
@@ -441,15 +440,16 @@ body {
     padding: 0 16px;
     z-index: 200;
     backdrop-filter: blur(20px);
-    overflow: hidden;
+    /* NO overflow:hidden — lets dropdown escape */
   }
 
-  /* Animated shimmer sweep across the topbar bottom border */
+  /* Shimmer line on bottom border */
   .desktop-topbar::after {
     content: '';
     position: absolute;
     bottom: 0; left: 0; right: 0;
     height: 1px;
+    z-index: 0;
     background: linear-gradient(
       90deg,
       transparent 0%,
@@ -460,42 +460,39 @@ body {
     );
     background-size: 600px 1px;
     animation: topbar-shimmer 3s linear infinite;
-  }
-
-  /* ── Logo banner (center) ── */
-  .topbar-logo-banner {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
     pointer-events: none;
-    user-select: none;
   }
 
-  .topbar-logo-icon {
-    font-size: 20px;
-    color: #00d4ff;
+  /* ── Glow overlay (decorative, z-index 0, no pointer events) ── */
+  .topbar-glow-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse 60% 100% at 50% 100%, rgba(0, 212, 255, 0.07) 0%, transparent 70%);
     animation: topbar-glow-pulse 2.5s ease-in-out infinite;
-    filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.7));
-    line-height: 1;
+  }
+
+  /* ── Brand block (left, next to ☰) ── */
+  .topbar-brand-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
   }
 
   .topbar-logo-text {
     font-family: 'Inter', sans-serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 800;
-    letter-spacing: 0.2em;
-    color: #fff;
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
-    /* shimmer sweep on text */
+    letter-spacing: 0.18em;
+    display: block;
     background: linear-gradient(
       90deg,
       #fff 0%,
-      #fff 35%,
+      #fff 30%,
       #00d4ff 50%,
-      #fff 65%,
+      #fff 70%,
       #fff 100%
     );
     background-size: 300px 100%;
@@ -507,14 +504,12 @@ body {
 
   .topbar-logo-sub {
     font-family: 'Inter', sans-serif;
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 600;
-    letter-spacing: 0.22em;
-    color: rgba(0, 212, 255, 0.55);
+    letter-spacing: 0.2em;
+    color: rgba(0, 212, 255, 0.5);
     text-transform: uppercase;
-    margin-top: 1px;
-    align-self: flex-end;
-    padding-bottom: 1px;
+    display: block;
   }
 
   /* ── Full-width layout fix ── */
@@ -580,8 +575,8 @@ body {
   box-shadow: 0 0 6px #00d4ff;
 }
 
-/* Logo banner hidden on mobile — shown only via desktop media query above */
-.topbar-logo-banner { display: none; }
+/* Glow overlay hidden on mobile */
+.topbar-glow-overlay { display: none; }
 
 /* ── Sidebar logo ── */
 .sidebar-logo {
