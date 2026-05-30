@@ -7,7 +7,6 @@ import Chat from "./chat";
 import PrivateChat from "./private-chat";
 import Status from "./status";
 import Notifications from "./notifications";
-import Settings from "./settings";
 import About from "./about";
 
 // Admin military-green theme — completely separate from trainee cyan theme
@@ -2301,19 +2300,130 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
 
 // ─── Admin Nav Items ──────────────────────────────────────────────────────────
 const ADMIN_NAV = [
-  { id: "dashboard",     label: "Dashboard",  icon: "⚡"  },
-  { id: "trainees",      label: "Trainees",   icon: "👥"  },
-  { id: "reports",       label: "Reports",    icon: "📊"  },
-  { id: "modules",       label: "Modules",    icon: "📡"  },
-  { id: "manuals",       label: "Manuals",    icon: "📋"  },
-  { id: "quiz",          label: "Quiz",       icon: "🎯"  },
-  { id: "chat",          label: "Chat",       icon: "💬"  },
-  { id: "status",        label: "Status",     icon: "📶"  },
-  { id: "notifications", label: "Notifs",     icon: "🔔"  },
-  { id: "settings",      label: "Settings",   icon: "⚙️"  },
-  { id: "about",         label: "About",      icon: "ℹ️"  },
+  { id: "dashboard", label: "Dashboard", icon: "⚡" },
+  { id: "trainees",  label: "Trainees",  icon: "👥" },
+  { id: "reports",   label: "Reports",   icon: "📊" },
+  { id: "settings",  label: "Settings",  icon: "⚙️" },
 ] as const;
-type AdminView = typeof ADMIN_NAV[number]["id"];
+
+const NAV_LINKS = [
+  { id: "modules",       label: "Modules",       icon: "📡" },
+  { id: "manuals",       label: "Manuals",        icon: "📋" },
+  { id: "quiz",          label: "Quiz",           icon: "🎯" },
+  { id: "chat",          label: "Chat",           icon: "💬" },
+  { id: "status",        label: "System Status",  icon: "📶" },
+  { id: "notifications", label: "Notifications",  icon: "🔔" },
+  { id: "about",         label: "About",          icon: "ℹ️" },
+] as const;
+
+type AdminView = "dashboard" | "trainees" | "reports" | "settings"
+  | "modules" | "manuals" | "quiz" | "chat" | "status" | "notifications" | "about";
+
+// ─── Admin Password Change ────────────────────────────────────────────────────
+function AdminPasswordChange({ adminPw }: { adminPw: string }) {
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!oldPw || !newPw) { setStatus({ ok: false, msg: "Fill all fields." }); return; }
+    if (newPw !== confirm) { setStatus({ ok: false, msg: "Passwords don't match." }); return; }
+    if (oldPw !== adminPw) { setStatus({ ok: false, msg: "Current password incorrect." }); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+        body: JSON.stringify({ newPassword: newPw }),
+      });
+      if (res.ok) {
+        setStatus({ ok: true, msg: "Password changed. Re-login required." });
+        setOldPw(""); setNewPw(""); setConfirm("");
+      } else {
+        setStatus({ ok: false, msg: "Failed to update password." });
+      }
+    } catch { setStatus({ ok: false, msg: "Network error." }); }
+    finally { setBusy(false); }
+  };
+
+  const inp: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", background: "rgba(0,255,136,0.04)",
+    border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8,
+    color: "#fff", fontSize: 12, fontFamily: "Inter", outline: "none",
+    boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ marginBottom: 16, padding: "16px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12 }}>
+      <div style={{ fontFamily: "Orbitron, monospace", fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 12 }}>CHANGE ADMIN PASSWORD</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={inp} />
+        <input type="password" placeholder="New password" value={newPw} onChange={e => setNewPw(e.target.value)} style={inp} />
+        <input type="password" placeholder="Confirm new password" value={confirm} onChange={e => setConfirm(e.target.value)} style={inp} />
+        <button onClick={submit} disabled={busy} style={{
+          padding: "9px", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.35)",
+          borderRadius: 8, color: "#00FF88", fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+        }}>{busy ? "Updating…" : "Update Password"}</button>
+        {status && <div style={{ fontSize: 11, color: status.ok ? "#00FF88" : "#FF4444", fontFamily: "Inter" }}>{status.msg}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin Private Chat List ──────────────────────────────────────────────────
+function AdminPrivateChatList({ adminPw }: { adminPw: string }) {
+  const [trainees, setTrainees] = useState<{ id: string; name: string }[]>([]);
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/trainees", { headers: { "x-admin-password": adminPw } })
+      .then(r => r.json())
+      .then((data: any[]) => setTrainees(data.map(t => ({ id: t.id, name: t.name }))))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [adminPw]);
+
+  if (selected) {
+    return (
+      <div>
+        <button
+          onClick={() => setSelected(null)}
+          style={{ margin: "12px 16px", padding: "6px 12px", background: "rgba(0,255,136,0.07)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 8, color: "#00FF88", fontSize: 11, fontFamily: "Inter", cursor: "pointer" }}
+        >← Back to list</button>
+        <div style={{ padding: "0 16px 8px", fontFamily: "Orbitron, monospace", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Private: {selected.name}</div>
+        <PrivateChat />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "16px" }}>
+      <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>SELECT TRAINEE</div>
+      {loading && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontFamily: "Inter" }}>Loading…</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {trainees.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setSelected(t)}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "12px 14px", background: "rgba(0,255,136,0.04)",
+              border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10,
+              cursor: "pointer", textAlign: "left",
+            }}
+          >
+            <span style={{ fontSize: 18 }}>👤</span>
+            <span style={{ color: "#fff", fontSize: 12, fontFamily: "Inter" }}>{t.name}</span>
+            <span style={{ marginLeft: "auto", color: "rgba(0,255,136,0.5)", fontSize: 10, fontFamily: "Inter" }}>Open →</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () => void }) {
@@ -2328,17 +2438,31 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const [retakeActioning, setRetakeActioning] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<AdminView>("dashboard");
 
+  // ── Menu dropdown ─────────────────────────────────────────────────────────────
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // ── Chat sub-tab ──────────────────────────────────────────────────────────────
+  const [chatSubTab, setChatSubTab] = useState<"general" | "private">("general");
+
   // ── Theme toggle ─────────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<"dark" | "light">(() => (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark");
   useEffect(() => {
     const root = document.documentElement;
     if (theme === "light") {
-      root.style.setProperty("--bg-primary", "#f0f4f8");
-      root.style.setProperty("--bg-secondary", "#e2eaf3");
-      root.style.setProperty("--text-primary", "#1a1a2e");
-      root.style.setProperty("--text-secondary", "#2d3748");
-      root.style.setProperty("--text-muted", "#64748b");
-      root.style.setProperty("--card-bg", "#ffffff");
+      root.style.setProperty("--bg-primary", "#e8edf2");
+      root.style.setProperty("--bg-secondary", "#dce4ec");
+      root.style.setProperty("--text-primary", "#2c3e50");
+      root.style.setProperty("--text-secondary", "#4a5568");
+      root.style.setProperty("--text-muted", "#718096");
+      root.style.setProperty("--card-bg", "#f5f7fa");
     } else {
       root.style.setProperty("--bg-primary", "#071426");
       root.style.setProperty("--bg-secondary", "#0a1e38");
@@ -2475,6 +2599,46 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 fontSize: 15, flexShrink: 0, transition: "background 0.2s",
               }}
             >{theme === "dark" ? "🌞" : "🌙"}</button>
+
+            {/* ☰ MENU dropdown */}
+            <div ref={menuRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                style={{
+                  padding: "5px 12px", background: menuOpen ? "rgba(0,255,136,0.12)" : "rgba(0,255,136,0.05)",
+                  border: "1px solid rgba(0,255,136,0.3)",
+                  borderRadius: 8, cursor: "pointer", color: "#00FF88",
+                  fontSize: 9, fontFamily: "Inter", letterSpacing: "0.08em",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}
+              >☰ MENU</button>
+              {menuOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0,
+                  background: "#0a1a0a", border: "1px solid rgba(0,255,136,0.25)",
+                  borderRadius: 10, overflow: "hidden", zIndex: 999,
+                  minWidth: 160, boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                }}>
+                  {NAV_LINKS.map(link => (
+                    <button
+                      key={link.id}
+                      onClick={() => { setActiveView(link.id as AdminView); setMenuOpen(false); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        width: "100%", padding: "10px 14px",
+                        background: activeView === link.id ? "rgba(0,255,136,0.1)" : "none",
+                        border: "none", borderBottom: "1px solid rgba(0,255,136,0.07)",
+                        color: activeView === link.id ? "#00FF88" : "rgba(255,255,255,0.7)",
+                        fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span>{link.icon}</span>{link.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
@@ -2670,9 +2834,32 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         <div style={{ padding: "16px" }}>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>SYSTEM</div>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>SETTINGS</div>
+
+          {/* Change Admin Password */}
+          <AdminPasswordChange adminPw={adminPw} />
+
           <BackupPanel adminPw={adminPw} />
           <TelegramPanel adminPw={adminPw} />
-          <div style={{ marginTop: 24, padding: "16px", background: "rgba(255,68,68,0.05)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 12 }}>
+
+          {/* Theme toggle */}
+          <div style={{ marginTop: 16, padding: "16px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12 }}>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 12 }}>APPEARANCE</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Inter" }}>
+                {theme === "dark" ? "🌙 Dark Mode" : "🌞 Light Mode"}
+              </span>
+              <button
+                onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                style={{
+                  padding: "6px 14px", background: "rgba(0,255,136,0.08)",
+                  border: "1px solid rgba(0,255,136,0.3)", borderRadius: 8,
+                  color: "#00FF88", fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+                }}
+              >Toggle {theme === "dark" ? "Light" : "Dark"}</button>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, padding: "16px", background: "rgba(255,68,68,0.05)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 12 }}>
             <div style={{ fontFamily: "Orbitron, monospace", fontSize: 10, color: "#FF4444", marginBottom: 8 }}>DANGER ZONE</div>
             <button
               onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
@@ -2684,18 +2871,40 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               }}
             >⛔ LOGOUT & REVOKE SESSION</button>
           </div>
-          <Settings />
         </div>
       )}
 
-      {/* ── IMPORTED TRAINEE PAGES ── */}
-      {activeView === "modules"       && <Modules />}
-      {activeView === "manuals"       && <Manuals />}
-      {activeView === "quiz"          && <QuizList />}
-      {activeView === "chat"          && <Chat />}
-      {activeView === "status"        && <Status />}
-      {activeView === "notifications" && <Notifications />}
-      {activeView === "about"         && <About />}
+      {/* ── IMPORTED TRAINEE PAGES ── dark wrapper keeps admin shell consistent */}
+      {activeView === "modules"       && <div style={{ background: "#050f05", minHeight: "100vh" }}><Modules /></div>}
+      {activeView === "manuals"       && <div style={{ background: "#050f05", minHeight: "100vh" }}><Manuals /></div>}
+      {activeView === "quiz"          && <div style={{ background: "#050f05", minHeight: "100vh" }}><QuizList /></div>}
+      {activeView === "status"        && <div style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
+      {activeView === "notifications" && <div style={{ background: "#050f05", minHeight: "100vh" }}><Notifications /></div>}
+      {activeView === "about"         && <div style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
+
+      {/* ── CHAT VIEW ── General / Private sub-tabs */}
+      {activeView === "chat" && (
+        <div style={{ background: "#050f05", minHeight: "100vh" }}>
+          {/* Sub-tab strip */}
+          <div style={{ display: "flex", borderBottom: "1px solid rgba(0,255,136,0.1)", background: "#071207" }}>
+            {(["general", "private"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setChatSubTab(tab)}
+                style={{
+                  padding: "10px 20px", background: "none", border: "none",
+                  borderBottom: chatSubTab === tab ? "2px solid #00FF88" : "2px solid transparent",
+                  color: chatSubTab === tab ? "#00FF88" : "rgba(255,255,255,0.4)",
+                  fontFamily: "Inter", fontSize: 11, letterSpacing: "0.08em",
+                  cursor: "pointer", textTransform: "uppercase",
+                }}
+              >{tab === "general" ? "💬 General Chat" : "🔒 Private Chat"}</button>
+            ))}
+          </div>
+          {chatSubTab === "general" && <Chat />}
+          {chatSubTab === "private" && <AdminPrivateChatList adminPw={adminPw} />}
+        </div>
+      )}
 
       {/* ── TRAINEES VIEW (default list) ── */}
       {(activeView === "trainees" || activeView === "dashboard") && (
