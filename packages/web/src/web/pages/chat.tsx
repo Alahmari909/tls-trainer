@@ -487,7 +487,211 @@ function UploadProgress({ percent, fileName, onCancel }: { percent:number; fileN
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+// ─── AI Instructor ────────────────────────────────────────────────────────────
+const PRESET_QUESTIONS = [
+  "What is TLS and how does it work?",
+  "Explain the main components of the TLS system",
+  "What are the TLS critical and sensitive areas?",
+  "Explain ILS Category I, II, and III differences",
+  "What is DDM and how is it used in ILS/TLS?",
+  "How does Mode C transponder encoding work?",
+  "What is the TLS integrity monitor and why is it important?",
+  "Explain the difference between localizer and glide slope",
+  "What causes bends and scalloping in ILS signals?",
+  "What is VSWR and why does it matter in TLS maintenance?",
+  "Describe the TLS startup procedure",
+  "What is the ILS reference datum?",
+  "How do I interpret RCU alarm codes?",
+  "What are common TLS calibration faults?",
+  "Explain ESA alignment procedure",
+];
+
+type AiMsg = { role: "user" | "assistant"; content: string };
+
+function AIInstructor() {
+  const [history,   setHistory]   = useState<AiMsg[]>([]);
+  const [input,     setInput]     = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [showAll,   setShowAll]   = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
+
+  const VISIBLE_PRESETS = showAll ? PRESET_QUESTIONS : PRESET_QUESTIONS.slice(0, 6);
+
+  const ask = async (question: string) => {
+    const q = question.trim();
+    if (!q || loading) return;
+    setInput("");
+    const newHistory: AiMsg[] = [...history, { role: "user", content: q }];
+    setHistory(newHistory);
+    setLoading(true);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    try {
+      const res = await fetch("/api/chat/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: q, history: history.slice(-10) }),
+      });
+      const data = await res.json() as { reply: string };
+      setHistory(prev => [...prev, { role: "assistant", content: data.reply }]);
+    } catch {
+      setHistory(prev => [...prev, { role: "assistant", content: "عذراً، تعذر الاتصال.\nSorry, connection failed." }]);
+    } finally {
+      setLoading(false);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      {/* Conversation */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12, scrollbarWidth: "none" }}>
+
+        {/* Welcome */}
+        {history.length === 0 && (
+          <div style={{ textAlign: "center", padding: "20px 0 8px" }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🤖</div>
+            <div className="font-orbitron" style={{ fontSize: 13, color: C, letterSpacing: "0.05em", marginBottom: 4 }}>AI INSTRUCTOR</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: "Inter", lineHeight: 1.5 }}>
+              Ask any question about TLS, ILS, aviation navigation, or radar systems.
+            </div>
+          </div>
+        )}
+
+        {/* Preset questions */}
+        {history.length === 0 && (
+          <div>
+            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 8, textAlign: "center" }}>QUICK QUESTIONS</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {VISIBLE_PRESETS.map(q => (
+                <button key={q} onClick={() => ask(q)} style={{
+                  textAlign: "left", padding: "9px 13px",
+                  background: `rgba(0,174,239,0.05)`, border: `1px solid ${C}25`,
+                  borderRadius: 10, color: "var(--text-secondary)", fontSize: 12,
+                  fontFamily: "Inter", cursor: "pointer", lineHeight: 1.4,
+                  transition: "background 0.15s, border-color 0.15s",
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `rgba(0,174,239,0.12)`; (e.currentTarget as HTMLElement).style.borderColor = `${C}60`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `rgba(0,174,239,0.05)`; (e.currentTarget as HTMLElement).style.borderColor = `${C}25`; }}
+                >
+                  💬 {q}
+                </button>
+              ))}
+              <button onClick={() => setShowAll(v => !v)} style={{
+                textAlign: "center", padding: "7px", background: "none",
+                border: `1px dashed ${C}20`, borderRadius: 10,
+                color: "var(--text-muted)", fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+              }}>
+                {showAll ? "▲ Show less" : `▼ Show ${PRESET_QUESTIONS.length - 6} more questions`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Chat history */}
+        {history.map((msg, i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
+            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.05em", paddingInline: 4 }}>
+              {msg.role === "user" ? "YOU" : "🤖 AI INSTRUCTOR"}
+            </div>
+            <div style={{
+              maxWidth: "82%", padding: "10px 13px",
+              borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
+              background: msg.role === "user"
+                ? `linear-gradient(135deg,rgba(0,174,239,0.22),rgba(0,174,239,0.1))`
+                : "rgba(8,15,28,0.95)",
+              border: msg.role === "user" ? `1px solid ${C}45` : `1px solid ${C}18`,
+              fontSize: 13, color: "var(--text-primary)", fontFamily: "Inter", lineHeight: 1.65,
+              whiteSpace: "pre-wrap",
+            }}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+
+        {/* Typing indicator */}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", paddingTop: 2 }}>🤖 AI INSTRUCTOR</div>
+            <div style={{ padding: "10px 14px", background: "rgba(8,15,28,0.95)", border: `1px solid ${C}18`, borderRadius: "4px 16px 16px 16px", display: "flex", gap: 5, alignItems: "center" }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: C, opacity: 0.5, animation: `blink 1s ${i * 0.2}s ease infinite` }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ borderTop: `1px solid ${C}15`, background: "rgba(3,8,15,0.97)", padding: "10px 12px", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input); } }}
+          placeholder="Ask anything about TLS, ILS, navigation systems…"
+          disabled={loading}
+          style={{
+            flex: 1, background: "rgba(8,15,28,0.95)", border: `1px solid ${C}28`,
+            borderRadius: 12, padding: "11px 14px", color: "var(--text-primary)",
+            fontSize: 13, outline: "none", fontFamily: "Inter,sans-serif",
+            opacity: loading ? 0.6 : 1,
+          }}
+        />
+        <button
+          onClick={() => ask(input)}
+          disabled={!input.trim() || loading}
+          style={{
+            width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+            background: input.trim() && !loading ? `linear-gradient(135deg,${C},#35D4FF)` : `${C}0d`,
+            border: `1px solid ${input.trim() && !loading ? C : `${C}20`}`,
+            cursor: input.trim() && !loading ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.2s",
+            boxShadow: input.trim() && !loading ? `0 0 14px ${C}40` : "none",
+          }}
+        >
+          {loading
+            ? <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${C}40`, borderTopColor: C, animation: "spin 0.7s linear infinite" }} />
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={input.trim() ? "#020810" : C} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+          }
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Chat wrapper with tab switcher ──────────────────────────────────────────
+function GroupChat() {
+  // This is the original Chat function body, renamed internally
+  return <GroupChatInner />;
+}
+
 export default function Chat() {
+  const [tab, setTab] = useState<"group" | "ai">("ai");
+  return (
+    <div style={{ background: "var(--bg-primary)", display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden" }}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", background: "rgba(3,8,15,0.97)", borderBottom: `1px solid ${C}18`, flexShrink: 0 }}>
+        {([["ai", "🤖 AI Instructor"], ["group", "📡 Group Chat"]] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{
+            flex: 1, padding: "12px 8px", background: "none", border: "none",
+            borderBottom: tab === id ? `2px solid ${C}` : "2px solid transparent",
+            color: tab === id ? C : "rgba(255,255,255,0.35)",
+            fontFamily: "Inter", fontSize: 12, letterSpacing: "0.05em",
+            cursor: "pointer", transition: "color 0.15s",
+          }}>{label}</button>
+        ))}
+      </div>
+      {tab === "ai"    && <AIInstructor />}
+      {tab === "group" && <GroupChatInner />}
+    </div>
+  );
+}
+
+function GroupChatInner() {
   // ── state ──────────────────────────────────────────────────────────────────
   const [messages,       setMessages]       = useState<ChatMsg[]>([]);
   const [input,          setInput]          = useState("");
