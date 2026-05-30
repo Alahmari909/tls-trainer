@@ -620,3 +620,46 @@ body {
     display: none !important;
   }
 }
+
+/* ── Page entrance animation ── */
+.page {
+  animation: pageEnter 0.3s ease-out;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Smooth transitions ── */
+button, a, .nav-item, .glass-card {
+  transition: all 0.2s ease;
+}
+
+/* ── Card tap feedback ── */
+.glass-card:active {
+  transform: scale(0.97);
+}
+button:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+/* ── Card hover lift ── */
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,174,239,0.15);
+}
+
+/* ── Smooth scroll + remove tap highlight ── */
+html {
+  scroll-behavior: smooth;
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Prevent zoom on input focus (iOS) ── */
+input, textarea, select {
+  font-size: 16px !important;
+}
