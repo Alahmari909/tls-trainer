@@ -360,7 +360,7 @@ export default function PrivateChat() {
   const [activeContact, setActiveContact] = useState<Contact>(CONTACTS[0]);
   const [showContacts, setShowContacts] = useState(false);
   const [typing, setTyping] = useState(false);
-  const [voiceReady] = useState(true);
+
   const [inputBarBottom, setInputBarBottom] = useState(0);
   const [modMenu, setModMenu] = useState<Msg | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -491,15 +491,6 @@ export default function PrivateChat() {
           </div>
         </div>
 
-        {/* Voice ready */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "5px 10px", border: `1px solid ${C.green}30`, borderRadius: 8, background: `${C.green}08` }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
-          </svg>
-          <span style={{ fontSize: 7, color: C.green, fontFamily: "Inter", letterSpacing: "0.05em" }}>VOICE</span>
-        </div>
-
         <div style={{ padding: "4px 8px", border: `1px solid ${C.cyan}30`, borderRadius: 5, fontSize: 8, color: C.cyan, fontFamily: "Inter", letterSpacing: "0.1em" }}>
           🔒 PRIVATE
         </div>
@@ -575,18 +566,7 @@ export default function PrivateChat() {
         ))}
       </div>
 
-      {/* Voice banner */}
-      {voiceReady && (
-        <div style={{ margin: "0 14px 6px", padding: "7px 12px", borderRadius: 10, background: `${C.green}08`, border: `1px solid ${C.green}20`, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <div style={{ display: "flex", gap: 2, alignItems: "flex-end" }}>
-            {[3,5,7,5,3].map((h,i) => (
-              <div key={i} style={{ width: 3, borderRadius: 2, height: h, background: C.green, animation: `blink ${0.6 + i * 0.1}s ease infinite`, opacity: 0.7 }} />
-            ))}
-          </div>
-          <span style={{ fontSize: 10, color: C.green, fontFamily: "Inter", letterSpacing: "0.08em" }}>VOICE CHANNEL READY</span>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginLeft: "auto" }}>End-to-end encrypted</span>
-        </div>
-      )}
+
 
       {/* Input */}
       <div style={{
