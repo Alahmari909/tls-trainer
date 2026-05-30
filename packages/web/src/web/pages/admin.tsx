@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
 import Modules from "./modules";
-import Manuals from "./manuals";
 import Basics from "./basics";
 import Advanced from "./advanced";
 import QuizList from "./quiz-list";
@@ -2310,7 +2309,6 @@ const NAV_LINKS = [
   { id: "reports",       label: "Reports",        icon: "📊", divider: false },
   { id: "settings",      label: "Settings",       icon: "⚙️", divider: true  },
   { id: "modules",       label: "Modules",        icon: "📡", divider: false },
-  { id: "manuals",       label: "Manuals",        icon: "📋", divider: false },
   { id: "basics",        label: "TLS Basic",      icon: "📘", divider: false },
   { id: "advanced",      label: "TLS Advanced",   icon: "⭐", divider: false },
   { id: "quiz",          label: "Quiz",           icon: "🎯", divider: false },
@@ -2321,7 +2319,7 @@ const NAV_LINKS = [
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "modules" | "manuals" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about";
+  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -2476,7 +2474,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 
   // ── Admin mode flag — suppresses Telegram tracking inside imported pages ──────
-  const IMPORTED_VIEWS = ["modules", "manuals", "basics", "advanced", "quiz", "chat", "status", "notifications", "about"];
+  const IMPORTED_VIEWS = ["modules", "basics", "advanced", "quiz", "chat", "status", "notifications", "about"];
   useEffect(() => {
     if (IMPORTED_VIEWS.includes(activeView)) {
       sessionStorage.setItem("tls_admin_mode", "1");
@@ -2828,7 +2826,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── IMPORTED TRAINEE PAGES ── dark wrapper keeps admin shell consistent */}
       {activeView === "modules"       && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Modules /></div>}
-      {activeView === "manuals"       && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Manuals /></div>}
       {activeView === "basics"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Basics /></div>}
       {activeView === "advanced"      && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Advanced /></div>}
       {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList /></div>}
