@@ -613,6 +613,15 @@ const app = new Hono()
   .use(cors({ origin: (origin) => origin ?? "*", credentials: true, exposeHeaders: ["set-auth-token"] }))
   .get('/ping', (c) => c.json({ message: `Pong! ${Date.now()}` }, 200))
   .get('/health', (c) => c.json({ status: 'ok' }, 200))
+  .get('/health/db', async (c) => {
+    try {
+      const t0 = Date.now();
+      await sql('SELECT 1', []);
+      return c.json({ ok: true, latency: Date.now() - t0 }, 200);
+    } catch {
+      return c.json({ ok: false, latency: null }, 500);
+    }
+  })
 
   // ══════════════════════════════════════════════════════════════════════════
   // TRAINEE AUTH
