@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
 
+// Admin military-green theme — completely separate from trainee cyan theme
 const C = {
-  cyan:   "#00AEEF",
-  blue:   "#35D4FF",
-  green:  "#00D26A",
-  yellow: "#FFD166",
-  red:    "#FF4D4D",
-  gold:   "#C9A66B",
+  // Primary admin colors
+  primary: "#00FF88",      // neon military green (was cyan)
+  accent:  "#FFD700",      // gold accent (was yellow/gold)
+  green:   "#00CC66",      // darker green for success states
+  lime:    "#39FF14",      // ultra-bright lime for highlights
+  // Alert colors
+  red:     "#FF4444",      // admin red (login + danger)
+  orange:  "#FF8C00",      // warning orange
+  yellow:  "#FFD700",      // gold/yellow
+  // Legacy aliases so all existing code keeps working
+  cyan:    "#00FF88",      // remapped: cyan → primary green
+  blue:    "#00CC88",      // remapped: blue → muted green
+  gold:    "#FFD700",      // remapped: gold → accent gold
 };
 
 const SESSION_KEY = "tls_admin_verified";
@@ -88,8 +96,8 @@ function QuizAnswerBreakdown({ attemptId, traineeId, adminPw }: { attemptId: num
   return (
     <div style={{ marginTop: 8 }}>
       <button onClick={load} style={{
-        background: "transparent", border: "1px solid rgba(0,174,239,0.2)",
-        color: "#00AEEF", borderRadius: 6, padding: "4px 10px",
+        background: "transparent", border: "1px solid rgba(0,255,136,0.2)",
+        color: "#00FF88", borderRadius: 6, padding: "4px 10px",
         fontSize: 10, fontFamily: "Inter", cursor: "pointer", letterSpacing: "0.06em",
       }}>
         {loading ? "..." : expanded ? "▲ HIDE ANSWERS" : "▼ SHOW ANSWERS"}
@@ -132,6 +140,13 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [pw, setPw] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [blink, setBlink] = useState(true);
+
+  // Cursor blink effect for the "RESTRICTED" banner
+  useEffect(() => {
+    const id = setInterval(() => setBlink(b => !b), 600);
+    return () => clearInterval(id);
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,47 +159,133 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
       });
       const data = await res.json() as { ok: boolean };
       if (data.ok) { sessionStorage.setItem(SESSION_KEY, pw); onSuccess(); }
-      else { setError("Access denied"); setPw(""); }
-    } catch { setError("Connection error"); }
+      else { setError("⛔ ACCESS DENIED — Invalid credentials"); setPw(""); }
+    } catch { setError("CONNECTION ERROR"); }
     finally { setLoading(false); }
   };
 
   return (
-    <div className="page" style={{
-      background: "var(--bg-primary)", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "0 24px",
+    <div style={{
+      minHeight: "100vh",
+      background: "linear-gradient(160deg, #0a0a0a 0%, #0d1a0d 40%, #0a0a0a 100%)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: "0 24px", position: "relative", overflow: "hidden",
     }}>
-      <div style={{ width: "100%", maxWidth: 380 }}>
+      {/* Background grid pattern */}
+      <div style={{
+        position: "absolute", inset: 0, opacity: 0.04,
+        backgroundImage: "linear-gradient(#FF4444 1px, transparent 1px), linear-gradient(90deg, #FF4444 1px, transparent 1px)",
+        backgroundSize: "40px 40px",
+      }} />
+
+      {/* Top warning stripe */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0,
+        height: 4, background: `repeating-linear-gradient(90deg, #FF4444 0px, #FF4444 20px, #1a0000 20px, #1a0000 40px)`,
+      }} />
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        height: 4, background: `repeating-linear-gradient(90deg, #FF4444 0px, #FF4444 20px, #1a0000 20px, #1a0000 40px)`,
+      }} />
+
+      <div style={{ width: "100%", maxWidth: 400, position: "relative", zIndex: 1 }}>
+        {/* Shield icon */}
         <div style={{
-          width: 64, height: 64, borderRadius: "50%", margin: "0 auto 24px",
-          background: `${C.cyan}12`, border: `1px solid ${C.cyan}40`,
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28,
-        }}>🔒</div>
-        <div className="font-orbitron" style={{ textAlign: "center", fontSize: 9, letterSpacing: "0.3em", color: C.cyan, marginBottom: 8 }}>RESTRICTED ACCESS</div>
-        <div className="font-orbitron" style={{ textAlign: "center", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 32 }}>ADMIN PANEL</div>
+          width: 80, height: 80, margin: "0 auto 20px",
+          background: "linear-gradient(135deg, rgba(255,68,68,0.15), rgba(255,68,68,0.05))",
+          border: "2px solid rgba(255,68,68,0.5)",
+          borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 36, boxShadow: "0 0 30px rgba(255,68,68,0.2), inset 0 0 20px rgba(255,68,68,0.05)",
+        }}>🛡️</div>
+
+        {/* Warning header */}
+        <div style={{
+          background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.4)",
+          borderRadius: 8, padding: "10px 16px", marginBottom: 24, textAlign: "center",
+          boxShadow: "0 0 20px rgba(255,68,68,0.1)",
+        }}>
+          <div style={{
+            fontFamily: "Orbitron, monospace", fontSize: 7, letterSpacing: "0.4em",
+            color: "rgba(255,68,68,0.7)", marginBottom: 4,
+          }}>⚠ WARNING ⚠</div>
+          <div style={{
+            fontFamily: "Orbitron, monospace", fontSize: 16, fontWeight: 900,
+            color: "#FF4444", letterSpacing: "0.15em",
+            textShadow: "0 0 20px rgba(255,68,68,0.6)",
+          }}>RESTRICTED ACCESS</div>
+          <div style={{
+            fontFamily: "Orbitron, monospace", fontSize: 7, letterSpacing: "0.25em",
+            color: "rgba(255,68,68,0.5)", marginTop: 4,
+          }}>AUTHORIZED PERSONNEL ONLY{blink ? "_" : " "}</div>
+        </div>
+
+        <div className="font-orbitron" style={{
+          textAlign: "center", fontSize: 22, fontWeight: 700, color: "#ffffff",
+          marginBottom: 6, letterSpacing: "0.08em",
+        }}>COMMAND CENTER</div>
+        <div style={{
+          textAlign: "center", fontSize: 10, fontFamily: "Inter", letterSpacing: "0.3em",
+          color: "rgba(255,255,255,0.3)", marginBottom: 32,
+        }}>TLS ADMIN SYSTEM</div>
+
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <input
-            type="password" value={pw} onChange={e => setPw(e.target.value)}
-            placeholder="Admin password" autoFocus
-            style={{
-              padding: "14px", background: "rgba(8,15,28,0.95)",
-              border: `1px solid ${C.cyan}30`, borderRadius: 10,
-              color: "var(--text-primary)", fontSize: 14, outline: "none",
-            }}
-          />
-          {error && <div style={{ color: C.red, fontSize: 12, textAlign: "center" }}>{error}</div>}
+          <div style={{ position: "relative" }}>
+            <div style={{
+              position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+              fontSize: 14, opacity: 0.4,
+            }}>🔑</div>
+            <input
+              type="password" value={pw} onChange={e => setPw(e.target.value)}
+              placeholder="Enter admin passphrase" autoFocus
+              style={{
+                width: "100%", boxSizing: "border-box",
+                padding: "16px 16px 16px 42px",
+                background: "rgba(255,68,68,0.04)",
+                border: pw.trim() ? "1px solid rgba(255,68,68,0.5)" : "1px solid rgba(255,68,68,0.15)",
+                borderRadius: 10, color: "#ffffff", fontSize: 14, outline: "none",
+                fontFamily: "Inter", letterSpacing: "0.05em",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+                boxShadow: pw.trim() ? "0 0 12px rgba(255,68,68,0.15)" : "none",
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{
+              color: "#FF4444", fontSize: 11, textAlign: "center",
+              fontFamily: "Inter", letterSpacing: "0.1em",
+              padding: "8px 12px", background: "rgba(255,68,68,0.08)",
+              border: "1px solid rgba(255,68,68,0.25)", borderRadius: 8,
+            }}>{error}</div>
+          )}
+
           <button type="submit" disabled={loading || !pw.trim()} style={{
-            padding: "14px",
-            background: pw.trim() && !loading ? `linear-gradient(135deg, ${C.cyan}, ${C.blue})` : "rgba(0,174,239,0.08)",
-            border: "none", borderRadius: 10, cursor: pw.trim() && !loading ? "pointer" : "not-allowed",
-            color: pw.trim() && !loading ? "#020810" : "var(--text-muted)",
-            fontFamily: "Inter", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em",
+            padding: "16px",
+            background: pw.trim() && !loading
+              ? "linear-gradient(135deg, #cc0000, #FF4444)"
+              : "rgba(255,68,68,0.06)",
+            border: pw.trim() && !loading ? "none" : "1px solid rgba(255,68,68,0.2)",
+            borderRadius: 10,
+            cursor: pw.trim() && !loading ? "pointer" : "not-allowed",
+            color: pw.trim() && !loading ? "#ffffff" : "rgba(255,255,255,0.2)",
+            fontFamily: "Orbitron, monospace", fontSize: 11, fontWeight: 700,
+            letterSpacing: "0.2em",
+            boxShadow: pw.trim() && !loading ? "0 4px 20px rgba(255,68,68,0.4)" : "none",
+            transition: "all 0.2s",
           }}>
-            {loading ? "VERIFYING..." : "ENTER"}
+            {loading ? "AUTHENTICATING..." : "AUTHENTICATE"}
           </button>
         </form>
-        <div style={{ marginTop: 28, display: "flex", justifyContent: "center" }}>
-          <BackButton to="/" label="BACK TO HOME" />
+
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
+          <BackButton to="/" label="← BACK TO TRAINEE APP" />
+        </div>
+
+        <div style={{
+          marginTop: 32, fontSize: 9, fontFamily: "Inter", letterSpacing: "0.15em",
+          color: "rgba(255,255,255,0.12)", textAlign: "center",
+        }}>
+          UNAUTHORIZED ACCESS IS A VIOLATION OF SYSTEM POLICY
         </div>
       </div>
     </div>
@@ -2189,6 +2290,15 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
   );
 }
 
+// ─── Admin Nav Items ──────────────────────────────────────────────────────────
+const ADMIN_NAV = [
+  { id: "dashboard", label: "Dashboard", icon: "⚡" },
+  { id: "trainees",  label: "Trainees",  icon: "👥" },
+  { id: "reports",   label: "Reports",   icon: "📊" },
+  { id: "settings",  label: "Settings",  icon: "⚙️" },
+] as const;
+type AdminView = typeof ADMIN_NAV[number]["id"];
+
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () => void }) {
   const [trainees, setTrainees] = useState<Trainee[]>([]);
@@ -2200,6 +2310,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const [selectedId, setSelectedId] = useState<string | null>(() => sessionStorage.getItem("tls_admin_selected") || null);
   const [retakeRequests, setRetakeRequests] = useState<Array<{ id: number; trainee_id: string; trainee_name: string; module_id: number; module_name: string; ts: number }>>([]);
   const [retakeActioning, setRetakeActioning] = useState<number | null>(null);
+  const [activeView, setActiveView] = useState<AdminView>("dashboard");
 
   const fetchData = useCallback(async () => {
     try {
@@ -2228,17 +2339,20 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
   const totalXp = trainees.reduce((s, t) => s + t.xp, 0);
   const avgModules = trainees.length ? (trainees.reduce((s, t) => s + t.completedModules, 0) / trainees.length).toFixed(1) : "0";
+  const avgScore = trainees.length ? Math.round(trainees.reduce((s, t) => s + (t.completedModules / Math.max(t.totalModules, 1)) * 100, 0) / trainees.length) : 0;
   const levelFromXp = (xp: number) => Math.floor(xp / 500) + 1;
 
+  // ── Admin-specific background: dark green military ──────────────────────────
+  const adminBg = "linear-gradient(160deg, #050f05 0%, #080f08 40%, #050a05 100%)";
+
   return (
-    <div className="page" style={{
-      background: "var(--bg-primary)",
-      /* Admin has its own header — no top nav padding needed */
+    <div style={{
+      background: adminBg,
+      minHeight: "100vh",
       paddingTop: 0,
-      /* Full scrollable page with iPhone safe area at bottom */
       overflowY: "auto",
       WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
-      paddingBottom: "calc(40px + env(safe-area-inset-bottom))",
+      paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
     } as React.CSSProperties}>
       {/* Detail modal */}
       {selectedId && (
@@ -2248,76 +2362,319 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           onClose={() => {
             setSelectedId(null);
             sessionStorage.removeItem("tls_admin_selected");
-            // Tab and msg cleanup handled inside modal on close
           }}
         />
       )}
 
-      {/* Header */}
-      <div className="radar-grid" style={{
-        background: "linear-gradient(180deg, #071426 0%, #050a12 100%)",
-        padding: "20px 20px 16px", borderBottom: "1px solid rgba(0,174,239,0.18)",
-        position: "relative", overflow: "hidden",
+      {/* ── TOPBAR ── */}
+      <div style={{
+        background: "linear-gradient(180deg, #030d03 0%, #050f05 100%)",
+        borderBottom: "1px solid rgba(0,255,136,0.15)",
+        padding: "0 16px",
+        position: "sticky", top: 0, zIndex: 100,
       }}>
-        <div className="scan-line" />
-        <div style={{ position: "relative", zIndex: 2 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <BackButton to="/" />
+        {/* Brand row */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          paddingTop: "env(safe-area-inset-top, 12px)", paddingBottom: 0,
+          minHeight: 52,
+        }}>
+          {/* Logo + title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: "linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05))",
+              border: "1px solid rgba(0,255,136,0.4)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, flexShrink: 0,
+              boxShadow: "0 0 12px rgba(0,255,136,0.15)",
+            }}>⚡</div>
+            <div>
+              <div style={{
+                fontFamily: "Orbitron, monospace", fontSize: 11, fontWeight: 900,
+                color: "#00FF88", letterSpacing: "0.1em",
+                textShadow: "0 0 12px rgba(0,255,136,0.4)",
+              }}>COMMAND CENTER</div>
+              <div style={{
+                fontFamily: "Inter, sans-serif", fontSize: 8, letterSpacing: "0.3em",
+                color: "rgba(0,255,136,0.45)", marginTop: 1,
+              }}>TLS ADMIN SYSTEM</div>
+            </div>
+          </div>
+
+          {/* Right side: online pill + logout */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 5,
+              background: online.length > 0 ? "rgba(0,204,102,0.12)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${online.length > 0 ? "rgba(0,204,102,0.35)" : "rgba(255,255,255,0.1)"}`,
+              borderRadius: 20, padding: "4px 10px",
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: online.length > 0 ? "#00CC66" : "rgba(255,255,255,0.2)",
+                boxShadow: online.length > 0 ? "0 0 6px #00CC66" : "none",
+                display: "inline-block", flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 9, color: online.length > 0 ? "#00CC66" : "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>
+                {online.length} LIVE
+              </span>
+            </div>
             <button
               onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
               style={{
-                padding: "5px 12px", background: "rgba(255,77,77,0.08)", border: "1px solid rgba(255,77,77,0.25)",
-                borderRadius: 8, cursor: "pointer", color: C.red, fontSize: 10, fontFamily: "Inter", letterSpacing: "0.06em",
+                padding: "5px 12px", background: "rgba(255,68,68,0.08)",
+                border: "1px solid rgba(255,68,68,0.3)",
+                borderRadius: 8, cursor: "pointer", color: "#FF4444",
+                fontSize: 9, fontFamily: "Inter", letterSpacing: "0.08em",
               }}
             >LOGOUT</button>
           </div>
-          <div className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.3em", color: C.cyan, marginBottom: 5 }}>COMMAND CENTER</div>
-          <div className="font-orbitron" style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>ADMIN PANEL</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, boxShadow: `0 0 8px ${C.green}`, display: "inline-block" }} />
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{online.length} online · {lastRefresh.toLocaleTimeString()}</span>
-          </div>
+        </div>
+
+        {/* Nav tabs */}
+        <div style={{
+          display: "flex", gap: 0, marginTop: 4,
+          borderTop: "1px solid rgba(0,255,136,0.06)",
+          overflowX: "auto",
+        }}>
+          {ADMIN_NAV.map(nav => (
+            <button
+              key={nav.id}
+              onClick={() => setActiveView(nav.id)}
+              style={{
+                padding: "10px 14px", background: "none", border: "none",
+                borderBottom: activeView === nav.id
+                  ? "2px solid #00FF88"
+                  : "2px solid transparent",
+                color: activeView === nav.id ? "#00FF88" : "rgba(255,255,255,0.3)",
+                fontFamily: "Inter", fontSize: 10, letterSpacing: "0.1em",
+                cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                display: "flex", alignItems: "center", gap: 5,
+                transition: "color 0.15s",
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{nav.icon}</span>
+              {nav.label.toUpperCase()}
+              {nav.id === "trainees" && retakeRequests.length > 0 && (
+                <span style={{
+                  background: "#FFD700", color: "#000", borderRadius: 10,
+                  padding: "0px 5px", fontSize: 8, fontWeight: 700,
+                }}>{retakeRequests.length}</span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
       {error && (
-        <div style={{ margin: "12px 16px", padding: "12px 16px", background: `${C.red}10`, border: `1px solid ${C.red}30`, borderRadius: 10, color: C.red, fontSize: 12 }}>{error}</div>
+        <div style={{ margin: "12px 16px", padding: "12px 16px", background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.3)", borderRadius: 10, color: "#FF4444", fontSize: 12 }}>{error}</div>
       )}
 
-      {/* Stat cards */}
-      {!loading && (
-        <div style={{ padding: "12px 16px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          {[
-            { label: "TRAINEES", value: String(trainees.length), color: C.cyan },
-            { label: "ONLINE", value: String(online.length), color: C.green },
-            { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: C.gold },
-            { label: "AVG MOD", value: avgModules, color: C.yellow },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="glass-card" style={{ padding: "10px 8px", textAlign: "center", border: `1px solid ${color}25` }}>
-              <div className="font-orbitron" style={{ fontSize: 16, fontWeight: 700, color }}>{value}</div>
-              <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em", marginTop: 2 }}>{label}</div>
+      {/* ── DASHBOARD VIEW ── stat cards + overview ── */}
+      {activeView === "dashboard" && !loading && (
+        <div style={{ padding: "16px 16px 0" }}>
+          {/* Large stat banner */}
+          <div style={{
+            background: "linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,255,136,0.02))",
+            border: "1px solid rgba(0,255,136,0.15)",
+            borderRadius: 14, padding: "16px", marginBottom: 12,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 8, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 4 }}>SYSTEM STATUS</div>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff" }}>
+                  {trainees.length} TRAINEES
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "Inter" }}>Last sync</div>
+                <div style={{ fontSize: 11, color: "rgba(0,255,136,0.6)", fontFamily: "Inter" }}>{lastRefresh.toLocaleTimeString()}</div>
+              </div>
             </div>
-          ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+              {[
+                { label: "TOTAL", value: String(trainees.length), color: "#00FF88", sub: "registered", icon: "👥" },
+                { label: "LIVE NOW", value: String(online.length), color: "#00CC66", sub: "online", icon: "🟢" },
+                { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: "#FFD700", sub: "earned", icon: "⚡" },
+                { label: "AVG MODS", value: avgModules, color: "#FFD700", sub: "completed", icon: "📚" },
+              ].map(({ label, value, color, sub, icon }) => (
+                <div key={label} style={{
+                  background: `${color}08`, border: `1px solid ${color}20`,
+                  borderRadius: 10, padding: "12px 8px", textAlign: "center",
+                }}>
+                  <div style={{ fontSize: 16, marginBottom: 4 }}>{icon}</div>
+                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color }}>{value}</div>
+                  <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 2, letterSpacing: "0.06em" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[
+              { label: "PENDING RETAKES", value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.2)" },
+              { label: "BLOCKED",  value: String(trainees.filter(t => (t as any).status === "blocked").length), color: "#FF4444" },
+              { label: "ADVANCED", value: String(trainees.filter(t => (t as any).trainingLevel === "advanced").length), color: "#FFD700" },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{
+                background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 10, padding: "10px 8px", textAlign: "center",
+              }}>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color }}>{value}</div>
+                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", fontFamily: "Inter", marginTop: 2, letterSpacing: "0.06em" }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Top performers */}
+          {trainees.length > 0 && (
+            <div style={{
+              background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.12)",
+              borderRadius: 12, padding: "14px", marginBottom: 16,
+            }}>
+              <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.2em", color: "#FFD700", marginBottom: 12 }}>
+                🏆 TOP PERFORMERS
+              </div>
+              {[...trainees].sort((a, b) => b.xp - a.xp).slice(0, 3).map((t, i) => (
+                <div key={t.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 0",
+                  borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                    background: i === 0 ? "rgba(255,215,0,0.2)" : i === 1 ? "rgba(192,192,192,0.15)" : "rgba(205,127,50,0.15)",
+                    border: `1px solid ${i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : "#CD7F32"}40`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, fontFamily: "Orbitron, monospace", fontWeight: 700,
+                    color: i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : "#CD7F32",
+                  }}>{i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#ffffff", fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>{t.completedModules} modules</div>
+                  </div>
+                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 12, fontWeight: 700, color: "#FFD700", flexShrink: 0 }}>{t.xp} XP</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Panels: Missed Q + Backup + Telegram */}
+          <MissedQuestionsPanel adminPw={adminPw} />
+          <BackupPanel adminPw={adminPw} />
+          <TelegramPanel adminPw={adminPw} />
         </div>
       )}
 
+      {/* ── REPORTS VIEW ── */}
+      {activeView === "reports" && (
+        <div style={{ padding: "16px" }}>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>REPORTS</div>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>ANALYTICS</div>
+          {!loading && trainees.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[...trainees].sort((a, b) => b.xp - a.xp).map((t, i) => (
+                <div key={t.id} style={{
+                  background: "rgba(0,255,136,0.03)", border: "1px solid rgba(0,255,136,0.1)",
+                  borderRadius: 10, padding: "12px 14px",
+                  display: "flex", alignItems: "center", gap: 12,
+                }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Orbitron, monospace", fontSize: 11, color: "#00FF88" }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", fontFamily: "Inter" }}>{t.name}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>{t.email}</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#FFD700", fontFamily: "Orbitron, monospace" }}>{t.xp}</div>
+                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>XP</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#00FF88", fontFamily: "Orbitron, monospace" }}>{t.completedModules}/{t.totalModules}</div>
+                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>MODS</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!loading && trainees.length === 0 && (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.2)" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+              <div style={{ fontFamily: "Orbitron, monospace", fontSize: 11 }}>NO DATA YET</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SETTINGS VIEW ── */}
+      {activeView === "settings" && (
+        <div style={{ padding: "16px" }}>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>SYSTEM</div>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>SETTINGS</div>
+          <BackupPanel adminPw={adminPw} />
+          <TelegramPanel adminPw={adminPw} />
+          <div style={{ marginTop: 24, padding: "16px", background: "rgba(255,68,68,0.05)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 12 }}>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 10, color: "#FF4444", marginBottom: 8 }}>DANGER ZONE</div>
+            <button
+              onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
+              style={{
+                width: "100%", padding: "12px", background: "rgba(255,68,68,0.1)",
+                border: "1px solid rgba(255,68,68,0.4)", borderRadius: 8,
+                color: "#FF4444", fontFamily: "Inter", fontSize: 11,
+                letterSpacing: "0.1em", cursor: "pointer",
+              }}
+            >⛔ LOGOUT & REVOKE SESSION</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TRAINEES VIEW (default list) ── */}
+      {(activeView === "trainees" || activeView === "dashboard") && (
+      <div style={{ padding: activeView === "trainees" ? "16px 16px 0" : "0 16px 0" }}>
+        {activeView === "trainees" && (
+          <>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 4 }}>PERSONNEL</div>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 12 }}>TRAINEES</div>
+          </>
+        )}
+
+        {/* Stat cards — only show in trainees view (dashboard has its own) */}
+        {!loading && activeView === "trainees" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[
+              { label: "TRAINEES", value: String(trainees.length), color: C.primary },
+              { label: "ONLINE", value: String(online.length), color: C.green },
+              { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: C.accent },
+              { label: "AVG MOD", value: avgModules, color: C.yellow },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ padding: "10px 8px", textAlign: "center", background: `${color}08`, border: `1px solid ${color}20`, borderRadius: 10 }}>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 16, fontWeight: 700, color }}>{value}</div>
+                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", letterSpacing: "0.08em", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
       {/* Filter + Sort */}
       {!loading && trainees.length > 0 && (
-        <div style={{ padding: "12px 16px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <div style={{ display: "flex", gap: 6 }}>
             {(["all", "online", "offline"] as const).map(f => (
               <button key={f} onClick={() => setFilter(f)} style={{
                 padding: "5px 12px", borderRadius: 20, fontSize: 10, fontFamily: "Inter",
                 cursor: "pointer", letterSpacing: "0.06em",
-                background: filter === f ? C.cyan : "rgba(255,255,255,0.04)",
-                border: `1px solid ${filter === f ? C.cyan : "rgba(255,255,255,0.1)"}`,
-                color: filter === f ? "#020810" : "var(--text-muted)",
+                background: filter === f ? "#00FF88" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${filter === f ? "#00FF88" : "rgba(255,255,255,0.1)"}`,
+                color: filter === f ? "#000000" : "rgba(255,255,255,0.4)",
               }}>{f.toUpperCase()}</button>
             ))}
           </div>
           <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} style={{
-            background: "rgba(8,15,28,0.95)", border: `1px solid ${C.cyan}25`,
-            borderRadius: 20, padding: "5px 10px", color: "var(--text-secondary)",
+            background: "rgba(0,20,0,0.8)", border: "1px solid rgba(0,255,136,0.2)",
+            borderRadius: 20, padding: "5px 10px", color: "rgba(255,255,255,0.6)",
             fontSize: 10, fontFamily: "Inter", cursor: "pointer", outline: "none",
           }}>
             <option value="xp">Sort: XP</option>
@@ -2327,22 +2684,19 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         </div>
       )}
 
-      <div style={{ padding: "12px 16px", paddingBottom: 80 }}>
-        <MissedQuestionsPanel adminPw={adminPw} />
-        <BackupPanel adminPw={adminPw} />
-        <TelegramPanel adminPw={adminPw} />
+      <div style={{ paddingBottom: 40 }}>
 
         {/* ── RETAKE REQUESTS ── */}
         {retakeRequests.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div className="section-label" style={{ color: C.yellow, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 9, fontFamily: "Orbitron, monospace", letterSpacing: "0.15em", color: "#FFD700", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
               🔁 RETAKE REQUESTS
-              <span style={{ background: C.yellow, color: "#020810", borderRadius: 10, padding: "1px 7px", fontSize: 9, fontWeight: 700 }}>
+              <span style={{ background: "#FFD700", color: "#000", borderRadius: 10, padding: "1px 7px", fontSize: 9, fontWeight: 700 }}>
                 {retakeRequests.length}
               </span>
             </div>
             {retakeRequests.map(req => (
-              <div key={req.id} className="glass-card" style={{ padding: "12px 14px", marginBottom: 8, border: `1px solid ${C.yellow}30` }}>
+              <div key={req.id} style={{ padding: "12px 14px", marginBottom: 8, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.25)", borderRadius: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{req.trainee_name}</div>
@@ -2382,20 +2736,20 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         )}
 
         {loading && [...Array(3)].map((_, i) => (
-          <div key={i} className="glass-card" style={{ height: 90, opacity: 0.4, marginBottom: 10, animation: "pulse-glow 1.5s ease infinite" }} />
+          <div key={i} style={{ height: 90, opacity: 0.3, marginBottom: 10, background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.08)", borderRadius: 12 }} />
         ))}
 
         {!loading && trainees.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)" }}>
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.2)" }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>👥</div>
-            <div className="font-orbitron" style={{ fontSize: 13, marginBottom: 8 }}>NO TRAINEES REGISTERED YET</div>
-            <div style={{ fontSize: 12 }}>Trainees will appear here once they register and log in.</div>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, marginBottom: 8 }}>NO TRAINEES REGISTERED YET</div>
+            <div style={{ fontSize: 12, fontFamily: "Inter" }}>Trainees will appear here once they register and log in.</div>
           </div>
         )}
 
         {!loading && trainees.length > 0 && filtered.length === 0 && (
-          <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)" }}>
-            <div className="font-orbitron" style={{ fontSize: 12 }}>
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(255,255,255,0.2)" }}>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 12 }}>
               {filter === "online" ? "NO ACTIVE TRAINEES ONLINE" : "NO OFFLINE TRAINEES"}
             </div>
           </div>
@@ -2406,28 +2760,29 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           const level = levelFromXp(t.xp);
           const pct = Math.round(((t.xp % 500) / 500) * 100);
           const progressPct = t.totalModules > 0 ? Math.round((t.completedModules / t.totalModules) * 100) : 0;
+          const cardBorderColor = t.online ? "rgba(0,204,102,0.3)" : "rgba(0,255,136,0.12)";
+          const cardBg = t.online
+            ? "linear-gradient(135deg, rgba(0,204,102,0.07), rgba(0,0,0,0))"
+            : "linear-gradient(135deg, rgba(0,255,136,0.04), rgba(0,0,0,0))";
 
           return (
             <div
               key={t.id}
-              className="glass-card fade-in"
               onClick={() => { setSelectedId(t.id); sessionStorage.setItem("tls_admin_selected", t.id); }}
               style={{
                 marginBottom: 10, cursor: "pointer",
-                border: `1px solid ${t.online ? C.green : C.cyan}22`,
-                background: t.online
-                  ? `linear-gradient(135deg, ${C.green}06, transparent)`
-                  : `linear-gradient(135deg, ${C.cyan}05, transparent)`,
-                animationDelay: `${i * 0.05}s`,
+                border: `1px solid ${cardBorderColor}`,
+                background: cardBg,
+                borderRadius: 12,
                 padding: "14px 16px",
                 transition: "border-color 0.18s, box-shadow 0.18s",
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = `${t.online ? C.green : C.cyan}55`;
-                (e.currentTarget as HTMLElement).style.boxShadow = `0 0 18px ${t.online ? C.green : C.cyan}18`;
+                (e.currentTarget as HTMLElement).style.borderColor = t.online ? "rgba(0,204,102,0.6)" : "rgba(0,255,136,0.3)";
+                (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${t.online ? "rgba(0,204,102,0.12)" : "rgba(0,255,136,0.08)"}`;
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = `${t.online ? C.green : C.cyan}22`;
+                (e.currentTarget as HTMLElement).style.borderColor = cardBorderColor;
                 (e.currentTarget as HTMLElement).style.boxShadow = "none";
               }}
             >
@@ -2435,56 +2790,56 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
-                  background: `linear-gradient(135deg, ${t.online ? C.green : C.cyan}30, #071426)`,
-                  border: `2px solid ${t.online ? C.green : "rgba(255,255,255,0.12)"}`,
-                  boxShadow: t.online ? `0 0 10px ${C.green}40` : "none",
+                  background: t.online ? "linear-gradient(135deg, rgba(0,204,102,0.25), rgba(0,0,0,0))" : "linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,0,0,0))",
+                  border: `2px solid ${t.online ? "#00CC66" : "rgba(0,255,136,0.3)"}`,
+                  boxShadow: t.online ? "0 0 12px rgba(0,204,102,0.3)" : "none",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontFamily: "Inter", fontSize: 16, fontWeight: 700,
-                  color: t.online ? C.green : C.cyan, position: "relative",
+                  color: t.online ? "#00CC66" : "#00FF88", position: "relative",
                 }}>
                   {t.name.charAt(0).toUpperCase()}
                   <span style={{
                     position: "absolute", bottom: 1, right: 1,
                     width: 10, height: 10, borderRadius: "50%",
-                    background: t.online ? C.green : "rgba(255,255,255,0.2)",
-                    boxShadow: t.online ? `0 0 6px ${C.green}` : "none",
-                    border: "2px solid #050a12",
+                    background: t.online ? "#00CC66" : "rgba(255,255,255,0.15)",
+                    boxShadow: t.online ? "0 0 6px #00CC66" : "none",
+                    border: "2px solid #050f05",
                   }} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div className="font-orbitron" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontFamily: "Orbitron, monospace", fontSize: 12, fontWeight: 700, color: "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {t.name.toUpperCase()}
                     </div>
                     {(t.role === "admin" || t.role === "instructor") && (
-                      <span style={{ fontSize: 8, padding: "2px 6px", background: `${C.gold}18`, border: `1px solid ${C.gold}40`, borderRadius: 10, color: C.gold, fontFamily: "Inter" }}>
+                      <span style={{ fontSize: 8, padding: "2px 6px", background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.35)", borderRadius: 10, color: "#FFD700", fontFamily: "Inter" }}>
                         {t.role.toUpperCase()}
                       </span>
                     )}
                     {t.status && t.status !== 'active' && (
                       <span style={{
                         fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Inter",
-                        background: t.status === 'blocked' ? `${C.red}18` : t.status === 'suspended' ? `${C.yellow}18` : `${C.gold}18`,
-                        border: `1px solid ${t.status === 'blocked' ? C.red : t.status === 'suspended' ? C.yellow : C.gold}40`,
-                        color: t.status === 'blocked' ? C.red : t.status === 'suspended' ? C.yellow : C.gold,
+                        background: t.status === 'blocked' ? "rgba(255,68,68,0.12)" : t.status === 'suspended' ? "rgba(255,215,0,0.12)" : "rgba(255,215,0,0.12)",
+                        border: `1px solid ${t.status === 'blocked' ? "rgba(255,68,68,0.4)" : "rgba(255,215,0,0.4)"}`,
+                        color: t.status === 'blocked' ? "#FF4444" : t.status === 'suspended' ? "#FFD700" : "#FFD700",
                       }}>
                         {t.status === 'blocked' ? '🚫' : t.status === 'suspended' ? '⏸️' : '🔇'} {t.status.toUpperCase()}
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.email}</div>
-                  <div style={{ fontSize: 10, color: t.online ? C.green : "var(--text-muted)", marginTop: 2 }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 1, fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.email}</div>
+                  <div style={{ fontSize: 10, color: t.online ? "#00CC66" : "rgba(255,255,255,0.25)", marginTop: 2, fontFamily: "Inter" }}>
                     {t.online ? "● Online now" : `Last: ${timeAgo(t.lastActive)}`}
                   </div>
                 </div>
 
-                {/* Level + tap hint */}
-                <div style={{ flexShrink: 0, textAlign: "center", background: `${C.gold}12`, border: `1px solid ${C.gold}35`, borderRadius: 8, padding: "6px 10px" }}>
-                  <div className="font-orbitron" style={{ fontSize: 14, fontWeight: 700, color: C.gold }}>{level}</div>
-                  <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter" }}>LVL</div>
+                {/* Level badge */}
+                <div style={{ flexShrink: 0, textAlign: "center", background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 8, padding: "6px 10px" }}>
+                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 14, fontWeight: 700, color: "#FFD700" }}>{level}</div>
+                  <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>LVL</div>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.cyan} strokeWidth="2" style={{ flexShrink: 0, opacity: 0.5 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FF88" strokeWidth="2" style={{ flexShrink: 0, opacity: 0.4 }}>
                   <path d="M9 18l6-6-6-6"/>
                 </svg>
               </div>
@@ -2492,14 +2847,14 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               {/* Stats row */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
                 {[
-                  { label: "XP", value: String(t.xp), color: C.gold },
-                  { label: "MODULES", value: `${t.completedModules}/${t.totalModules}`, color: C.cyan },
-                  { label: "STREAK", value: `${t.currentStreak}d`, color: C.yellow },
-                  { label: "BADGES", value: String(t.earnedBadges), color: C.blue },
+                  { label: "XP", value: String(t.xp), color: "#FFD700" },
+                  { label: "MODULES", value: `${t.completedModules}/${t.totalModules}`, color: "#00FF88" },
+                  { label: "STREAK", value: `${t.currentStreak}d`, color: "#FFD700" },
+                  { label: "BADGES", value: String(t.earnedBadges), color: "#00CC66" },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: "Inter" }}>{value}</div>
-                    <div style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.06em" }}>{label}</div>
+                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", fontFamily: "Inter", letterSpacing: "0.06em" }}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -2507,11 +2862,11 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               {/* XP progress */}
               <div style={{ marginTop: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}>XP to next level</span>
-                  <span style={{ fontSize: 9, color: C.gold, fontFamily: "Inter" }}>{pct}%</span>
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "Inter" }}>XP to next level</span>
+                  <span style={{ fontSize: 9, color: "#FFD700", fontFamily: "Inter" }}>{pct}%</span>
                 </div>
-                <div className="progress-bar" style={{ height: 4 }}>
-                  <div className="progress-fill" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.yellow})` }} />
+                <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #FFD700, #FFA500)", borderRadius: 2 }} />
                 </div>
               </div>
 
@@ -2519,38 +2874,40 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               {t.totalModules > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter" }}>Module completion</span>
-                    <span style={{ fontSize: 9, color: C.cyan, fontFamily: "Inter" }}>{progressPct}%</span>
+                    <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "Inter" }}>Module completion</span>
+                    <span style={{ fontSize: 9, color: "#00FF88", fontFamily: "Inter" }}>{progressPct}%</span>
                   </div>
-                  <div className="progress-bar" style={{ height: 4 }}>
-                    <div className="progress-fill" style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${C.cyan}, ${C.blue})` }} />
+                  <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ width: `${progressPct}%`, height: "100%", background: "linear-gradient(90deg, #00FF88, #00CC66)", borderRadius: 2 }} />
                   </div>
                 </div>
               )}
 
-              {/* Quick moderation buttons — stop propagation so card tap doesn't open modal */}
+              {/* Quick moderation buttons */}
               <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
                 {t.status === 'active' ? (
                   <>
-                    <QuickModBtn traineeId={t.id} action="block"   label="🚫 Block"   color={C.red}    adminPw={adminPw} onDone={fetchData} />
-                    <QuickModBtn traineeId={t.id} action="suspend" label="⏸️ Suspend" color={C.yellow} adminPw={adminPw} onDone={fetchData} />
-                    <QuickModBtn traineeId={t.id} action="mute"    label="🔇 Mute"    color={C.gold}   adminPw={adminPw} onDone={fetchData} />
+                    <QuickModBtn traineeId={t.id} action="block"   label="🚫 Block"   color="#FF4444" adminPw={adminPw} onDone={fetchData} />
+                    <QuickModBtn traineeId={t.id} action="suspend" label="⏸️ Suspend" color="#FFD700" adminPw={adminPw} onDone={fetchData} />
+                    <QuickModBtn traineeId={t.id} action="mute"    label="🔇 Mute"    color="#FFD700" adminPw={adminPw} onDone={fetchData} />
                   </>
                 ) : t.status === 'blocked' ? (
-                  <QuickModBtn traineeId={t.id} action="unblock"  label="✅ Unblock"  color={C.green}  adminPw={adminPw} onDone={fetchData} />
+                  <QuickModBtn traineeId={t.id} action="unblock"  label="✅ Unblock"  color="#00CC66" adminPw={adminPw} onDone={fetchData} />
                 ) : t.status === 'suspended' ? (
-                  <QuickModBtn traineeId={t.id} action="restore"  label="▶️ Restore"  color={C.cyan}   adminPw={adminPw} onDone={fetchData} />
+                  <QuickModBtn traineeId={t.id} action="restore"  label="▶️ Restore"  color="#00FF88" adminPw={adminPw} onDone={fetchData} />
                 ) : t.status === 'muted' ? (
-                  <QuickModBtn traineeId={t.id} action="unmute"   label="🔊 Unmute"   color={C.blue}   adminPw={adminPw} onDone={fetchData} />
+                  <QuickModBtn traineeId={t.id} action="unmute"   label="🔊 Unmute"   color="#00CC66" adminPw={adminPw} onDone={fetchData} />
                 ) : null}
                 <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-                  <span style={{ fontSize: 8, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>TAP FOR DETAILS →</span>
+                  <span style={{ fontSize: 8, color: "rgba(0,255,136,0.3)", fontFamily: "Inter", letterSpacing: "0.08em" }}>TAP FOR DETAILS →</span>
                 </div>
               </div>
             </div>
           );
         })}
       </div>
+      </div>
+      )}
     </div>
   );
 }
