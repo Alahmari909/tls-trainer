@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
-import { getSession } from "../hooks/useTelegramTrack";
+import { getSession, clearSession } from "../hooks/useTelegramTrack";
 
 const navItems = [
   {
@@ -242,6 +242,45 @@ export default function Sidebar() {
                   </Link>
                 );
               })}
+              {/* Logout */}
+              <div style={{ padding: "4px 4px 4px", borderTop: "1px solid rgba(255,77,77,0.1)", marginTop: 4 }}>
+                <button
+                  onClick={() => {
+                    clearSession();
+                    sessionStorage.removeItem("tls_last_page");
+                    sessionStorage.removeItem("tls_intended");
+                    setMenuOpen(false);
+                    setLocation("/");
+                    window.location.reload();
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", padding: "10px 16px",
+                    background: "transparent",
+                    border: "1px solid rgba(255,77,77,0.2)",
+                    borderRadius: 8, cursor: "pointer",
+                    color: "rgba(255,77,77,0.6)",
+                    fontFamily: "Inter", fontSize: 10,
+                    letterSpacing: "0.1em", fontWeight: 600,
+                    transition: "all 0.2s", marginTop: 4,
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "rgba(255,77,77,0.1)";
+                    e.currentTarget.style.color = "#FF4D4D";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgba(255,77,77,0.6)";
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  LOGOUT
+                </button>
+              </div>
             </div>
           )}
         </div>
