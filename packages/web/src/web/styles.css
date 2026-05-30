@@ -435,42 +435,25 @@ body {
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 56px;
-    background: rgba(3, 8, 20, 0.98);
-    border-bottom: 1px solid rgba(0, 174, 239, 0.18);
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: none;
     padding: 0 16px;
     z-index: 200;
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background 0.2s, border-color 0.2s;
     /* NO overflow:hidden — lets dropdown escape */
   }
 
-  /* Shimmer line on bottom border */
+  /* Remove shimmer — topbar is ghost mode */
   .desktop-topbar::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 1px;
-    z-index: 0;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(0, 212, 255, 0) 20%,
-      rgba(0, 212, 255, 0.8) 50%,
-      rgba(0, 212, 255, 0) 80%,
-      transparent 100%
-    );
-    background-size: 600px 1px;
-    animation: topbar-shimmer 3s linear infinite;
-    pointer-events: none;
+    display: none;
   }
 
-  /* ── Glow overlay (decorative, z-index 0, no pointer events) ── */
+  /* ── Glow overlay — disabled ── */
   .topbar-glow-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: radial-gradient(ellipse 60% 100% at 50% 100%, rgba(0, 212, 255, 0.07) 0%, transparent 70%);
-    animation: topbar-glow-pulse 2.5s ease-in-out infinite;
+    display: none;
   }
 
   /* ── Brand block (left, next to ☰) ── */
@@ -487,19 +470,11 @@ body {
     font-weight: 800;
     letter-spacing: 0.18em;
     display: block;
-    background: linear-gradient(
-      90deg,
-      #fff 0%,
-      #fff 30%,
-      #00d4ff 50%,
-      #fff 70%,
-      #fff 100%
-    );
-    background-size: 300px 100%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: topbar-shimmer 3s linear infinite;
+    color: rgba(255, 255, 255, 0.3);
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.3);
+    background: none;
+    animation: none;
+    transition: color 0.2s, -webkit-text-fill-color 0.2s;
   }
 
   .topbar-logo-sub {
@@ -507,9 +482,10 @@ body {
     font-size: 7px;
     font-weight: 600;
     letter-spacing: 0.2em;
-    color: rgba(0, 212, 255, 0.5);
+    color: rgba(255, 255, 255, 0.15);
     text-transform: uppercase;
     display: block;
+    transition: color 0.2s;
   }
 
   /* ── Full-width layout fix ── */
@@ -543,12 +519,22 @@ body {
 .topbar-menu-btn {
   display: flex; align-items: center; gap: 10px;
   background: none; border: none; cursor: pointer;
-  color: #00d4ff; font-family: 'Inter', sans-serif;
+  color: rgba(255, 255, 255, 0.3); font-family: 'Inter', sans-serif;
   font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
   padding: 6px 10px; border-radius: 8px;
-  transition: background 0.15s;
+  transition: color 0.2s, background 0.2s;
 }
-.topbar-menu-btn:hover { background: rgba(0, 174, 239, 0.08); }
+.topbar-menu-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+}
+.desktop-topbar:hover .topbar-logo-text {
+  color: rgba(255, 255, 255, 0.7);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.7);
+}
+.desktop-topbar:hover .topbar-logo-sub {
+  color: rgba(255, 255, 255, 0.35);
+}
 
 .topbar-brand { font-family: 'Inter', sans-serif; }
 
