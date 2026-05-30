@@ -3,6 +3,7 @@
 
 :root {
   --bg-primary: #03080f;
+  --bg-secondary: #04091a;
   --bg-card: #080f1c;
   --bg-elevated: #0c1628;
   --accent-blue: #00AEEF;
@@ -11,9 +12,22 @@
   --text-primary: #e8f4fd;
   --text-secondary: #7a9bb8;
   --text-muted: #3d5a73;
+  --border-color: rgba(0,174,239,0.15);
   --danger: #ff3b3b;
   --success: #00D26A;
   --warning: #FFD166;
+}
+
+/* ── Light mode: dark gray "military dim" — not white, not black ── */
+:root.light-mode {
+  --bg-primary:    #2c3440;
+  --bg-secondary:  #343d4a;
+  --bg-card:       #3d4755;
+  --bg-elevated:   #454f60;
+  --text-primary:  #e8edf2;
+  --text-secondary:#b8c4d0;
+  --text-muted:    #8a9bb0;
+  --border-color:  rgba(100,160,220,0.2);
 }
 
 * { box-sizing: border-box; }

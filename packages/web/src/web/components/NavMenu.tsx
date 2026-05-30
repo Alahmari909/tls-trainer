@@ -89,29 +89,18 @@ function formatDateTime(d: Date): string {
   return `${day} ${month} ${year} · ${hh}:${mm} ${ampm}`;
 }
 
-// ── Theme vars applied to :root ──────────────────────────────────────────────
-const LIGHT_VARS: Record<string, string> = {
-  "--bg-primary":    "#f0f4f8",
-  "--bg-secondary":  "#e2eaf2",
-  "--text-primary":  "#1a1a2e",
-  "--text-secondary":"#2d3748",
-  "--text-muted":    "#6b7a90",
-  "--card-bg":       "#ffffff",
-};
-const DARK_VARS: Record<string, string> = {
-  "--bg-primary":    "#03080f",
-  "--bg-secondary":  "#04091a",
-  "--text-primary":  "#ffffff",
-  "--text-secondary":"rgba(255,255,255,0.75)",
-  "--text-muted":    "rgba(255,255,255,0.35)",
-  "--card-bg":       "rgba(255,255,255,0.04)",
-};
-
+// ── Theme: toggle class on <html>, CSS vars live in styles.css ───────────────
 function applyTheme(t: "dark" | "light") {
-  const vars = t === "light" ? LIGHT_VARS : DARK_VARS;
+  if (t === "light") {
+    document.documentElement.classList.add("light-mode");
+  } else {
+    document.documentElement.classList.remove("light-mode");
+  }
+  // Remove any stale inline overrides from old approach
   const root = document.documentElement;
-  Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
-  root.setAttribute("data-theme", t);
+  ["--bg-primary","--bg-secondary","--bg-card","--bg-elevated",
+   "--text-primary","--text-secondary","--text-muted","--border-color","--card-bg"]
+    .forEach(v => root.style.removeProperty(v));
 }
 
 export default function NavMenu() {

@@ -2455,22 +2455,16 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   // ── Theme toggle ─────────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<"dark" | "light">(() => (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark");
   useEffect(() => {
-    const root = document.documentElement;
     if (theme === "light") {
-      root.style.setProperty("--bg-primary", "#e8edf2");
-      root.style.setProperty("--bg-secondary", "#dce4ec");
-      root.style.setProperty("--text-primary", "#2c3e50");
-      root.style.setProperty("--text-secondary", "#4a5568");
-      root.style.setProperty("--text-muted", "#718096");
-      root.style.setProperty("--card-bg", "#f5f7fa");
+      document.documentElement.classList.add("light-mode");
     } else {
-      root.style.setProperty("--bg-primary", "#071426");
-      root.style.setProperty("--bg-secondary", "#0a1e38");
-      root.style.setProperty("--text-primary", "#ffffff");
-      root.style.setProperty("--text-secondary", "rgba(255,255,255,0.75)");
-      root.style.setProperty("--text-muted", "rgba(255,255,255,0.35)");
-      root.style.setProperty("--card-bg", "rgba(255,255,255,0.04)");
+      document.documentElement.classList.remove("light-mode");
     }
+    // Remove stale inline overrides from old approach
+    const root = document.documentElement;
+    ["--bg-primary","--bg-secondary","--bg-card","--bg-elevated",
+     "--text-primary","--text-secondary","--text-muted","--border-color","--card-bg"]
+      .forEach(v => root.style.removeProperty(v));
     localStorage.setItem("tls_theme", theme);
   }, [theme]);
 
