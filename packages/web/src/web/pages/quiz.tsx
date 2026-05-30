@@ -30,6 +30,22 @@ type Module = {
   icon: string;
 };
 
+function launchConfetti() {
+  const colors = ['#00AEEF','#FFD166','#00D26A','#FF4D4D','#35D4FF','#C9A66B'];
+  for (let i = 0; i < 40; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.top = '-10px';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDelay = Math.random() * 1.5 + 's';
+    el.style.width = (8 + Math.random() * 8) + 'px';
+    el.style.height = (8 + Math.random() * 8) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+}
+
 export default function Quiz() {
   const params = useParams<{ moduleId: string }>();
   const moduleId = parseInt(params.moduleId ?? "1");
@@ -145,6 +161,7 @@ export default function Quiz() {
       const finalTotal = questions.length;
       const pct = finalTotal > 0 ? Math.round((finalScore / finalTotal) * 100) : 0;
       const passed = pct >= 70;
+      if (passed) launchConfetti();
       const traineeId = getSession()?.id ?? 'user-1';
 
       // Submit to correct endpoint
@@ -368,14 +385,17 @@ export default function Quiz() {
             <div className="font-orbitron" style={{ fontSize: 12, color: color }}>
               {current + 1}/{questions.length}
             </div>
-            <div style={{
-              fontSize: 13, fontWeight: 700, fontFamily: "Inter",
-              color: timeLeft <= 10 ? "#FF4D4D" : timeLeft <= 20 ? "#FFD166" : "#00D26A",
-              background: timeLeft <= 10 ? "rgba(255,77,77,0.1)" : "rgba(0,210,106,0.08)",
-              border: `1px solid ${timeLeft <= 10 ? "rgba(255,77,77,0.4)" : "rgba(0,210,106,0.25)"}`,
-              borderRadius: 6, padding: "2px 8px", minWidth: 44, textAlign: "center",
-              transition: "color 0.3s, background 0.3s",
-            }}>
+            <div
+              className={timeLeft <= 10 && !answered ? "timer-danger" : undefined}
+              style={{
+                fontSize: 13, fontWeight: 700, fontFamily: "Inter",
+                color: timeLeft <= 10 ? "#FF4D4D" : timeLeft <= 20 ? "#FFD166" : "#00D26A",
+                background: timeLeft <= 10 ? "rgba(255,77,77,0.1)" : "rgba(0,210,106,0.08)",
+                border: `1px solid ${timeLeft <= 10 ? "rgba(255,77,77,0.4)" : "rgba(0,210,106,0.25)"}`,
+                borderRadius: 6, padding: "2px 8px", minWidth: 44, textAlign: "center",
+                transition: "color 0.3s, background 0.3s",
+              }}
+            >
               {answered ? "✓" : `${timeLeft}s`}
             </div>
           </div>

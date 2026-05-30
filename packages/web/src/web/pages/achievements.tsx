@@ -110,7 +110,7 @@ function BadgeCard({ badge, earned, index }: { badge: Achievement; earned: boole
   const [hovered, setHovered] = useState(false);
   return (
     <div
-      className="fade-in"
+      className="fade-in badge-animate"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -123,7 +123,7 @@ function BadgeCard({ badge, earned, index }: { badge: Achievement; earned: boole
           ? `linear-gradient(160deg, rgba(5,12,22,0.95) 0%, ${badge.color}10 100%)`
           : "rgba(255,255,255,0.02)",
         opacity: earned ? 1 : 0.42,
-        animationDelay: `${index * 0.04}s`,
+        animationDelay: `${index * 0.05}s`,
         transition: "transform 0.18s ease, box-shadow 0.18s ease",
         transform: hovered && earned ? "translateY(-3px) scale(1.02)" : "none",
         boxShadow: hovered && earned ? `0 8px 24px ${badge.color}30` : "none",

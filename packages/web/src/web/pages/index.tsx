@@ -863,8 +863,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                   {mod?.title ?? `Module ${inProgress.moduleId}`}
                 </div>
                 <div className="progress-bar" style={{ marginTop: 7 }}>
-                  <div className="progress-fill" style={{
+                  <div className="progress-fill animated-bar" style={{
                     width: `${inProgress.progress}%`,
+                    ["--bar-width" as any]: `${inProgress.progress}%`,
                     background: `linear-gradient(90deg, ${color}, #35D4FF)`,
                   }} />
                 </div>
@@ -971,12 +972,12 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                       )}
                     </div>
                     <div className="progress-bar">
-                      <div className="progress-fill" style={{
+                      <div className="progress-fill animated-bar" style={{
                         width: `${pct}%`,
+                        ["--bar-width" as any]: `${pct}%`,
                         background: pct >= 100
                           ? "linear-gradient(90deg, #00AEEF, #35D4FF)"
                           : `linear-gradient(90deg, ${color}, #35D4FF)`,
-                        transition: "width 0.8s ease",
                       }} />
                     </div>
                   </div>
