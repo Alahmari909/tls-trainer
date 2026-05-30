@@ -524,13 +524,13 @@ body {
     max-width: 100%;
     margin: 0;
     padding: 0;
+    padding-top: 56px; /* offset for fixed topbar */
   }
 
   .page {
     max-width: 100%;
     width: 100%;
     padding: 24px 40px;
-    padding-top: 80px;
     box-sizing: border-box;
   }
 
