@@ -89,11 +89,44 @@ function formatDateTime(d: Date): string {
   return `${day} ${month} ${year} · ${hh}:${mm} ${ampm}`;
 }
 
+// ── Theme vars applied to :root ──────────────────────────────────────────────
+const LIGHT_VARS: Record<string, string> = {
+  "--bg-primary":    "#f0f4f8",
+  "--bg-secondary":  "#e2eaf2",
+  "--text-primary":  "#1a1a2e",
+  "--text-secondary":"#2d3748",
+  "--text-muted":    "#6b7a90",
+  "--card-bg":       "#ffffff",
+};
+const DARK_VARS: Record<string, string> = {
+  "--bg-primary":    "#03080f",
+  "--bg-secondary":  "#04091a",
+  "--text-primary":  "#ffffff",
+  "--text-secondary":"rgba(255,255,255,0.75)",
+  "--text-muted":    "rgba(255,255,255,0.35)",
+  "--card-bg":       "rgba(255,255,255,0.04)",
+};
+
+function applyTheme(t: "dark" | "light") {
+  const vars = t === "light" ? LIGHT_VARS : DARK_VARS;
+  const root = document.documentElement;
+  Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  root.setAttribute("data-theme", t);
+}
+
 export default function NavMenu() {
   const [open, setOpen] = useState(false);
   const [location, navigate] = useLocation();
   const [session, setSession] = useState(() => getSession());
   const now = useLiveClock();
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    return (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark";
+  });
+
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem("tls_theme", theme);
+  }, [theme]);
 
   // Sync session state
   useEffect(() => {
@@ -122,8 +155,6 @@ export default function NavMenu() {
     navigate("/", { replace: true });
     window.location.reload();
   };
-
-  const isAdmin = location === "/admin";
 
   return (
     <>
@@ -203,8 +234,23 @@ export default function NavMenu() {
           </div>
         )}
 
-        {/* Right: Hamburger */}
+        {/* Right: Theme toggle + Hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+            aria-label="Toggle theme"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 9, padding: "5px 8px", cursor: "pointer",
+              fontSize: 16, lineHeight: 1,
+              transition: "all 0.2s", flexShrink: 0,
+            }}
+          >
+            {theme === "dark" ? "🌞" : "🌙"}
+          </button>
           {/* Hamburger */}
           <button
             onClick={() => setOpen(o => !o)}
@@ -329,7 +375,7 @@ export default function NavMenu() {
               SYSTEM ONLINE
             </span>
           </div>
-          {(session || isAdmin) && (
+          {session && (
             <button
               onClick={() => { setOpen(false); handleLogout(); }}
               style={{
