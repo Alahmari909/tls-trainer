@@ -167,8 +167,6 @@ export default function Sidebar() {
 
   if (!session) return null;
 
-  const initials = session.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
-
   const isActive = (path: string) =>
     location === path ||
     (path === "/quiz" && location.startsWith("/quiz")) ||
@@ -180,8 +178,8 @@ export default function Sidebar() {
     <>
       {/* ── Desktop topbar (768px+) ── */}
       <header className="desktop-topbar">
-        {/* Left: hamburger + brand */}
-        <div ref={menuRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Left: hamburger menu */}
+        <div ref={menuRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
           <button
             className="topbar-menu-btn"
             onClick={() => setMenuOpen(o => !o)}
@@ -192,7 +190,6 @@ export default function Sidebar() {
               <line x1="3" y1="12" x2="21" y2="12"/>
               <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
-            <span className="topbar-brand">TLS TRAINER</span>
           </button>
 
           {/* Dropdown */}
@@ -223,14 +220,15 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Right: user info */}
-        <div className="topbar-user">
-          <div className="topbar-avatar">{initials}</div>
-          <div>
-            <div className="topbar-user-name">{session.name}</div>
-            <div className="topbar-user-rank">{[session.rank, session.unit].filter(Boolean).join(" · ")}</div>
-          </div>
+        {/* Center: animated logo banner */}
+        <div className="topbar-logo-banner">
+          <span className="topbar-logo-icon">⊕</span>
+          <span className="topbar-logo-text">TLS TRAINER</span>
+          <span className="topbar-logo-sub">TRANSPONDER LANDING SYSTEM</span>
         </div>
+
+        {/* Right: spacer to balance hamburger */}
+        <div style={{ width: 44 }} />
       </header>
 
       {/* ── Mobile bottom nav (hidden on desktop via CSS) ── */}
