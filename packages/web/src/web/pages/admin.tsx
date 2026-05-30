@@ -1440,6 +1440,59 @@ type BackupStats = {
   counts: Record<string, number>;
 };
 
+function MissedQuestionsPanel({ adminPw }: { adminPw: string }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (!open && data.length === 0) {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/admin/missed-questions', { headers: { 'x-admin-password': adminPw } });
+        if (res.ok) setData(await res.json());
+      } catch {}
+      setLoading(false);
+    }
+    setOpen(o => !o);
+  };
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <button onClick={load} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background: open ? "rgba(255,77,77,0.08)" : "rgba(8,15,28,0.9)", border:`1px solid ${open ? "rgba(255,77,77,0.35)" : "rgba(255,77,77,0.18)"}`, borderRadius: open ? "12px 12px 0 0" : 12, cursor:"pointer", color:"inherit", transition:"all 0.2s" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:18 }}>📊</span>
+          <span className="font-orbitron" style={{ fontSize:11, letterSpacing:"0.15em", color:"#FF4D4D" }}>MOST MISSED QUESTIONS</span>
+        </div>
+        <span style={{ color:"var(--text-muted)", fontSize:14, transform: open ? "rotate(180deg)" : "none", transition:"transform 0.2s" }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ background:"rgba(6,12,24,0.97)", border:"1px solid rgba(255,77,77,0.2)", borderTop:"none", borderRadius:"0 0 12px 12px", padding:"16px" }}>
+          {loading ? <div style={{ textAlign:"center", color:"var(--text-muted)", padding:20, fontFamily:"Inter", fontSize:12 }}>Loading...</div>
+          : data.length === 0 ? <div style={{ textAlign:"center", color:"var(--text-muted)", padding:20, fontFamily:"Inter", fontSize:12 }}>No data yet — trainees need to complete quizzes first.</div>
+          : data.map((q: any, i: number) => (
+            <div key={i} style={{ padding:"10px 12px", marginBottom:8, borderRadius:8, background: q.wrong_pct>=70 ? "rgba(255,77,77,0.07)" : "rgba(255,209,102,0.07)", border:`1px solid ${q.wrong_pct>=70 ? "rgba(255,77,77,0.2)" : "rgba(255,209,102,0.2)"}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", gap:8 }}>
+                <div style={{ flex:1, fontSize:11, color:"var(--text-secondary)", fontFamily:"Inter" }}>
+                  <span style={{ color:"var(--text-muted)", marginRight:6 }}>#{i+1}</span>{q.question_text}
+                  <div style={{ fontSize:10, color:"var(--text-muted)", marginTop:4 }}>Module {q.module_id} · {q.total_attempts} attempts</div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontSize:16, fontWeight:800, fontFamily:"Inter", color: q.wrong_pct>=70 ? "#FF4D4D" : "#FFD166" }}>{q.wrong_pct}%</div>
+                  <div style={{ fontSize:9, color:"var(--text-muted)", fontFamily:"Inter" }}>miss rate</div>
+                </div>
+              </div>
+              <div style={{ marginTop:8, height:3, background:"rgba(255,255,255,0.05)", borderRadius:2 }}>
+                <div style={{ height:"100%", borderRadius:2, width:`${q.wrong_pct}%`, background: q.wrong_pct>=70 ? "#FF4D4D" : "#FFD166" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BackupPanel({ adminPw }: { adminPw: string }) {
   const [open, setOpen]           = useState(false);
   const [tab, setTab]             = useState<'db' | 'export' | 'import' | 'snapshots'>('db');
@@ -2275,6 +2328,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       )}
 
       <div style={{ padding: "12px 16px", paddingBottom: 80 }}>
+        <MissedQuestionsPanel adminPw={adminPw} />
         <BackupPanel adminPw={adminPw} />
         <TelegramPanel adminPw={adminPw} />
 
