@@ -323,7 +323,7 @@ function TraineeDetailModal({
   const [msgText, setMsgText] = useState(() => sessionStorage.getItem(`tls_admin_msg_${traineeId}`) ?? "");
   const [alertText, setAlertText] = useState("");
   const [alertType, setAlertType] = useState("info");
-  const [noteText, setNoteText] = useState("");
+  const [noteText, setNoteText] = useState(() => sessionStorage.getItem(`tls_admin_note_${traineeId}`) ?? "");
   const [assignModuleId, setAssignModuleId] = useState("");
   const [assignModuleName, setAssignModuleName] = useState("");
   const [resetModuleId, setResetModuleId] = useState("");
@@ -333,14 +333,14 @@ function TraineeDetailModal({
 
   const headers = { "Content-Type": "application/json", "x-admin-password": adminPw };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`/api/admin/trainee/${traineeId}`, { headers: { "x-admin-password": adminPw } });
       const data = await res.json() as TraineeDetail;
       setDetail(data);
     } catch { /* non-fatal */ }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [traineeId, adminPw]);
 
   useEffect(() => { load(); }, [load]);
@@ -352,10 +352,10 @@ function TraineeDetailModal({
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // Poll every 5s when messages tab is open
+  // Poll every 5s when messages tab is open — silent so typed text is never cleared
   useEffect(() => {
     if (tab !== "messages") return;
-    const id = setInterval(() => { load(); }, 5000);
+    const id = setInterval(() => { load(true); }, 5000);
     return () => clearInterval(id);
   }, [tab, load]);
 
@@ -370,7 +370,7 @@ function TraineeDetailModal({
         setActionResult({ ok: true, text: "Sent successfully" });
         onSuccess?.();          // clear input only on success
         // silent background refresh — do NOT await so UI stays responsive
-        load().catch(() => {});
+        load(true).catch(() => {});
       } else {
         setActionResult({ ok: false, text: data.error ?? "Failed" });
       }
@@ -425,7 +425,7 @@ function TraineeDetailModal({
       if (data.ok) {
         setActionResult({ ok: true, text: `${action.toUpperCase()} applied` });
         setModReason("");
-        load().catch(() => {});
+        load(true).catch(() => {});
         // Refresh moderation log
         fetch(`/api/admin/moderation-log/${traineeId}`, { headers: { "x-admin-password": adminPw } })
           .then(r => r.json()).then(d => setModLog(d as ModerationEntry[])).catch(() => {});
@@ -692,7 +692,7 @@ function TraineeDetailModal({
                 <div className="glass-card" style={{ padding: "12px 14px", marginBottom: 10, border: `1px solid ${C.gold}20` }}>
                   <div className="font-orbitron" style={{ fontSize: 9, color: C.gold, letterSpacing: "0.1em", marginBottom: 8 }}>📝 INSTRUCTOR NOTE</div>
                   <textarea
-                    value={noteText} onChange={e => setNoteText(e.target.value)}
+                    value={noteText} onChange={e => { setNoteText(e.target.value); sessionStorage.setItem(`tls_admin_note_${traineeId}`, e.target.value); }}
                     placeholder="Private note (only visible to admins)..."
                     rows={2}
                     style={{
@@ -703,7 +703,7 @@ function TraineeDetailModal({
                   />
                   <button
                     disabled={acting || !noteText.trim()}
-                    onClick={() => { const txt = noteText; act("note", { note: txt }, () => setNoteText("")); }}
+                    onClick={() => { const txt = noteText; act("note", { note: txt }, () => { setNoteText(""); sessionStorage.removeItem(`tls_admin_note_${traineeId}`); }); }}
                     style={{
                       marginTop: 8, padding: "8px 16px",
                       background: noteText.trim() ? `${C.gold}15` : "transparent",
@@ -1091,7 +1091,7 @@ ${weaknessSection}${strengthSection}
                 {/* Quick add */}
                 <div className="glass-card" style={{ padding: "12px 14px", marginBottom: 12, border: `1px solid ${C.gold}20` }}>
                   <textarea
-                    value={noteText} onChange={e => setNoteText(e.target.value)}
+                    value={noteText} onChange={e => { setNoteText(e.target.value); sessionStorage.setItem(`tls_admin_note_${traineeId}`, e.target.value); }}
                     placeholder="Add instructor note..."
                     rows={2}
                     style={{
@@ -1102,7 +1102,7 @@ ${weaknessSection}${strengthSection}
                   />
                   <button
                     disabled={acting || !noteText.trim()}
-                    onClick={() => { const txt = noteText; act("note", { note: txt }, () => setNoteText("")); }}
+                    onClick={() => { const txt = noteText; act("note", { note: txt }, () => { setNoteText(""); sessionStorage.removeItem(`tls_admin_note_${traineeId}`); }); }}
                     style={{
                       marginTop: 6, padding: "7px 14px",
                       background: noteText.trim() ? `${C.gold}15` : "transparent",
