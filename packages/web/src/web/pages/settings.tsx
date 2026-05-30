@@ -242,7 +242,7 @@ export default function Settings() {
       if (!verifyRes.ok) { setPinError("Current PIN is incorrect."); setPinSaving(false); return; }
 
       // Update PIN
-      const updateRes = await fetch("/api/trainee/update", {
+      const updateRes = await fetch("/api/trainee/change-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: session.id, pin: pin.next }),
@@ -431,11 +431,8 @@ export default function Settings() {
           <SettingRow label="Sound Effects" desc="Play sounds on quiz answers and achievements">
             <Toggle on={settings.soundEffects} onChange={() => toggle("soundEffects")} />
           </SettingRow>
-          <SettingRow label="Notification Sound" desc="Play a tone when the instructor sends an alert">
+          <SettingRow label="Notification Sound" desc="Play a tone when the instructor sends an alert" last>
             <Toggle on={settings.notificationSound} onChange={() => toggle("notificationSound")} />
-          </SettingRow>
-          <SettingRow label="Vibration" desc="Vibrate device on incoming alerts (mobile only)" last>
-            <Toggle on={settings.notificationVibrate} onChange={() => toggle("notificationVibrate")} />
           </SettingRow>
         </Section>
 
