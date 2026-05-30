@@ -2317,11 +2317,12 @@ const NAV_LINKS = [
   { id: "notifications", label: "Notifications",  icon: "🔔", divider: false },
   { id: "about",         label: "About",          icon: "ℹ️", divider: false },
   { id: "documents",     label: "Documents",      icon: "📄", divider: false },
-  { id: "radar_gallery", label: "Radar Gallery",  icon: "📷", divider: false },
+  { id: "radar_gallery",  label: "Radar Gallery",  icon: "📷", divider: false },
+  { id: "common_faults",  label: "Common Faults",  icon: "⚠️", divider: false },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "radar_gallery";
+  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "radar_gallery" | "common_faults";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -2425,6 +2426,279 @@ function AdminPrivateChatList({ adminPw }: { adminPw: string }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Common Faults Admin ─────────────────────────────────────────────────────
+interface FaultMedia { id: number; fault_id: number; mime_type: string; filename: string; sort_order: number; }
+interface FaultItem { id: number; title: string; cause: string; solution: string; created_at: number; media: FaultMedia[]; }
+
+function AdminFaults({ adminPw }: { adminPw: string }) {
+  const [faults, setFaults]         = useState<FaultItem[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  // Form state (add / edit)
+  const [editId, setEditId]         = useState<number | null>(null); // null = new
+  const [showForm, setShowForm]     = useState(false);
+  const [fTitle, setFTitle]         = useState("");
+  const [fCause, setFCause]         = useState("");
+  const [fSolution, setFSolution]   = useState("");
+
+  // CSV import
+  const csvRef = useRef<HTMLInputElement>(null);
+  // Media upload
+  const mediaRef = useRef<HTMLInputElement>(null);
+  const [uploadingFor, setUploadingFor] = useState<number | null>(null);
+
+  const headers = { "x-admin-pw": adminPw, "Content-Type": "application/json" };
+
+  function load() {
+    setLoading(true);
+    fetch("/api/faults").then(r => r.json()).then(d => { setFaults(d); setLoading(false); }).catch(() => setLoading(false));
+  }
+  useEffect(() => { load(); }, []);
+
+  function openNew() {
+    setEditId(null);
+    setFTitle(""); setFCause(""); setFSolution("");
+    setShowForm(true);
+  }
+  function openEdit(f: FaultItem) {
+    setEditId(f.id);
+    setFTitle(f.title); setFCause(f.cause); setFSolution(f.solution);
+    setShowForm(true);
+  }
+
+  async function saveFault() {
+    if (!fTitle.trim() || !fCause.trim() || !fSolution.trim()) { alert("All fields are required."); return; }
+    setSaving(true);
+    try {
+      if (editId === null) {
+        const r = await fetch("/api/admin/faults", { method: "POST", headers, body: JSON.stringify({ title: fTitle, cause: fCause, solution: fSolution }) });
+        if (!r.ok) throw new Error(await r.text());
+      } else {
+        const r = await fetch(`/api/admin/faults/${editId}`, { method: "PATCH", headers, body: JSON.stringify({ title: fTitle, cause: fCause, solution: fSolution }) });
+        if (!r.ok) throw new Error(await r.text());
+      }
+      setShowForm(false);
+      load();
+    } catch (e: any) { alert("Error: " + e.message); }
+    setSaving(false);
+  }
+
+  async function deleteFault(id: number) {
+    if (!confirm("Delete this fault and all its media?")) return;
+    await fetch(`/api/admin/faults/${id}`, { method: "DELETE", headers: { "x-admin-pw": adminPw } });
+    load();
+  }
+
+  async function deleteMedia(mediaId: number) {
+    if (!confirm("Delete this media file?")) return;
+    await fetch(`/api/admin/faults/media/${mediaId}`, { method: "DELETE", headers: { "x-admin-pw": adminPw } });
+    load();
+  }
+
+  async function uploadMedia(faultId: number, files: FileList) {
+    setUploadingFor(faultId);
+    for (const file of Array.from(files)) {
+      const reader = new FileReader();
+      await new Promise<void>((resolve) => {
+        reader.onload = async () => {
+          const b64 = (reader.result as string).split(",")[1];
+          await fetch(`/api/admin/faults/${faultId}/media`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ media_data: b64, mime_type: file.type, filename: file.name }),
+          });
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    setUploadingFor(null);
+    load();
+  }
+
+  // CSV import: columns title, cause, solution
+  async function importCsv(file: File) {
+    const text = await file.text();
+    const lines = text.split("\n").filter(l => l.trim());
+    let created = 0;
+    for (const line of lines.slice(1)) { // skip header
+      const cols = line.split(",").map(c => c.replace(/^"|"$/g, "").trim());
+      if (cols.length < 3) continue;
+      const [title, cause, solution] = cols;
+      if (!title || !cause || !solution) continue;
+      await fetch("/api/admin/faults", { method: "POST", headers, body: JSON.stringify({ title, cause, solution }) });
+      created++;
+    }
+    alert(`Imported ${created} faults.`);
+    load();
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", boxSizing: "border-box",
+    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8, color: "#f0f0f0", fontSize: 13, outline: "none",
+  };
+  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#aaa", fontWeight: 700, letterSpacing: 1, marginBottom: 4, display: "block" };
+
+  return (
+    <div style={{ padding: "24px 20px", maxWidth: 860, margin: "0 auto" }}>
+      {/* Title row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#f0f0f0", margin: 0 }}>⚠️ Common Faults</h2>
+          <p style={{ color: "#555", fontSize: 13, margin: "4px 0 0" }}>{faults.length} fault{faults.length !== 1 ? "s" : ""} documented</p>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => csvRef.current?.click()}
+            style={{ padding: "8px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#ccc", borderRadius: 8, cursor: "pointer", fontSize: 13 }}
+          >📥 Import CSV</button>
+          <input ref={csvRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ""; }} />
+          <button
+            onClick={openNew}
+            style={{ padding: "8px 16px", background: "rgba(0,212,255,0.1)", border: "1px solid #00d4ff55", color: "#00d4ff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+          >+ Add Fault</button>
+        </div>
+      </div>
+
+      {/* CSV hint */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 12, color: "#555" }}>
+        CSV format: <code style={{ color: "#888" }}>title,cause,solution</code> — first row is header, ignored.
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div style={{ background: "rgba(0,212,255,0.04)", border: "1px solid #00d4ff33", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+          <h3 style={{ margin: "0 0 16px", color: "#00d4ff", fontSize: 15 }}>
+            {editId === null ? "New Fault" : "Edit Fault"}
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
+              <label style={labelStyle}>TITLE</label>
+              <input style={inputStyle} value={fTitle} onChange={e => setFTitle(e.target.value)} placeholder="e.g. ILS LOC signal lost on approach" />
+            </div>
+            <div>
+              <label style={labelStyle}>CAUSE</label>
+              <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={fCause} onChange={e => setFCause(e.target.value)} placeholder="Root cause, contributing factors..." />
+            </div>
+            <div>
+              <label style={labelStyle}>SOLUTION</label>
+              <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={fSolution} onChange={e => setFSolution(e.target.value)} placeholder="Steps to resolve, checks, fix procedure..." />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button
+              onClick={saveFault}
+              disabled={saving}
+              style={{ padding: "9px 20px", background: saving ? "rgba(0,212,255,0.05)" : "rgba(0,212,255,0.12)", border: "1px solid #00d4ff55", color: "#00d4ff", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600 }}
+            >{saving ? "Saving..." : editId === null ? "Create" : "Save"}</button>
+            <button
+              onClick={() => setShowForm(false)}
+              style={{ padding: "9px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#888", borderRadius: 8, cursor: "pointer", fontSize: 13 }}
+            >Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      {loading ? (
+        <div style={{ textAlign: "center", color: "#444", padding: 40 }}>Loading...</div>
+      ) : faults.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#333", padding: 60 }}>No faults yet — add the first one.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {faults.map(f => (
+            <div key={f.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,80,80,0.2)", borderRadius: 12, overflow: "hidden" }}>
+              {/* Row */}
+              <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <span
+                  onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}
+                  style={{ flex: 1, color: "#e0e0e0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                >{f.title}</span>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: "#555" }}>
+                    {f.media.length > 0 ? `${f.media.length} media` : "no media"}
+                  </span>
+                  <button
+                    onClick={() => openEdit(f)}
+                    style={{ padding: "4px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#aaa", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
+                  >Edit</button>
+                  <button
+                    onClick={() => deleteFault(f.id)}
+                    style={{ padding: "4px 10px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", color: "#ff8080", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
+                  >Delete</button>
+                </div>
+              </div>
+
+              {/* Expanded detail + media manager */}
+              {expandedId === f.id && (
+                <div style={{ padding: "12px 16px 16px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: "#ff8080", fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>CAUSE</div>
+                    <div style={{ color: "#bbb", fontSize: 13, whiteSpace: "pre-wrap" }}>{f.cause}</div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>SOLUTION</div>
+                    <div style={{ color: "#bbb", fontSize: 13, whiteSpace: "pre-wrap" }}>{f.solution}</div>
+                  </div>
+
+                  {/* Media */}
+                  <div style={{ fontSize: 11, color: "#00d4ff", fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>MEDIA FILES</div>
+                  {f.media.length === 0 ? (
+                    <div style={{ color: "#444", fontSize: 13, marginBottom: 10 }}>No media attached.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                      {f.media.map(m => (
+                        <div key={m.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 10px" }}>
+                          <span style={{ fontSize: 12 }}>
+                            {m.mime_type.startsWith("image/") ? "🖼" : m.mime_type.startsWith("video/") ? "🎬" : "📄"}
+                          </span>
+                          <span style={{ fontSize: 12, color: "#aaa", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {m.filename || m.mime_type}
+                          </span>
+                          <button
+                            onClick={() => deleteMedia(m.id)}
+                            style={{ background: "none", border: "none", color: "#ff6060", cursor: "pointer", fontSize: 13, padding: "0 2px" }}
+                            title="Remove"
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button
+                      onClick={() => { setUploadingFor(f.id); mediaRef.current?.click(); }}
+                      style={{ padding: "7px 14px", background: "rgba(0,212,255,0.08)", border: "1px solid #00d4ff33", color: "#00d4ff", borderRadius: 8, cursor: "pointer", fontSize: 13 }}
+                    >📎 Add Media</button>
+                    {uploadingFor === f.id && <span style={{ color: "#555", fontSize: 12 }}>Uploading...</span>}
+                    <input
+                      ref={mediaRef}
+                      type="file"
+                      accept="image/*,video/*,application/pdf"
+                      multiple
+                      style={{ display: "none" }}
+                      onChange={e => {
+                        const files = e.target.files;
+                        if (files && uploadingFor !== null) uploadMedia(uploadingFor, files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3068,6 +3342,10 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {/* ── RADAR GALLERY ADMIN ── */}
       {activeView === "radar_gallery" && (
         <AdminRadarGallery adminPw={adminPw} />
+      )}
+
+      {activeView === "common_faults" && (
+        <AdminFaults adminPw={adminPw} />
       )}
 
       {/* ── CHAT VIEW ── General / Private sub-tabs */}

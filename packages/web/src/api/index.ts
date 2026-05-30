@@ -187,6 +187,23 @@ async function ensureTables() {
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS common_faults (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      cause TEXT NOT NULL,
+      solution TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS fault_media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fault_id INTEGER NOT NULL,
+      media_data TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      filename TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (fault_id) REFERENCES common_faults(id) ON DELETE CASCADE
+    )`);
     console.log('[ensureTables] All tables ready');
     // Reset all is_online flags on startup — in-memory heartbeats are the source of truth
     await sqlRun(`UPDATE trainees SET is_online=0`);
@@ -2284,6 +2301,101 @@ app
     await sqlRun(`DELETE FROM radar_gallery WHERE id=?`, [id]);
     return c.json({ ok: true }, 200);
   });
+
+// ── Common Faults ──────────────────────────────────────────────────────────────
+
+// GET /faults — list all faults (no media data, just metadata)
+app.get('/faults', async (c) => {
+  const rows = await sql(`SELECT id, title, cause, solution, created_at FROM common_faults ORDER BY id DESC`);
+  // attach media list per fault (id, mime_type, filename, sort_order — no data)
+  const faultIds = (rows as any[]).map((r: any) => r.id);
+  let mediaRows: any[] = [];
+  if (faultIds.length > 0) {
+    const placeholders = faultIds.map(() => '?').join(',');
+    mediaRows = await sql(`SELECT id, fault_id, mime_type, filename, sort_order FROM fault_media WHERE fault_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`, faultIds);
+  }
+  const faults = (rows as any[]).map((f: any) => ({
+    ...f,
+    media: (mediaRows as any[]).filter((m: any) => m.fault_id === f.id),
+  }));
+  return c.json(faults, 200);
+});
+
+// GET /faults/:id/media/:mediaId — stream a single media file
+app.get('/faults/:id/media/:mediaId', async (c) => {
+  const mediaId = c.req.param('mediaId');
+  const [row] = await sql(`SELECT media_data, mime_type, filename FROM fault_media WHERE id=?`, [mediaId]);
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  const r = row as any;
+  const buf = Buffer.from(r.media_data as string, 'base64');
+  return new Response(buf, { headers: { 'Content-Type': r.mime_type, 'Cache-Control': 'public,max-age=86400' } });
+});
+
+// POST /admin/faults — create fault (title, cause, solution)
+app.post('/admin/faults', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json();
+  const { title, cause, solution } = body as any;
+  if (!title || !cause || !solution) return c.json({ error: 'Missing fields' }, 400);
+  const now = Date.now();
+  await sqlRun(`INSERT INTO common_faults (title, cause, solution, created_at) VALUES (?,?,?,?)`, [title, cause, solution, now]);
+  const [row] = await sql(`SELECT id FROM common_faults WHERE rowid=last_insert_rowid()`);
+  return c.json({ id: (row as any).id }, 201);
+});
+
+// PATCH /admin/faults/:id — update title/cause/solution
+app.patch('/admin/faults/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const fields: string[] = [];
+  const vals: any[] = [];
+  if (body.title !== undefined) { fields.push('title=?'); vals.push(body.title); }
+  if (body.cause !== undefined) { fields.push('cause=?'); vals.push(body.cause); }
+  if (body.solution !== undefined) { fields.push('solution=?'); vals.push(body.solution); }
+  if (fields.length === 0) return c.json({ error: 'Nothing to update' }, 400);
+  vals.push(id);
+  await sqlRun(`UPDATE common_faults SET ${fields.join(',')} WHERE id=?`, vals);
+  return c.json({ ok: true }, 200);
+});
+
+// DELETE /admin/faults/:id — delete fault + cascade media
+app.delete('/admin/faults/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  await sqlRun(`DELETE FROM fault_media WHERE fault_id=?`, [id]);
+  await sqlRun(`DELETE FROM common_faults WHERE id=?`, [id]);
+  return c.json({ ok: true }, 200);
+});
+
+// POST /admin/faults/:id/media — add media to a fault (base64)
+app.post('/admin/faults/:id/media', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  const faultId = c.req.param('id');
+  const body = await c.req.json();
+  const { media_data, mime_type, filename, sort_order } = body as any;
+  if (!media_data || !mime_type) return c.json({ error: 'Missing fields' }, 400);
+  const now = Date.now();
+  await sqlRun(
+    `INSERT INTO fault_media (fault_id, media_data, mime_type, filename, sort_order, created_at) VALUES (?,?,?,?,?,?)`,
+    [faultId, media_data, mime_type, filename ?? '', sort_order ?? 0, now]
+  );
+  const [row] = await sql(`SELECT id FROM fault_media WHERE rowid=last_insert_rowid()`);
+  return c.json({ id: (row as any).id }, 201);
+});
+
+// DELETE /admin/faults/media/:mediaId — remove one media item
+app.delete('/admin/faults/media/:mediaId', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  const mediaId = c.req.param('mediaId');
+  await sqlRun(`DELETE FROM fault_media WHERE id=?`, [mediaId]);
+  return c.json({ ok: true }, 200);
+});
 
 export type AppType = typeof app;
 export default app;
