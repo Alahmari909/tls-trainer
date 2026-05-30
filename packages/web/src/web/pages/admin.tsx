@@ -2897,7 +2897,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 }}>{file}</span>
               </div>
               <a
-                href={`/static/admin-docs/${encodeURIComponent(file)}`}
+                href={`/admin-docs/${encodeURIComponent(file)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
