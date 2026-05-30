@@ -2316,10 +2316,11 @@ const NAV_LINKS = [
   { id: "status",        label: "System Status",  icon: "📶", divider: false },
   { id: "notifications", label: "Notifications",  icon: "🔔", divider: false },
   { id: "about",         label: "About",          icon: "ℹ️", divider: false },
+  { id: "documents",     label: "Documents",      icon: "📄", divider: false },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about";
+  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -2474,7 +2475,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 
   // ── Admin mode flag — suppresses Telegram tracking inside imported pages ──────
-  const IMPORTED_VIEWS = ["modules", "basics", "advanced", "quiz", "chat", "status", "notifications", "about"];
+  const IMPORTED_VIEWS = ["modules", "basics", "advanced", "quiz", "chat", "status", "notifications", "about", "documents"];
   useEffect(() => {
     if (IMPORTED_VIEWS.includes(activeView)) {
       sessionStorage.setItem("tls_admin_mode", "1");
@@ -2832,6 +2833,88 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {activeView === "status"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
       {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications /></div>}
       {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
+      {activeView === "documents"     && <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh", padding: "24px 32px" }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: "#00FF88", fontFamily: "Inter", marginBottom: 4 }}>📄 DOCUMENTS</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>TLS reference documents — click OPEN to view in a new tab</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            "020-00089 RevA.pdf",
+            "020-00098 Rev B.pdf",
+            "1899539853.pdf",
+            "843572488.pdf",
+            "8D7799AD-C01F-4EC9-8AB9-E6C3E8B23537.pdf",
+            "ANPC-Data-Sheet_TLS_Final.pdf",
+            "ATC quick guide TLS.pdf",
+            "Antennas_Presentation.pdf",
+            "Application_of_the_Transponder_Landing_System_to_Achieve_Airport_Accessibility.pdf",
+            "Att.-B-FAA-8200.47-Transponder-Landing-System.pdf",
+            "B26FC8A9-237C-4A2B-A3C1-BCBC9CC6A897.pdf",
+            "Calibration Procedure.pdf",
+            "DME_TLS_Report_Clean.pdf",
+            "DOC-20250724-WA0007..pdf",
+            "DOC-2222222222.pdf",
+            "Extracted 3333333333.pdf",
+            "Extracted pages from 020-00103_Rev B.pdf",
+            "FTM_Theodolite_Survey_and_Calibration.pdf",
+            "FTM___Checklists44444444.pdf",
+            "GTU Program55555555.pdf",
+            "GTU setup.pdf",
+            "GetAtt.html.pdf",
+            "Input survey 111111111.pdf",
+            "Input survey data procedure.pdf",
+            "KKMC RWY 32.pdf",
+            "Pre-Calibration Procedure.pdf",
+            "Setting Monitor Limits and computing nominals.pdf",
+            "Setting Pulse in the frame.pdf",
+            "Survey procedure.pdf",
+            "TLS Training Slides.pdf",
+            "TLS all four Palau RWY9 (1).pdf",
+            "TLS_Antenna_System_Advantages_AllHeadersWhite.pdf",
+            "TLS_Approach_Guidance...pdf",
+            "TLS_Preliminary_Guide.pdf",
+            "TLS_System_Overview_EN.pdf",
+            "TTLS2027 Spares identification listing(3).pdf",
+            "TransponderLandingSystem.pdf",
+            "Transponder_Landing_System_Flight_Inspection.pdf",
+            "patria-anpc-a4-brochure-0124pdf.pdf",
+            "transponder-landing-system-material-2.pptx",
+            "‎⁨خطوات مسح موقع جهاز الثيودوليت⁩.pdf",
+          ].map(file => (
+            <div key={file} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 8, padding: "10px 16px", gap: 12,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>
+                  {file.endsWith(".pptx") ? "📊" : "📄"}
+                </span>
+                <span style={{
+                  fontSize: 12, color: "rgba(255,255,255,0.75)", fontFamily: "Inter",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{file}</span>
+              </div>
+              <a
+                href={`/static/admin-docs/${encodeURIComponent(file)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  flexShrink: 0, padding: "5px 14px",
+                  background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.3)",
+                  borderRadius: 6, color: "#00FF88", fontSize: 10,
+                  fontFamily: "Inter", fontWeight: 700, letterSpacing: "0.08em",
+                  textDecoration: "none", whiteSpace: "nowrap",
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,255,136,0.18)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "rgba(0,255,136,0.08)")}
+              >OPEN</a>
+            </div>
+          ))}
+        </div>
+      </div>}
 
       {/* ── CHAT VIEW ── General / Private sub-tabs */}
       {activeView === "chat" && (
