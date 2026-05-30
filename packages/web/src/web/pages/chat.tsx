@@ -629,6 +629,7 @@ function AIInstructor() {
         <input
           ref={inputRef}
           value={input}
+          dir="auto"
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input); } }}
           placeholder="Ask anything about TLS, ILS, navigation systems…"
@@ -1068,6 +1069,7 @@ function GroupChatInner() {
               <input
                 ref={inputRef}
                 value={input}
+                dir="auto"
                 onChange={e=>setInput(e.target.value)}
                 onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }}
                 placeholder="Message group channel..."

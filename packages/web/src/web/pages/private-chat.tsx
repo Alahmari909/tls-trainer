@@ -578,6 +578,7 @@ export default function PrivateChat() {
       }}>
         <input
           value={input}
+          dir="auto"
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
           placeholder="Transmit message..."
