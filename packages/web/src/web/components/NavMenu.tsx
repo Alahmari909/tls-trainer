@@ -67,7 +67,7 @@ const navItems = [
   { path: "/notifications",label: "Notifications", icon: "🔔",  tag: "ALERTS" },
   { path: "/settings",     label: "Settings",      icon: "⚙️",  tag: "CONFIG" },
   { path: "/about",        label: "About",         icon: "ℹ️",  tag: "INFO" },
-  { path: "/admin",        label: "Admin Panel",   icon: "🖥️",  tag: "ADMIN" },
+  // Admin Panel intentionally excluded — access via direct URL only
 ];
 
 function useLiveClock() {
