@@ -2576,39 +2576,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             </div>
           </div>
 
-          {/* Right side: online pill + theme + menu + logout */}
+          {/* Right side: menu + logout */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Online pill */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 5,
-              background: online.length > 0 ? "rgba(0,204,102,0.12)" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${online.length > 0 ? "rgba(0,204,102,0.35)" : "rgba(255,255,255,0.1)"}`,
-              borderRadius: 20, padding: "4px 10px",
-            }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: online.length > 0 ? "#00CC66" : "rgba(255,255,255,0.2)",
-                boxShadow: online.length > 0 ? "0 0 6px #00CC66" : "none",
-                display: "inline-block", flexShrink: 0,
-              }} />
-              <span style={{ fontSize: 9, color: online.length > 0 ? "#00CC66" : "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>
-                {online.length} LIVE
-              </span>
-            </div>
-
-            {/* Theme toggle */}
-            <button
-              onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              style={{
-                width: 32, height: 32, borderRadius: 8, cursor: "pointer",
-                background: "rgba(0,255,136,0.07)",
-                border: "1px solid rgba(0,255,136,0.25)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 15, flexShrink: 0, transition: "background 0.2s",
-              }}
-            >{theme === "dark" ? "🌞" : "🌙"}</button>
-
             {/* ☰ MENU dropdown */}
             <div ref={menuRef} style={{ position: "relative" }}>
               <button
