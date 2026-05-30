@@ -23,6 +23,26 @@ const navItems = [
     )
   },
   {
+    path: "/basics",
+    label: "TLS BASIC",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    )
+  },
+  {
+    path: "/advanced",
+    label: "TLS ADVANCED",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    )
+  },
+  {
     path: "/quiz",
     label: "QUIZ",
     icon: (active: boolean) => (
@@ -30,16 +50,6 @@ const navItems = [
         <circle cx="12" cy="12" r="10"/>
         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
         <line x1="12" y1="17" x2="12.01" y2="17"/>
-      </svg>
-    )
-  },
-  {
-    path: "/achievements",
-    label: "BADGES",
-    icon: (active: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="8" r="6"/>
-        <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
       </svg>
     )
   },
@@ -57,6 +67,16 @@ const navItems = [
     )
   },
   {
+    path: "/achievements",
+    label: "ACHIEVEMENTS",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="6"/>
+        <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+      </svg>
+    )
+  },
+  {
     path: "/status",
     label: "LIVE STATUS",
     icon: (active: boolean) => (
@@ -66,8 +86,28 @@ const navItems = [
     )
   },
   {
+    path: "/leaderboard",
+    label: "LEADERBOARD",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+    )
+  },
+  {
     path: "/chat",
-    label: "CHAT",
+    label: "AI INSTRUCTOR",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M9 15l-3 6h12l-3-6"/>
+        <line x1="12" y1="12" x2="12" y2="15"/>
+      </svg>
+    )
+  },
+  {
+    path: "/private-chat",
+    label: "COMMS",
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -75,11 +115,23 @@ const navItems = [
     )
   },
   {
-    path: "/leaderboard",
-    label: "LEADERBOARD",
+    path: "/notifications",
+    label: "NOTIFICATIONS",
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+    )
+  },
+  {
+    path: "/about",
+    label: "ABOUT",
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
     )
   },
@@ -133,7 +185,9 @@ export default function Sidebar() {
         {navItems.map((item) => {
           const active = location === item.path ||
             (item.path === "/quiz" && location.startsWith("/quiz")) ||
-            (item.path === "/modules" && location.startsWith("/module"));
+            (item.path === "/modules" && location.startsWith("/module")) ||
+            (item.path === "/basics" && location.startsWith("/basics")) ||
+            (item.path === "/advanced" && location.startsWith("/advanced"));
           return (
             <Link key={item.path} href={item.path} className={`sidebar-nav-item${active ? " active" : ""}`}>
               {item.icon(active)}
