@@ -668,3 +668,10 @@ input, textarea, select {
 .admin-view {
   animation: pageEnter 0.25s ease-out;
 }
+
+/* ── Hide mobile NavMenu on desktop (sidebar handles nav) ── */
+@media (min-width: 768px) {
+  .nav-menu-root {
+    display: none !important;
+  }
+}
