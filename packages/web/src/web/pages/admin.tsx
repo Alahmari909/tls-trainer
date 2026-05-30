@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
+import Modules from "./modules";
+import Manuals from "./manuals";
+import QuizList from "./quiz-list";
+import Chat from "./chat";
+import PrivateChat from "./private-chat";
+import Status from "./status";
+import Notifications from "./notifications";
+import Settings from "./settings";
+import About from "./about";
 
 // Admin military-green theme — completely separate from trainee cyan theme
 const C = {
@@ -2292,10 +2301,17 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
 
 // ─── Admin Nav Items ──────────────────────────────────────────────────────────
 const ADMIN_NAV = [
-  { id: "dashboard", label: "Dashboard", icon: "⚡" },
-  { id: "trainees",  label: "Trainees",  icon: "👥" },
-  { id: "reports",   label: "Reports",   icon: "📊" },
-  { id: "settings",  label: "Settings",  icon: "⚙️" },
+  { id: "dashboard",     label: "Dashboard",  icon: "⚡"  },
+  { id: "trainees",      label: "Trainees",   icon: "👥"  },
+  { id: "reports",       label: "Reports",    icon: "📊"  },
+  { id: "modules",       label: "Modules",    icon: "📡"  },
+  { id: "manuals",       label: "Manuals",    icon: "📋"  },
+  { id: "quiz",          label: "Quiz",       icon: "🎯"  },
+  { id: "chat",          label: "Chat",       icon: "💬"  },
+  { id: "status",        label: "Status",     icon: "📶"  },
+  { id: "notifications", label: "Notifs",     icon: "🔔"  },
+  { id: "settings",      label: "Settings",   icon: "⚙️"  },
+  { id: "about",         label: "About",      icon: "ℹ️"  },
 ] as const;
 type AdminView = typeof ADMIN_NAV[number]["id"];
 
@@ -2334,29 +2350,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
     localStorage.setItem("tls_theme", theme);
   }, [theme]);
 
-  // ── Nav dropdown ─────────────────────────────────────────────────────────────
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
 
-  const NAV_LINKS = [
-    { emoji: "📡", label: "TLS Basics", path: "/basics" },
-    { emoji: "⬡", label: "Modules", path: "/modules" },
-    { emoji: "🎯", label: "Quiz", path: "/quiz" },
-    { emoji: "📋", label: "Manuals", path: "/manuals" },
-    { emoji: "📶", label: "Live Status", path: "/status" },
-    { emoji: "🏆", label: "Leaderboard", path: "/leaderboard" },
-  ];
-
-  // ── Inline page viewer ───────────────────────────────────────────────────────
-  const [adminPage, setAdminPage] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -2400,19 +2394,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
       paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
     } as React.CSSProperties}>
-
-      {/* ── Inline page viewer ── */}
-      {adminPage && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "#050f05", display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: "rgba(0,0,0,0.8)", borderBottom: "1px solid rgba(0,255,136,0.2)" }}>
-            <button onClick={() => setAdminPage(null)} style={{ background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.3)", color: "#00FF88", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "Inter", fontSize: 12 }}>
-              ← BACK TO ADMIN
-            </button>
-            <span style={{ color: "#00FF88", fontFamily: "Inter", fontSize: 11, letterSpacing: "0.1em" }}>{adminPage.replace("/", "").toUpperCase()}</span>
-          </div>
-          <iframe src={adminPage} style={{ flex: 1, border: "none", width: "100%" }} />
-        </div>
-      )}
 
       {/* Detail modal */}
       {selectedId && (
@@ -2494,49 +2475,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 fontSize: 15, flexShrink: 0, transition: "background 0.2s",
               }}
             >{theme === "dark" ? "🌞" : "🌙"}</button>
-
-            {/* Nav dropdown */}
-            <div ref={menuRef} style={{ position: "relative" }}>
-              <button
-                onClick={() => setMenuOpen(o => !o)}
-                style={{
-                  padding: "5px 10px", background: "rgba(0,255,136,0.07)",
-                  border: "1px solid rgba(0,255,136,0.25)",
-                  borderRadius: 8, cursor: "pointer", color: "#00FF88",
-                  fontSize: 9, fontFamily: "Inter", letterSpacing: "0.08em",
-                  display: "flex", alignItems: "center", gap: 5,
-                }}
-              >☰ MENU</button>
-              {menuOpen && (
-                <div style={{
-                  position: "absolute", top: "calc(100% + 8px)", right: 0,
-                  background: "#030d03", border: "1px solid rgba(0,255,136,0.25)",
-                  borderRadius: 12, overflow: "hidden", zIndex: 9999,
-                  minWidth: 180, boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                }}>
-                  {NAV_LINKS.map(link => (
-                    <button
-                      key={link.path}
-                      onClick={() => { setAdminPage(link.path); setMenuOpen(false); }}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "11px 16px", width: "100%", textAlign: "left",
-                        background: "transparent", border: "none", cursor: "pointer",
-                        color: "rgba(255,255,255,0.85)", fontSize: 12,
-                        fontFamily: "Inter", letterSpacing: "0.03em",
-                        borderBottom: "1px solid rgba(0,255,136,0.07)",
-                        transition: "background 0.15s",
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,255,136,0.08)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <span style={{ fontSize: 14 }}>{link.emoji}</span>
-                      {link.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
 
             <button
               onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
@@ -2746,8 +2684,18 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               }}
             >⛔ LOGOUT & REVOKE SESSION</button>
           </div>
+          <Settings />
         </div>
       )}
+
+      {/* ── IMPORTED TRAINEE PAGES ── */}
+      {activeView === "modules"       && <Modules />}
+      {activeView === "manuals"       && <Manuals />}
+      {activeView === "quiz"          && <QuizList />}
+      {activeView === "chat"          && <Chat />}
+      {activeView === "status"        && <Status />}
+      {activeView === "notifications" && <Notifications />}
+      {activeView === "about"         && <About />}
 
       {/* ── TRAINEES VIEW (default list) ── */}
       {(activeView === "trainees" || activeView === "dashboard") && (
