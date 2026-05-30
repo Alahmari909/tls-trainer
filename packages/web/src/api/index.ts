@@ -921,6 +921,29 @@ const app = new Hono()
     return c.json({ ok: true }, 200);
   })
 
+  // GET /trainee/messages/:id — full conversation thread for the trainee
+  .get('/trainee/messages/:id', async (c) => {
+    const id = c.req.param('id');
+    const rows = await sql(
+      `SELECT id, sender_role, text, read, ts FROM trainee_messages WHERE trainee_id=? ORDER BY ts ASC LIMIT 100`, [id]
+    );
+    return c.json(rows, 200);
+  })
+
+  // POST /trainee/message — trainee sends a message to admin
+  .post('/trainee/message', async (c) => {
+    const { traineeId, text } = await c.req.json().catch(() => ({})) as { traineeId?: string; text?: string };
+    if (!traineeId || !text?.trim()) return c.json({ error: 'traineeId + text required' }, 400);
+    await sqlRun(
+      `INSERT INTO trainee_messages (trainee_id, sender_role, text, read, ts) VALUES (?, 'trainee', ?, 0, ?)`,
+      [traineeId, text.trim(), Date.now()]
+    );
+    const [tr] = await sql(`SELECT name FROM trainees WHERE id=?`, [traineeId]);
+    const tName = (tr?.name as string) ?? traineeId;
+    sendTelegram({ type: 'chat_message', traineeId, traineeName: tName, preview: text.trim().slice(0, 80) });
+    return c.json({ ok: true }, 200);
+  })
+
   // ══════════════════════════════════════════════════════════════════════════
   // LEGACY ENDPOINTS
   // ══════════════════════════════════════════════════════════════════════════
