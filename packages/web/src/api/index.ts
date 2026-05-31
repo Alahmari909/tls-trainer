@@ -2449,18 +2449,12 @@ app.post('/admin/simulator/config', async (c) => {
 // ── Admin: live users ─────────────────────────────────────────────────────────
 app.get('/admin/simulator/live', async (c) => {
   if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
-  // Sessions started in last 2 hours that haven't ended
-  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  // Use heartbeat data — trainees currently online on a simulator page
   const rows = await sql(
-    `SELECT s.id, s.trainee_id, s.trainee_name, s.mode, s.scenario_id, s.started_at,
-            sc.name as scenario_name,
-            t.is_online
-     FROM simulator_sessions s
-     LEFT JOIN simulator_scenarios sc ON sc.id = s.scenario_id
-     LEFT JOIN trainees t ON t.id = s.trainee_id
-     WHERE s.ended_at IS NULL AND s.started_at > ?
-     ORDER BY s.started_at DESC`,
-    [cutoff]
+    `SELECT id as trainee_id, name as trainee_name, last_page as mode, last_active_at as started_at, is_online
+     FROM trainees
+     WHERE is_online=1 AND (last_page LIKE '%simulator%' OR last_page LIKE '%/sim%')
+     ORDER BY last_active_at DESC`
   );
   return c.json(rows, 200);
 });

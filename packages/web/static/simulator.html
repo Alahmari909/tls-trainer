@@ -388,7 +388,7 @@ function createPAR(id, rangeNM, azOff, elOff, squawk){
     id, squawk: squawk||String(Math.floor(1000+Math.random()*6999)).padStart(4,'0'),
     range:rangeNM, azDev:azOff, elDev:elOff,
     altitude:Math.round(Math.max(200,initAlt)),
-    speed:140+Math.floor(Math.random()*30),
+    speed:Math.round((140+Math.floor(Math.random()*30))*(window.adminCfg?.speed_multiplier||1)),
     heading:RWY_HDG, trail:[], selected:id===1, goAround:false, landed:false,
   };
 }
@@ -423,9 +423,11 @@ function resetSim(){
   document.getElementById('callout').classList.remove('show');
 
   const scn=SCENARIOS[currentScenario];
+  const cfgCount = parseInt(window.adminCfg?.aircraft_count)||0;
+  const useMulti = cfgCount>1 || (cfgCount===0 && scn.multi);
   aircraft=[];
   aircraft.push(createPAR(1,INIT_RANGE, scn.initAz*(Math.random()<.5?1:-1), scn.initEl,'0764'));
-  if(scn.multi){
+  if(useMulti){
     aircraft.push(createPAR(2,INIT_RANGE+3, scn.initAz*-.5, scn.initEl*.7,'1342'));
     aircraft.push(createPAR(3,INIT_RANGE+6, 0, .1,'2298'));
   }
@@ -467,6 +469,7 @@ function startApproach(){
   document.getElementById('sTrack').textContent='TRACKING';
   playTone(880,.08,.15);
   queueCallout('RADAR CONTACT. RUNWAY 31 IN SIGHT. BEGIN APPROACH.');
+  startSession();
 }
 function initiateGoAround(){
   if(simState!=='ACTIVE')return;
@@ -581,6 +584,7 @@ function showResult(title,s,details){
   document.getElementById('resultOverlay').style.display='flex';
   document.getElementById('sScore').textContent=s+'%';
   playTone(s>=75?660:220,.4,1.0);
+  endSession(s);
 }
 function closeResult(){document.getElementById('resultOverlay').style.display='none';}
 
@@ -1014,9 +1018,44 @@ requestAnimationFrame(loop);
 // ═══════════════════════════════════════
 // ADMIN CONFIG + BROADCAST
 // ═══════════════════════════════════════
+// ── Session tracking (skip in admin preview mode) ──────────────────────────
+const IS_ADMIN_PREVIEW = new URLSearchParams(location.search).has('admin');
+let _sessionId = null;
+
+function _getTrainee(){
+  try { return JSON.parse(localStorage.getItem('tls_trainee_session')||'{}'); } catch(e){ return {}; }
+}
+
+async function startSession(){
+  if(IS_ADMIN_PREVIEW || _sessionId) return;
+  const t = _getTrainee();
+  if(!t.id) return;
+  try {
+    const res = await fetch('/api/simulator/session', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ traineeId:t.id, traineeName:(t.name||'Unknown'), mode: currentMode||'par', scenarioId: currentScenario||'normal', action:'start' })
+    }).then(r=>r.json()).catch(()=>null);
+    if(res && res.sessionId) _sessionId = res.sessionId;
+  } catch(e){}
+}
+
+async function endSession(score){
+  if(IS_ADMIN_PREVIEW || !_sessionId) return;
+  const sid = _sessionId; _sessionId = null;
+  try {
+    await fetch('/api/simulator/session', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ sessionId:sid, action:'end', score: score||0 })
+    }).catch(()=>{});
+  } catch(e){}
+}
+
+window.addEventListener('beforeunload', ()=>{ endSession(score||0); });
+
 (async function initAdminConfig(){
   try {
     const cfg = await fetch('/api/simulator/config').then(r=>r.json()).catch(()=>({}));
+    window.adminCfg = cfg;
     // Apply default mode if set
     if(cfg.default_mode && ['par','surveillance','split'].includes(cfg.default_mode.toLowerCase())){
       setMode(cfg.default_mode.toLowerCase());
