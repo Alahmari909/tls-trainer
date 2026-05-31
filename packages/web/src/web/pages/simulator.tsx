@@ -1,16 +1,11 @@
 export default function SimulatorPage() {
   return (
-    <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: "#0a1628" }}>
+    <div style={{ width: '100%', height: '100vh', background: '#050a05', overflow: 'hidden' }}>
       <iframe
         src="/simulator.html"
-        style={{
-          flex: 1,
-          width: "100%",
-          border: "none",
-          display: "block",
-        }}
-        title="TLS RCU Simulator"
-        allowFullScreen
+        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+        title="TLS PAR Simulator Pro"
+        allow="autoplay; microphone"
       />
     </div>
   );
