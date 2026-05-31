@@ -2299,6 +2299,545 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
   );
 }
 
+// ─── Simulator Admin ──────────────────────────────────────────────────────────
+function SimulatorAdmin({ adminPw }: { adminPw: string }) {
+  type SimTab = "overview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports";
+  const [tab, setTab] = React.useState<SimTab>("overview");
+  const [cfg, setCfg] = React.useState<Record<string, string>>({});
+  const [live, setLive] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<any>(null);
+  const [scenarios, setScenarios] = React.useState<any[]>([]);
+  const [broadcasts, setBroadcasts] = React.useState<any[]>([]);
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const [newScenario, setNewScenario] = React.useState({ name: "", description: "", aircraft_count: 3, speed_multiplier: 1.0, weather: "clear", wind_speed: 0, wind_direction: 0, difficulty: "medium", pass_score: 70 });
+  const [showNewScenario, setShowNewScenario] = React.useState(false);
+  const [bcastMsg, setBcastMsg] = React.useState("");
+  const [bcastType, setBcastType] = React.useState("info");
+  const [bcastDur, setBcastDur] = React.useState("30");
+  const [bcastSending, setBcastSending] = React.useState(false);
+
+  const H = { "x-admin-password": adminPw };
+
+  const load = React.useCallback(async () => {
+    const [c, l, s, sc, b] = await Promise.all([
+      fetch('/api/admin/simulator/config', { headers: H }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/admin/simulator/live', { headers: H }).then(r => r.json()).catch(() => []),
+      fetch('/api/admin/simulator/stats', { headers: H }).then(r => r.json()).catch(() => null),
+      fetch('/api/admin/simulator/scenarios', { headers: H }).then(r => r.json()).catch(() => []),
+      fetch('/api/admin/simulator/broadcasts', { headers: H }).then(r => r.json()).catch(() => []),
+    ]);
+    setCfg(c); setLive(Array.isArray(l) ? l : []); setStats(s);
+    setScenarios(Array.isArray(sc) ? sc : []); setBroadcasts(Array.isArray(b) ? b : []);
+  }, [adminPw]);
+
+  React.useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t); }, [load]);
+
+  const saveConfig = async () => {
+    setSaving(true);
+    await fetch('/api/admin/simulator/config', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
+    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000);
+  };
+
+  const sendBroadcast = async () => {
+    if (!bcastMsg.trim()) return;
+    setBcastSending(true);
+    await fetch('/api/admin/simulator/broadcast', {
+      method: 'POST', headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: bcastMsg, type: bcastType, duration_minutes: Number(bcastDur) || null }),
+    });
+    setBcastMsg(""); setBcastSending(false); load();
+  };
+
+  const deleteBroadcast = async (id: number) => {
+    await fetch(`/api/admin/simulator/broadcast/${id}`, { method: 'DELETE', headers: H });
+    load();
+  };
+
+  const addScenario = async () => {
+    if (!newScenario.name.trim()) return;
+    await fetch('/api/admin/simulator/scenarios', {
+      method: 'POST', headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify(newScenario),
+    });
+    setShowNewScenario(false); setNewScenario({ name: "", description: "", aircraft_count: 3, speed_multiplier: 1.0, weather: "clear", wind_speed: 0, wind_direction: 0, difficulty: "medium", pass_score: 70 });
+    load();
+  };
+
+  const deleteScenario = async (id: number) => {
+    await fetch(`/api/admin/simulator/scenarios/${id}`, { method: 'DELETE', headers: H });
+    load();
+  };
+
+  const toggleEnabled = async () => {
+    const next = cfg.enabled === 'true' ? 'false' : 'true';
+    await fetch('/api/admin/simulator/config', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: next }) });
+    setCfg(prev => ({ ...prev, enabled: next }));
+  };
+
+  const SIM_TABS: { id: SimTab; label: string; icon: string }[] = [
+    { id: "overview",  label: "Overview",   icon: "⚡" },
+    { id: "config",    label: "Config",     icon: "⚙️" },
+    { id: "live",      label: "Live",       icon: "📡" },
+    { id: "scenarios", label: "Scenarios",  icon: "🗂️" },
+    { id: "broadcast", label: "Broadcast",  icon: "📢" },
+    { id: "stats",     label: "Stats",      icon: "📊" },
+    { id: "reports",   label: "Reports",    icon: "📥" },
+  ];
+
+  const card: React.CSSProperties = { background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12, padding: "16px" };
+  const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "#fff", fontSize: 12, fontFamily: "Inter", outline: "none", boxSizing: "border-box" as const };
+  const btn: React.CSSProperties = { padding: "8px 16px", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.35)", borderRadius: 8, color: "#00FF88", fontFamily: "Inter", fontSize: 11, letterSpacing: "0.08em", cursor: "pointer" };
+  const lbl: React.CSSProperties = { fontSize: 10, color: "rgba(0,255,136,0.6)", fontFamily: "Inter", marginBottom: 4, display: "block" };
+
+  const fmtDur = (ms: number) => { if (!ms) return "—"; const m = Math.floor(ms / 60000); if (m < 60) return `${m}m`; return `${Math.floor(m/60)}h ${m%60}m`; };
+  const fmtTime = (ts: number) => { if (!ts) return "—"; const d = new Date(ts); return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+
+  return (
+    <div style={{ background: "#030d03", minHeight: "100vh", color: "#fff", fontFamily: "Inter" }}>
+      {/* Header */}
+      <div style={{ borderBottom: "1px solid rgba(0,255,136,0.15)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 14, color: "#00FF88", letterSpacing: "0.12em" }}>SIMULATOR CONTROL</div>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Full admin control over TLS simulator</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            padding: "6px 14px", borderRadius: 20,
+            background: cfg.enabled === 'true' ? "rgba(0,255,136,0.12)" : "rgba(255,68,68,0.12)",
+            border: `1px solid ${cfg.enabled === 'true' ? "rgba(0,255,136,0.4)" : "rgba(255,68,68,0.4)"}`,
+            color: cfg.enabled === 'true' ? "#00FF88" : "#FF4444",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
+          }}>{cfg.enabled === 'true' ? "● ONLINE" : "● OFFLINE"}</div>
+          <button onClick={toggleEnabled} style={{
+            ...btn,
+            background: cfg.enabled === 'true' ? "rgba(255,68,68,0.1)" : "rgba(0,255,136,0.1)",
+            border: `1px solid ${cfg.enabled === 'true' ? "rgba(255,68,68,0.4)" : "rgba(0,255,136,0.4)"}`,
+            color: cfg.enabled === 'true' ? "#FF4444" : "#00FF88",
+          }}>{cfg.enabled === 'true' ? "⛔ DISABLE" : "▶ ENABLE"}</button>
+          <a href="/simulator" target="_blank" style={{ ...btn, textDecoration: "none", display: "inline-block" }}>🔗 OPEN SIM</a>
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(0,255,136,0.1)", overflowX: "auto" as const }}>
+        {SIM_TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            padding: "10px 18px", background: "none", border: "none",
+            borderBottom: tab === t.id ? "2px solid #00FF88" : "2px solid transparent",
+            color: tab === t.id ? "#00FF88" : "rgba(255,255,255,0.4)",
+            fontSize: 11, fontFamily: "Inter", letterSpacing: "0.08em",
+            cursor: "pointer", whiteSpace: "nowrap" as const, flexShrink: 0,
+          }}>{t.icon} {t.label.toUpperCase()}{t.id === "live" && live.length > 0 ? ` (${live.length})` : ""}</button>
+        ))}
+      </div>
+
+      <div style={{ padding: "20px 24px", maxWidth: 1100 }}>
+
+        {/* ── OVERVIEW ── */}
+        {tab === "overview" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* KPI row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+              {[
+                { label: "LIVE USERS", value: live.length, color: live.length > 0 ? "#00FF88" : "rgba(255,255,255,0.4)" },
+                { label: "TOTAL SESSIONS", value: stats?.totals?.total_sessions ?? "…", color: "#00FF88" },
+                { label: "PASS RATE", value: stats?.totals?.total_sessions > 0 ? `${Math.round((stats.totals.passed_count / stats.totals.total_sessions) * 100)}%` : "—", color: "#FFD700" },
+                { label: "AVG DURATION", value: fmtDur(stats?.totals?.avg_duration), color: "#00FF88" },
+                { label: "DEFAULT MODE", value: cfg.default_mode ?? "PAR", color: "#00FF88" },
+                { label: "AIRCRAFT COUNT", value: cfg.aircraft_count ?? "3", color: "#00FF88" },
+              ].map(k => (
+                <div key={k.label} style={{ ...card, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginBottom: 6, letterSpacing: "0.1em" }}>{k.label}</div>
+                  <div style={{ fontSize: 24, fontFamily: "Orbitron, monospace", color: k.color, fontWeight: 700 }}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+            {/* Live users mini table */}
+            {live.length > 0 && (
+              <div style={card}>
+                <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>● ACTIVE SESSIONS</div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {["Trainee", "Mode", "Scenario", "Started", "Online"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "4px 8px", fontWeight: 400 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {live.map((s: any) => (
+                      <tr key={s.id} style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "6px 8px", color: "#fff" }}>{s.trainee_name ?? s.trainee_id}</td>
+                        <td style={{ padding: "6px 8px", color: "#00FF88" }}>{s.mode}</td>
+                        <td style={{ padding: "6px 8px", color: "rgba(255,255,255,0.5)" }}>{s.scenario_name ?? "Free"}</td>
+                        <td style={{ padding: "6px 8px", color: "rgba(255,255,255,0.5)" }}>{fmtTime(s.started_at)}</td>
+                        <td style={{ padding: "6px 8px" }}><span style={{ color: s.is_online ? "#00FF88" : "#FF4444" }}>{s.is_online ? "●" : "○"}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Recent broadcasts */}
+            {broadcasts.length > 0 && (
+              <div style={card}>
+                <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>📢 ACTIVE BROADCASTS</div>
+                {broadcasts.slice(0, 3).map((b: any) => (
+                  <div key={b.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <span style={{ fontSize: 14 }}>{b.type === "warning" ? "⚠️" : b.type === "danger" ? "🚨" : b.type === "success" ? "✅" : "ℹ️"}</span>
+                    <span style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.8)" }}>{b.message}</span>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{fmtTime(b.created_at)}</span>
+                    <button onClick={() => deleteBroadcast(b.id)} style={{ background: "none", border: "none", color: "#FF4444", cursor: "pointer", fontSize: 12 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── CONFIG ── */}
+        {tab === "config" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 16, letterSpacing: "0.1em" }}>⚙️ SIMULATOR SETTINGS</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+                <div>
+                  <label style={lbl}>DEFAULT MODE</label>
+                  <select value={cfg.default_mode ?? "PAR"} onChange={e => setCfg(p => ({ ...p, default_mode: e.target.value }))} style={{ ...inp }}>
+                    <option value="PAR">PAR</option>
+                    <option value="SURVEILLANCE">SURVEILLANCE</option>
+                    <option value="SPLIT">SPLIT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>AIRCRAFT COUNT</label>
+                  <input type="number" min={1} max={12} value={cfg.aircraft_count ?? "3"} onChange={e => setCfg(p => ({ ...p, aircraft_count: e.target.value }))} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>SPEED MULTIPLIER</label>
+                  <input type="number" min={0.1} max={5} step={0.1} value={cfg.speed_multiplier ?? "1.0"} onChange={e => setCfg(p => ({ ...p, speed_multiplier: e.target.value }))} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>WEATHER</label>
+                  <select value={cfg.weather ?? "clear"} onChange={e => setCfg(p => ({ ...p, weather: e.target.value }))} style={inp}>
+                    <option value="clear">Clear</option>
+                    <option value="light_rain">Light Rain</option>
+                    <option value="heavy_rain">Heavy Rain</option>
+                    <option value="fog">Fog</option>
+                    <option value="storm">Storm</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>WIND SPEED (knots)</label>
+                  <input type="number" min={0} max={60} value={cfg.wind_speed ?? "0"} onChange={e => setCfg(p => ({ ...p, wind_speed: e.target.value }))} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>WIND DIRECTION (°)</label>
+                  <input type="number" min={0} max={360} value={cfg.wind_direction ?? "0"} onChange={e => setCfg(p => ({ ...p, wind_direction: e.target.value }))} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>DIFFICULTY</label>
+                  <select value={cfg.difficulty ?? "medium"} onChange={e => setCfg(p => ({ ...p, difficulty: e.target.value }))} style={inp}>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="expert">Expert</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>PASS SCORE (%)</label>
+                  <input type="number" min={0} max={100} value={cfg.pass_score ?? "70"} onChange={e => setCfg(p => ({ ...p, pass_score: e.target.value }))} style={inp} />
+                </div>
+              </div>
+              <div style={{ marginTop: 20, display: "flex", gap: 10, alignItems: "center" }}>
+                <button onClick={saveConfig} disabled={saving} style={{ ...btn, opacity: saving ? 0.6 : 1 }}>
+                  {saving ? "SAVING…" : "💾 SAVE CONFIG"}
+                </button>
+                {saved && <span style={{ fontSize: 11, color: "#00FF88" }}>✓ Saved</span>}
+              </div>
+            </div>
+            <div style={{ ...card, background: "rgba(255,140,0,0.04)", border: "1px solid rgba(255,140,0,0.2)" }}>
+              <div style={{ fontSize: 10, color: "#FF8C00", fontFamily: "Inter", lineHeight: 1.6 }}>
+                ⚠️ Config changes take effect on the trainee's <strong>next simulator load</strong>. Active sessions are not affected in real-time — use Broadcast to notify trainees.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── LIVE ── */}
+        {tab === "live" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Auto-refreshes every 10s • {fmtTime(Date.now())}</div>
+              <button onClick={load} style={btn}>🔄 REFRESH</button>
+            </div>
+            {live.length === 0 ? (
+              <div style={{ ...card, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 13, padding: 40 }}>No active simulator sessions</div>
+            ) : (
+              <div style={card}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                      {["#", "Trainee", "Mode", "Scenario", "Started", "Duration", "Status"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "8px 10px", fontWeight: 400, fontSize: 10, letterSpacing: "0.08em" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {live.map((s: any, i: number) => (
+                      <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <td style={{ padding: "8px 10px", color: "rgba(255,255,255,0.3)" }}>{i + 1}</td>
+                        <td style={{ padding: "8px 10px", color: "#fff", fontWeight: 600 }}>{s.trainee_name ?? s.trainee_id}</td>
+                        <td style={{ padding: "8px 10px" }}><span style={{ background: "rgba(0,255,136,0.1)", color: "#00FF88", padding: "2px 8px", borderRadius: 4, fontSize: 10 }}>{s.mode}</span></td>
+                        <td style={{ padding: "8px 10px", color: "rgba(255,255,255,0.5)" }}>{s.scenario_name ?? "Free Run"}</td>
+                        <td style={{ padding: "8px 10px", color: "rgba(255,255,255,0.5)", fontSize: 11 }}>{fmtTime(s.started_at)}</td>
+                        <td style={{ padding: "8px 10px", color: "#00FF88" }}>{fmtDur(Date.now() - s.started_at)}</td>
+                        <td style={{ padding: "8px 10px" }}><span style={{ color: s.is_online ? "#00FF88" : "#FF4444", fontSize: 10 }}>{s.is_online ? "● ONLINE" : "○ AWAY"}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SCENARIOS ── */}
+        {tab === "scenarios" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={() => setShowNewScenario(v => !v)} style={btn}>+ NEW SCENARIO</button>
+            </div>
+            {showNewScenario && (
+              <div style={card}>
+                <div style={{ fontSize: 11, color: "#00FF88", marginBottom: 14, fontFamily: "Orbitron, monospace" }}>NEW SCENARIO</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  <div style={{ gridColumn: "1/-1" }}>
+                    <label style={lbl}>SCENARIO NAME *</label>
+                    <input value={newScenario.name} onChange={e => setNewScenario(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Night ILS Approach" style={inp} />
+                  </div>
+                  <div style={{ gridColumn: "1/-1" }}>
+                    <label style={lbl}>DESCRIPTION</label>
+                    <input value={newScenario.description} onChange={e => setNewScenario(p => ({ ...p, description: e.target.value }))} placeholder="Brief description…" style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>AIRCRAFT COUNT</label>
+                    <input type="number" min={1} max={12} value={newScenario.aircraft_count} onChange={e => setNewScenario(p => ({ ...p, aircraft_count: Number(e.target.value) }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>SPEED MULTIPLIER</label>
+                    <input type="number" min={0.1} max={5} step={0.1} value={newScenario.speed_multiplier} onChange={e => setNewScenario(p => ({ ...p, speed_multiplier: Number(e.target.value) }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>WEATHER</label>
+                    <select value={newScenario.weather} onChange={e => setNewScenario(p => ({ ...p, weather: e.target.value }))} style={inp}>
+                      <option value="clear">Clear</option><option value="light_rain">Light Rain</option>
+                      <option value="heavy_rain">Heavy Rain</option><option value="fog">Fog</option><option value="storm">Storm</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>WIND SPEED (kts)</label>
+                    <input type="number" min={0} max={60} value={newScenario.wind_speed} onChange={e => setNewScenario(p => ({ ...p, wind_speed: Number(e.target.value) }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>WIND DIRECTION (°)</label>
+                    <input type="number" min={0} max={360} value={newScenario.wind_direction} onChange={e => setNewScenario(p => ({ ...p, wind_direction: Number(e.target.value) }))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>DIFFICULTY</label>
+                    <select value={newScenario.difficulty} onChange={e => setNewScenario(p => ({ ...p, difficulty: e.target.value }))} style={inp}>
+                      <option value="easy">Easy</option><option value="medium">Medium</option>
+                      <option value="hard">Hard</option><option value="expert">Expert</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>PASS SCORE (%)</label>
+                    <input type="number" min={0} max={100} value={newScenario.pass_score} onChange={e => setNewScenario(p => ({ ...p, pass_score: Number(e.target.value) }))} style={inp} />
+                  </div>
+                </div>
+                <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+                  <button onClick={addScenario} style={btn}>✓ CREATE</button>
+                  <button onClick={() => setShowNewScenario(false)} style={{ ...btn, color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.15)" }}>CANCEL</button>
+                </div>
+              </div>
+            )}
+            {scenarios.length === 0 ? (
+              <div style={{ ...card, textAlign: "center", color: "rgba(255,255,255,0.25)", padding: 40, fontSize: 13 }}>No scenarios yet — create one above</div>
+            ) : scenarios.map((s: any) => (
+              <div key={s.id} style={card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: "#fff" }}>{s.name}</span>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: s.difficulty === "hard" || s.difficulty === "expert" ? "rgba(255,68,68,0.15)" : "rgba(0,255,136,0.1)", color: s.difficulty === "hard" || s.difficulty === "expert" ? "#FF4444" : "#00FF88" }}>{s.difficulty?.toUpperCase()}</span>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "rgba(255,255,255,0.05)", color: s.active ? "#00FF88" : "rgba(255,255,255,0.3)" }}>{s.active ? "ACTIVE" : "INACTIVE"}</span>
+                    </div>
+                    {s.description && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginBottom: 8 }}>{s.description}</div>}
+                    <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 16, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                      <span>✈️ {s.aircraft_count} aircraft</span>
+                      <span>🌤 {s.weather?.replace('_', ' ')}</span>
+                      <span>💨 {s.wind_speed}kts @ {s.wind_direction}°</span>
+                      <span>⚡ ×{s.speed_multiplier}</span>
+                      <span>🎯 Pass: {s.pass_score}%</span>
+                    </div>
+                  </div>
+                  <button onClick={() => deleteScenario(s.id)} style={{ background: "none", border: "1px solid rgba(255,68,68,0.3)", borderRadius: 6, color: "#FF4444", cursor: "pointer", padding: "4px 10px", fontSize: 11, flexShrink: 0 }}>DELETE</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── BROADCAST ── */}
+        {tab === "broadcast" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 14, letterSpacing: "0.1em" }}>📢 BROADCAST MESSAGE</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <label style={lbl}>MESSAGE</label>
+                  <textarea value={bcastMsg} onChange={e => setBcastMsg(e.target.value)} placeholder="Type your message to all trainees currently in simulator…" rows={3}
+                    style={{ ...inp, resize: "vertical" as const, fontFamily: "Inter" }} />
+                </div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>TYPE</label>
+                    <select value={bcastType} onChange={e => setBcastType(e.target.value)} style={inp}>
+                      <option value="info">ℹ️ Info</option>
+                      <option value="warning">⚠️ Warning</option>
+                      <option value="danger">🚨 Danger</option>
+                      <option value="success">✅ Success</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>DURATION (minutes, 0=permanent)</label>
+                    <input type="number" min={0} value={bcastDur} onChange={e => setBcastDur(e.target.value)} style={inp} />
+                  </div>
+                </div>
+                <button onClick={sendBroadcast} disabled={bcastSending || !bcastMsg.trim()} style={{ ...btn, opacity: (!bcastMsg.trim() || bcastSending) ? 0.5 : 1, alignSelf: "flex-start" }}>
+                  {bcastSending ? "SENDING…" : "📢 BROADCAST"}
+                </button>
+              </div>
+            </div>
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>RECENT BROADCASTS</div>
+              {broadcasts.length === 0 ? (
+                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.25)", padding: 20, fontSize: 12 }}>No broadcasts yet</div>
+              ) : broadcasts.map((b: any) => (
+                <div key={b.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{b.type === "warning" ? "⚠️" : b.type === "danger" ? "🚨" : b.type === "success" ? "✅" : "ℹ️"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "#fff", marginBottom: 2 }}>{b.message}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{fmtTime(b.created_at)}{b.expires_at ? ` · expires ${fmtTime(b.expires_at)}` : " · permanent"}</div>
+                  </div>
+                  <button onClick={() => deleteBroadcast(b.id)} style={{ background: "none", border: "1px solid rgba(255,68,68,0.3)", borderRadius: 6, color: "#FF4444", cursor: "pointer", padding: "4px 10px", fontSize: 11, flexShrink: 0 }}>DELETE</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── STATS ── */}
+        {tab === "stats" && stats && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* By mode */}
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>SESSIONS BY MODE</div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" as const }}>
+                {(stats.byMode ?? []).map((m: any) => (
+                  <div key={m.mode} style={{ textAlign: "center", minWidth: 80 }}>
+                    <div style={{ fontSize: 22, fontFamily: "Orbitron, monospace", color: "#00FF88", fontWeight: 700 }}>{m.cnt}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>{m.mode}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Per trainee */}
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>PER-TRAINEE STATS</div>
+              <div style={{ overflowX: "auto" as const }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                      {["Trainee", "Sessions", "Avg Score", "Pass Rate", "Total Time", "Last Active"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "6px 10px", fontWeight: 400, fontSize: 10, letterSpacing: "0.06em" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(stats.byTrainee ?? []).map((t: any) => (
+                      <tr key={t.trainee_id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <td style={{ padding: "7px 10px", color: "#fff", fontWeight: 600 }}>{t.trainee_name ?? t.trainee_id}</td>
+                        <td style={{ padding: "7px 10px", color: "#00FF88" }}>{t.sessions}</td>
+                        <td style={{ padding: "7px 10px", color: t.avg_score >= 70 ? "#00FF88" : "#FF4444" }}>{t.avg_score != null ? `${Math.round(t.avg_score)}%` : "—"}</td>
+                        <td style={{ padding: "7px 10px", color: "rgba(255,255,255,0.6)" }}>{t.sessions > 0 ? `${Math.round((t.passed / t.sessions) * 100)}%` : "—"}</td>
+                        <td style={{ padding: "7px 10px", color: "rgba(255,255,255,0.6)" }}>{fmtDur(t.total_ms)}</td>
+                        <td style={{ padding: "7px 10px", color: "rgba(255,255,255,0.35)", fontSize: 10 }}>{fmtTime(t.last_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {/* Recent sessions */}
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>RECENT SESSIONS</div>
+              <div style={{ overflowX: "auto" as const }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                      {["Trainee", "Mode", "Scenario", "Score", "Result", "Duration", "Date"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "6px 10px", fontWeight: 400, fontSize: 10 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(stats.recent ?? []).map((r: any) => (
+                      <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <td style={{ padding: "6px 10px", color: "#fff" }}>{r.trainee_name}</td>
+                        <td style={{ padding: "6px 10px", color: "#00FF88", fontSize: 10 }}>{r.mode}</td>
+                        <td style={{ padding: "6px 10px", color: "rgba(255,255,255,0.4)" }}>{r.scenario_name ?? "Free"}</td>
+                        <td style={{ padding: "6px 10px", color: r.score >= 70 ? "#00FF88" : "#FF4444" }}>{r.score != null ? `${r.score}%` : "—"}</td>
+                        <td style={{ padding: "6px 10px" }}><span style={{ color: r.passed ? "#00FF88" : "#FF4444", fontWeight: 700, fontSize: 10 }}>{r.passed ? "PASS" : "FAIL"}</span></td>
+                        <td style={{ padding: "6px 10px", color: "rgba(255,255,255,0.4)" }}>{fmtDur(r.duration_ms)}</td>
+                        <td style={{ padding: "6px 10px", color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{fmtTime(r.started_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── REPORTS ── */}
+        {tab === "reports" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={card}>
+              <div style={{ fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", marginBottom: 12, letterSpacing: "0.1em" }}>📥 EXPORT TRAINING REPORT</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 16, lineHeight: 1.6 }}>
+                Download a full CSV report of all simulator sessions — trainee name, mode, scenario, score, pass/fail, duration, and date.
+              </div>
+              <a
+                href="/api/admin/simulator/export"
+                download="simulator-report.csv"
+                style={{ ...btn, textDecoration: "none", display: "inline-block" }}
+                onClick={e => { e.currentTarget.setAttribute('href', `/api/admin/simulator/export`); }}
+              >📥 DOWNLOAD CSV REPORT</a>
+            </div>
+            <div style={{ ...card, background: "rgba(0,255,136,0.02)" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", lineHeight: 1.7 }}>
+                The CSV includes: Trainee ID · Trainee Name · Mode · Scenario · Difficulty · Score · Passed · Started · Duration(min)
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Admin Nav Items ──────────────────────────────────────────────────────────
 // ADMIN_NAV kept for type reference only — navigation is entirely via ☰ MENU dropdown
 const ADMIN_NAV = [] as const;
@@ -2318,10 +2857,11 @@ const NAV_LINKS = [
   { id: "about",         label: "About",          icon: "ℹ️", divider: false },
   { id: "documents",     label: "Documents",      icon: "📄", divider: false },
   { id: "common_faults",  label: "Common Faults",  icon: "⚠️", divider: false },
+  { id: "simulator",      label: "Simulator",      icon: "🛩️", divider: true  },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults";
+  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -2749,7 +3289,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 
   // ── Admin mode flag — suppresses Telegram tracking inside imported pages ──────
-  const IMPORTED_VIEWS = ["modules", "basics", "advanced", "quiz", "chat", "status", "notifications", "about", "documents"];
+  const IMPORTED_VIEWS = ["modules", "basics", "advanced", "quiz", "chat", "status", "notifications", "about", "documents", "simulator"];
   useEffect(() => {
     if (IMPORTED_VIEWS.includes(activeView)) {
       sessionStorage.setItem("tls_admin_mode", "1");
@@ -3194,6 +3734,13 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {activeView === "common_faults" && (
         <AdminFaults adminPw={adminPw} />
+      )}
+
+      {/* ── SIMULATOR CONTROL ── */}
+      {activeView === "simulator" && (
+        <div className="admin-view" style={{ background: "#030d03", minHeight: "100vh" }}>
+          <SimulatorAdmin adminPw={adminPw} />
+        </div>
       )}
 
       {/* ── CHAT VIEW ── General / Private sub-tabs */}

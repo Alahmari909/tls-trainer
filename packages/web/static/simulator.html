@@ -1010,6 +1010,74 @@ setMode('par');
 resetSim();
 document.addEventListener('click',ensureAudio,{once:true});
 requestAnimationFrame(loop);
+
+// ═══════════════════════════════════════
+// ADMIN CONFIG + BROADCAST
+// ═══════════════════════════════════════
+(async function initAdminConfig(){
+  try {
+    const cfg = await fetch('/api/simulator/config').then(r=>r.json()).catch(()=>({}));
+    // Apply default mode if set
+    if(cfg.default_mode && ['par','surveillance','split'].includes(cfg.default_mode.toLowerCase())){
+      setMode(cfg.default_mode.toLowerCase());
+    }
+    // Show disabled screen if simulator is turned off
+    if(cfg.enabled === 'false'){
+      document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#030d03;color:#FF4444;font-family:Orbitron,monospace;gap:16px;">
+        <div style="font-size:36px">⛔</div>
+        <div style="font-size:18px;letter-spacing:0.15em">SIMULATOR OFFLINE</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.3);font-family:Inter;margin-top:8px">Disabled by administrator. Please contact your instructor.</div>
+      </div>`;
+      return;
+    }
+  } catch(e){ /* non-fatal */ }
+})();
+
+// Broadcast banner
+let lastBroadcastId = null;
+const broadcastEl = document.createElement('div');
+broadcastEl.id = 'adminBroadcast';
+broadcastEl.style.cssText = `
+  display:none; position:fixed; top:0; left:0; right:0; z-index:9999;
+  padding:10px 48px 10px 16px; font-family:Inter,sans-serif; font-size:13px;
+  font-weight:600; line-height:1.4; box-shadow:0 2px 12px rgba(0,0,0,0.5);
+  animation: slideDown 0.3s ease;
+`;
+const broadcastClose = document.createElement('button');
+broadcastClose.textContent = '✕';
+broadcastClose.style.cssText = 'position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:inherit;opacity:0.7;';
+broadcastClose.onclick = () => { broadcastEl.style.display = 'none'; };
+broadcastEl.appendChild(broadcastClose);
+document.body.appendChild(broadcastEl);
+
+const style = document.createElement('style');
+style.textContent = `@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}`;
+document.head.appendChild(style);
+
+async function pollBroadcast(){
+  try {
+    const b = await fetch('/api/simulator/broadcast').then(r=>r.json()).catch(()=>null);
+    if(b && b.id && b.id !== lastBroadcastId){
+      lastBroadcastId = b.id;
+      const colors = { info:'#1a3a6b,#60a5fa', warning:'#3a2a00,#FFD700', danger:'#3a0000,#FF4444', success:'#003a1a,#00FF88' };
+      const [bg,fg] = (colors[b.type]||colors.info).split(',');
+      broadcastEl.style.background = bg;
+      broadcastEl.style.color = fg;
+      broadcastEl.style.border = `1px solid ${fg}40`;
+      const icon = b.type==='warning'?'⚠️':b.type==='danger'?'🚨':b.type==='success'?'✅':'📢';
+      // Keep the close button, update text
+      broadcastEl.childNodes[0] && broadcastEl.childNodes[0].nodeType === 3 && broadcastEl.removeChild(broadcastEl.childNodes[0]);
+      broadcastEl.insertBefore(document.createTextNode(`${icon} ${b.message}`), broadcastClose);
+      broadcastEl.style.display = 'block';
+      broadcastEl.style.animation = 'none'; broadcastEl.offsetHeight; broadcastEl.style.animation = 'slideDown 0.3s ease';
+    } else if(!b && lastBroadcastId){
+      broadcastEl.style.display = 'none';
+      lastBroadcastId = null;
+    }
+  } catch(e){}
+}
+pollBroadcast();
+setInterval(pollBroadcast, 15000);
 </script>
 </body>
 </html>

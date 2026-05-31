@@ -195,6 +195,63 @@ async function ensureTables() {
       created_at INTEGER NOT NULL,
       FOREIGN KEY (fault_id) REFERENCES common_faults(id) ON DELETE CASCADE
     )`);
+    // ── Simulator tables ──────────────────────────────────────────────────────
+    await client.execute(`CREATE TABLE IF NOT EXISTS simulator_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS simulator_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trainee_id TEXT NOT NULL,
+      trainee_name TEXT,
+      mode TEXT NOT NULL DEFAULT 'PAR',
+      scenario_id INTEGER,
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER,
+      duration_ms INTEGER,
+      score INTEGER,
+      passed INTEGER DEFAULT 0
+    )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS simulator_scenarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      aircraft_count INTEGER NOT NULL DEFAULT 3,
+      speed_multiplier REAL NOT NULL DEFAULT 1.0,
+      weather TEXT NOT NULL DEFAULT 'clear',
+      wind_speed INTEGER NOT NULL DEFAULT 0,
+      wind_direction INTEGER NOT NULL DEFAULT 0,
+      difficulty TEXT NOT NULL DEFAULT 'medium',
+      pass_score INTEGER NOT NULL DEFAULT 70,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL
+    )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS simulator_broadcast (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'info',
+      created_by TEXT NOT NULL DEFAULT 'admin',
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER
+    )`);
+    // Default simulator config if not exists
+    const cfgRows = await sql(`SELECT key FROM simulator_config WHERE key='enabled'`);
+    if (cfgRows.length === 0) {
+      const defaults = [
+        ['enabled', 'true'],
+        ['default_mode', 'PAR'],
+        ['aircraft_count', '3'],
+        ['speed_multiplier', '1.0'],
+        ['weather', 'clear'],
+        ['wind_speed', '0'],
+        ['wind_direction', '0'],
+        ['pass_score', '70'],
+        ['difficulty', 'medium'],
+      ];
+      for (const [k, v] of defaults) {
+        await sqlRun(`INSERT OR IGNORE INTO simulator_config (key, value) VALUES (?,?)`, [k, v]);
+      }
+    }
     console.log('[ensureTables] All tables ready');
     // Reset all is_online flags on startup — in-memory heartbeats are the source of truth
     await sqlRun(`UPDATE trainees SET is_online=0`);
@@ -2313,6 +2370,226 @@ app.delete('/admin/faults/media/:mediaId', async (c) => {
   const mediaId = c.req.param('mediaId');
   await sqlRun(`DELETE FROM fault_media WHERE id=?`, [mediaId]);
   return c.json({ ok: true }, 200);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SIMULATOR ADMIN ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+const simAuth = (c: any) => {
+  const pw = c.req.header('x-admin-password') ?? c.req.header('x-admin-pw') ?? '';
+  return pw === (process.env.ADMIN_PASSWORD ?? 'admin123');
+};
+
+// GET /api/simulator/config — public, read-only (used by simulator.html)
+app.get('/simulator/config', async (c) => {
+  const rows = await sql(`SELECT key, value FROM simulator_config`);
+  const cfg: Record<string, string> = {};
+  for (const r of rows as any[]) cfg[r.key] = r.value;
+  return c.json(cfg, 200);
+});
+
+// GET /api/simulator/broadcast — latest active broadcast (used by simulator.html polling)
+app.get('/simulator/broadcast', async (c) => {
+  const now = Date.now();
+  const rows = await sql(
+    `SELECT id, message, type, created_at FROM simulator_broadcast
+     WHERE (expires_at IS NULL OR expires_at > ?)
+     ORDER BY created_at DESC LIMIT 1`,
+    [now]
+  );
+  return c.json(rows[0] ?? null, 200);
+});
+
+// POST /api/simulator/session — trainee reports session start/end
+app.post('/simulator/session', async (c) => {
+  const body = await c.req.json().catch(() => ({})) as any;
+  const { traineeId, traineeName, mode, scenarioId, action, score } = body;
+  if (!traineeId) return c.json({ error: 'Missing traineeId' }, 400);
+  const now = Date.now();
+  if (action === 'start') {
+    await sqlRun(
+      `INSERT INTO simulator_sessions (trainee_id, trainee_name, mode, scenario_id, started_at) VALUES (?,?,?,?,?)`,
+      [traineeId, traineeName ?? traineeId, mode ?? 'PAR', scenarioId ?? null, now]
+    );
+    const [row] = await sql(`SELECT id FROM simulator_sessions WHERE rowid=last_insert_rowid()`);
+    return c.json({ ok: true, sessionId: (row as any).id }, 201);
+  } else if (action === 'end') {
+    const { sessionId, passed } = body;
+    if (!sessionId) return c.json({ error: 'Missing sessionId' }, 400);
+    const [sess] = await sql(`SELECT started_at FROM simulator_sessions WHERE id=?`, [sessionId]);
+    const dur = sess ? now - (sess as any).started_at : 0;
+    await sqlRun(
+      `UPDATE simulator_sessions SET ended_at=?, duration_ms=?, score=?, passed=? WHERE id=?`,
+      [now, dur, score ?? null, passed ? 1 : 0, sessionId]
+    );
+    return c.json({ ok: true }, 200);
+  }
+  return c.json({ error: 'Unknown action' }, 400);
+});
+
+// ── Admin: config ─────────────────────────────────────────────────────────────
+app.get('/admin/simulator/config', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql(`SELECT key, value FROM simulator_config`);
+  const cfg: Record<string, string> = {};
+  for (const r of rows as any[]) cfg[r.key] = r.value;
+  return c.json(cfg, 200);
+});
+
+app.post('/admin/simulator/config', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({})) as Record<string, string>;
+  for (const [k, v] of Object.entries(body)) {
+    await sqlRun(`INSERT OR REPLACE INTO simulator_config (key, value) VALUES (?,?)`, [k, String(v)]);
+  }
+  return c.json({ ok: true }, 200);
+});
+
+// ── Admin: live users ─────────────────────────────────────────────────────────
+app.get('/admin/simulator/live', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  // Sessions started in last 2 hours that haven't ended
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  const rows = await sql(
+    `SELECT s.id, s.trainee_id, s.trainee_name, s.mode, s.scenario_id, s.started_at,
+            sc.name as scenario_name,
+            t.is_online
+     FROM simulator_sessions s
+     LEFT JOIN simulator_scenarios sc ON sc.id = s.scenario_id
+     LEFT JOIN trainees t ON t.id = s.trainee_id
+     WHERE s.ended_at IS NULL AND s.started_at > ?
+     ORDER BY s.started_at DESC`,
+    [cutoff]
+  );
+  return c.json(rows, 200);
+});
+
+// ── Admin: statistics ─────────────────────────────────────────────────────────
+app.get('/admin/simulator/stats', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const [totals] = await sql(`SELECT COUNT(*) as total_sessions, AVG(duration_ms) as avg_duration, SUM(passed) as passed_count FROM simulator_sessions WHERE ended_at IS NOT NULL`);
+  const byTrainee = await sql(
+    `SELECT s.trainee_id, s.trainee_name, COUNT(*) as sessions, AVG(s.score) as avg_score,
+            SUM(s.duration_ms) as total_ms, SUM(s.passed) as passed, MAX(s.started_at) as last_at
+     FROM simulator_sessions s
+     GROUP BY s.trainee_id ORDER BY last_at DESC LIMIT 100`
+  );
+  const byMode = await sql(
+    `SELECT mode, COUNT(*) as cnt FROM simulator_sessions GROUP BY mode`
+  );
+  const recent = await sql(
+    `SELECT s.id, s.trainee_name, s.mode, s.score, s.passed, s.started_at, s.duration_ms,
+            sc.name as scenario_name
+     FROM simulator_sessions s
+     LEFT JOIN simulator_scenarios sc ON sc.id = s.scenario_id
+     ORDER BY s.started_at DESC LIMIT 50`
+  );
+  return c.json({ totals, byTrainee, byMode, recent }, 200);
+});
+
+// ── Admin: scenarios ─────────────────────────────────────────────────────────
+app.get('/admin/simulator/scenarios', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql(`SELECT * FROM simulator_scenarios ORDER BY created_at DESC`);
+  return c.json(rows, 200);
+});
+
+app.post('/admin/simulator/scenarios', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({})) as any;
+  const { name, description, aircraft_count, speed_multiplier, weather, wind_speed, wind_direction, difficulty, pass_score } = body;
+  if (!name) return c.json({ error: 'Missing name' }, 400);
+  const now = Date.now();
+  await sqlRun(
+    `INSERT INTO simulator_scenarios (name, description, aircraft_count, speed_multiplier, weather, wind_speed, wind_direction, difficulty, pass_score, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [name, description ?? '', aircraft_count ?? 3, speed_multiplier ?? 1.0, weather ?? 'clear', wind_speed ?? 0, wind_direction ?? 0, difficulty ?? 'medium', pass_score ?? 70, now]
+  );
+  const [row] = await sql(`SELECT id FROM simulator_scenarios WHERE rowid=last_insert_rowid()`);
+  return c.json({ ok: true, id: (row as any).id }, 201);
+});
+
+app.put('/admin/simulator/scenarios/:id', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({})) as any;
+  const fields: string[] = [];
+  const vals: any[] = [];
+  const allowed = ['name','description','aircraft_count','speed_multiplier','weather','wind_speed','wind_direction','difficulty','pass_score','active'];
+  for (const f of allowed) {
+    if (body[f] !== undefined) { fields.push(`${f}=?`); vals.push(body[f]); }
+  }
+  if (!fields.length) return c.json({ error: 'Nothing to update' }, 400);
+  vals.push(id);
+  await sqlRun(`UPDATE simulator_scenarios SET ${fields.join(',')} WHERE id=?`, vals);
+  return c.json({ ok: true }, 200);
+});
+
+app.delete('/admin/simulator/scenarios/:id', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  await sqlRun(`DELETE FROM simulator_scenarios WHERE id=?`, [id]);
+  return c.json({ ok: true }, 200);
+});
+
+// ── Admin: broadcast ─────────────────────────────────────────────────────────
+app.get('/admin/simulator/broadcasts', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql(`SELECT * FROM simulator_broadcast ORDER BY created_at DESC LIMIT 20`);
+  return c.json(rows, 200);
+});
+
+app.post('/admin/simulator/broadcast', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({})) as any;
+  const { message, type, duration_minutes } = body;
+  if (!message) return c.json({ error: 'Missing message' }, 400);
+  const now = Date.now();
+  const expires = duration_minutes ? now + duration_minutes * 60000 : null;
+  await sqlRun(
+    `INSERT INTO simulator_broadcast (message, type, created_by, created_at, expires_at) VALUES (?,?,?,?,?)`,
+    [message, type ?? 'info', 'admin', now, expires]
+  );
+  return c.json({ ok: true }, 200);
+});
+
+app.delete('/admin/simulator/broadcast/:id', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  await sqlRun(`DELETE FROM simulator_broadcast WHERE id=?`, [id]);
+  return c.json({ ok: true }, 200);
+});
+
+// ── Admin: export report ──────────────────────────────────────────────────────
+app.get('/admin/simulator/export', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const sessions = await sql(
+    `SELECT s.trainee_id, s.trainee_name, s.mode, s.score, s.passed, s.started_at, s.ended_at, s.duration_ms,
+            sc.name as scenario_name, sc.difficulty
+     FROM simulator_sessions s
+     LEFT JOIN simulator_scenarios sc ON sc.id = s.scenario_id
+     ORDER BY s.started_at DESC`
+  );
+  // Build CSV
+  const header = 'Trainee ID,Trainee Name,Mode,Scenario,Difficulty,Score,Passed,Started,Duration(min)\n';
+  const rows = (sessions as any[]).map(r =>
+    [
+      r.trainee_id, r.trainee_name, r.mode,
+      r.scenario_name ?? 'Free',
+      r.difficulty ?? '-',
+      r.score ?? '-',
+      r.passed ? 'YES' : 'NO',
+      r.started_at ? new Date(r.started_at).toISOString() : '-',
+      r.duration_ms ? (r.duration_ms / 60000).toFixed(1) : '-',
+    ].join(',')
+  ).join('\n');
+  return new Response(header + rows, {
+    headers: {
+      'Content-Type': 'text/csv',
+      'Content-Disposition': 'attachment; filename="simulator-report.csv"',
+    }
+  });
 });
 
 export type AppType = typeof app;
