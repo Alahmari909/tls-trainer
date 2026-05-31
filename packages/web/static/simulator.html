@@ -23,17 +23,46 @@ body{background:var(--bg);color:var(--green);font-family:'Share Tech Mono',monos
 #clockDisp{color:var(--cyan);font-size:10px}
 
 /* ── MAIN AREA ── */
-#mainArea{display:flex;flex:1;overflow:hidden}
+#mainArea{display:flex;flex:1;overflow:hidden;min-height:0}
 
 /* ── RADAR SCREENS ── */
-#screensCol{display:flex;flex-direction:column;flex:1;overflow:hidden;gap:2px;padding:4px 4px 4px 0;background:#020502}
+#screensCol{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;gap:2px;padding:4px 4px 4px 0;background:#020502}
 
-.radarWrap{flex:1;position:relative;background:#020802;border:1px solid rgba(0,255,65,.2);overflow:hidden}
+.radarWrap{flex:1;min-height:0;position:relative;background:#020802;border:1px solid rgba(0,255,65,.2);overflow:hidden}
 .radarLabel{position:absolute;top:6px;left:10px;font-size:9px;letter-spacing:2px;color:var(--green-mid);z-index:5;pointer-events:none}
 .radarCanvas{display:block;width:100%;height:100%}
 
 /* ── RIGHT PANEL ── */
-#rightPanel{width:300px;min-width:260px;background:var(--panel);border-left:1px solid rgba(0,255,65,.2);display:flex;flex-direction:column;overflow:hidden;font-size:10px}
+#rightPanel{
+  width:280px;
+  flex-shrink:0;        /* NEVER shrink */
+  flex-grow:0;          /* NEVER grow */
+  background:var(--panel);
+  border-left:1px solid rgba(0,255,65,.2);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  font-size:10px;
+  z-index:10;
+}
+
+/* Mobile: panel slides over radar via toggle */
+#sidebarToggle{display:none;position:fixed;bottom:50px;right:8px;z-index:50;background:rgba(0,60,0,.95);border:1px solid var(--green);color:var(--green);font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px 10px;cursor:pointer;letter-spacing:1px}
+
+@media(max-width:600px){
+  #mainArea{position:relative}
+  #sidebarToggle{display:block}
+  #rightPanel{
+    position:absolute;
+    top:0;right:0;bottom:0;
+    width:270px;
+    transform:translateX(100%);
+    transition:transform .25s ease;
+    border-left:2px solid var(--green);
+  }
+  #rightPanel.open{transform:translateX(0)}
+  #screensCol{width:100%;flex:1}
+}
 
 #scenarioList{flex:1;overflow-y:auto;padding:10px}
 #scenarioList h3{font-size:10px;letter-spacing:2px;color:#aaffaa;margin-bottom:10px;border-bottom:1px solid var(--green-dim);padding-bottom:6px}
@@ -123,6 +152,9 @@ body{background:var(--bg);color:var(--green);font-family:'Share Tech Mono',monos
     </div>
   </div>
 </div>
+
+<!-- Mobile sidebar toggle (hidden on desktop) -->
+<button id="sidebarToggle" onclick="toggleSidebar()">☰ PANEL</button>
 
 <!-- MAIN AREA -->
 <div id="mainArea">
@@ -966,6 +998,16 @@ requestAnimationFrame(loop);
 
 // Init audio on first click
 document.addEventListener('click', ensureAudio, { once: true });
+
+// Mobile sidebar toggle
+function toggleSidebar() {
+  const panel = document.getElementById('rightPanel');
+  const btn = document.getElementById('sidebarToggle');
+  panel.classList.toggle('open');
+  btn.textContent = panel.classList.contains('open') ? '✕ CLOSE' : '☰ PANEL';
+  // Trigger canvas resize after transition
+  setTimeout(resizeCanvases, 280);
+}
 </script>
 </body>
 </html>
