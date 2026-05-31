@@ -64,6 +64,7 @@ const navItems = [
   { path: "/chat",         label: "AI Instructor", icon: "💬",  tag: "AI" },
   { path: "/private-chat", label: "Comms",         icon: "🔒",  tag: "COMMS" },
   { path: "/faults",        label: "Common Faults", icon: "⚠️",  tag: "FAULTS" },
+  { path: "/simulator",     label: "RCU Simulator", icon: "🎮",  tag: "SIM" },
   { path: "/status",        label: "System Status", icon: "📶",  tag: "STATUS" },
   { path: "/notifications",label: "Notifications", icon: "🔔",  tag: "ALERTS" },
   { path: "/settings",     label: "Settings",      icon: "⚙️",  tag: "CONFIG" },

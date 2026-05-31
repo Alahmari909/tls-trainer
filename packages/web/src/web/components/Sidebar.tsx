@@ -77,6 +77,20 @@ const navItems = [
     )
   },
     {
+    path: "/simulator",
+    label: "RCU SIM",
+    icon: (active: boolean) => (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? "#00d4ff" : "#3d5a73"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="6" width="20" height="12" rx="2"/>
+        <circle cx="8" cy="12" r="2"/>
+        <line x1="16" y1="10" x2="16" y2="10.01"/>
+        <line x1="18" y1="12" x2="18" y2="12.01"/>
+        <line x1="16" y1="14" x2="16" y2="14.01"/>
+        <line x1="14" y1="12" x2="14" y2="12.01"/>
+      </svg>
+    )
+  },
+    {
     path: "/faults",
     label: "FAULTS",
     icon: (active: boolean) => (

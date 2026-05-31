@@ -27,6 +27,7 @@ const About = lazy(() => import("./pages/about"));
 const Admin = lazy(() => import("./pages/admin"));
 const Leaderboard = lazy(() => import("./pages/leaderboard"));
 const Faults = lazy(() => import("./pages/faults"));
+const Simulator = lazy(() => import("./pages/simulator"));
 
 // Re-export for anything that imported from app.tsx directly
 export { unlockAudio, showToast } from "./lib/audio";
@@ -402,6 +403,7 @@ function App() {
                 <Route path="/about" component={About} />
                 <Route path="/leaderboard" component={Leaderboard} />
                 <Route path="/faults" component={Faults} />
+                <Route path="/simulator" component={Simulator} />
               </Switch>
             </Suspense>
           </AuthGate>
