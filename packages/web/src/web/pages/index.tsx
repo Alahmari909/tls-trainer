@@ -894,8 +894,11 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           <video
             src="/tls-intro.webm"
             controls
-            preload="metadata"
-            style={{ width: "100%", display: "block", maxHeight: 220 }}
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover", aspectRatio: "16/9" }}
           />
         </div>
       </div>
