@@ -2301,7 +2301,7 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
 
 // ─── Simulator Admin ──────────────────────────────────────────────────────────
 function SimulatorAdmin({ adminPw }: { adminPw: string }) {
-  type SimTab = "overview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports";
+  type SimTab = "overview" | "preview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports";
   const [tab, setTab] = React.useState<SimTab>("overview");
   const [cfg, setCfg] = React.useState<Record<string, string>>({});
   const [live, setLive] = React.useState<any[]>([]);
@@ -2377,6 +2377,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
 
   const SIM_TABS: { id: SimTab; label: string; icon: string }[] = [
     { id: "overview",  label: "Overview",   icon: "⚡" },
+    { id: "preview",   label: "Simulator",  icon: "🖥️" },
     { id: "config",    label: "Config",     icon: "⚙️" },
     { id: "live",      label: "Live",       icon: "📡" },
     { id: "scenarios", label: "Scenarios",  icon: "🗂️" },
@@ -2415,7 +2416,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
             border: `1px solid ${cfg.enabled === 'true' ? "rgba(255,68,68,0.4)" : "rgba(0,255,136,0.4)"}`,
             color: cfg.enabled === 'true' ? "#FF4444" : "#00FF88",
           }}>{cfg.enabled === 'true' ? "⛔ DISABLE" : "▶ ENABLE"}</button>
-          <a href="/simulator" target="_blank" style={{ ...btn, textDecoration: "none", display: "inline-block" }}>🔗 OPEN SIM</a>
+          <button onClick={() => setTab("preview")} style={{ ...btn }}>🖥️ OPEN SIM</button>
         </div>
       </div>
 
@@ -2432,7 +2433,19 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
         ))}
       </div>
 
-      <div style={{ padding: "20px 24px", maxWidth: 1100 }}>
+      {/* ── PREVIEW (fullscreen iframe, outside padded wrapper) ── */}
+      {tab === "preview" && (
+        <div style={{ position: "relative", width: "100%", height: "calc(100vh - 130px)", background: "#020602" }}>
+          <iframe
+            key="sim-admin-preview"
+            src="/simulator.html"
+            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            title="Simulator Admin Preview"
+          />
+        </div>
+      )}
+
+      <div style={{ padding: "20px 24px", maxWidth: 1100, display: tab === "preview" ? "none" : undefined }}>
 
         {/* ── OVERVIEW ── */}
         {tab === "overview" && (
