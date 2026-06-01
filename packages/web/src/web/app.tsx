@@ -28,6 +28,7 @@ const Admin = lazy(() => import("./pages/admin"));
 const Leaderboard = lazy(() => import("./pages/leaderboard"));
 const Faults = lazy(() => import("./pages/faults"));
 const Simulator = lazy(() => import("./pages/simulator"));
+const TLSAnimation = lazy(() => import("./pages/tls-animation"));
 
 // Re-export for anything that imported from app.tsx directly
 export { unlockAudio, showToast } from "./lib/audio";
@@ -404,6 +405,7 @@ function App() {
                 <Route path="/leaderboard" component={Leaderboard} />
                 <Route path="/faults" component={Faults} />
                 <Route path="/simulator" component={Simulator} />
+                <Route path="/tls-animation" component={TLSAnimation} />
               </Switch>
             </Suspense>
           </AuthGate>

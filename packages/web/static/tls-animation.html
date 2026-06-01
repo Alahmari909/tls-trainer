@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLS Operation – Animated Training Visualization</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0d1117;
+    font-family: 'Courier New', monospace;
+    color: #e0e0e0;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  #scene-wrapper {
+    width: 100%;
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* HUD overlay */
+  #step-badge {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 7px 22px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 20;
+    white-space: nowrap;
+  }
+
+  #step-desc {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 680px;
+    background: rgba(10,14,26,0.88);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+    z-index: 20;
+    color: #cdd6f4;
+    backdrop-filter: blur(6px);
+  }
+
+  /* Controls bar */
+  #controls {
+    width: 100%;
+    background: rgba(10,14,26,0.95);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 30;
+    flex-shrink: 0;
+  }
+
+  #controls button {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #e0e0e0;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  #controls button:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.3); }
+  #controls button.active { background: rgba(100,180,255,0.2); border-color: #64b4ff; color: #64b4ff; }
+
+  #speed-label { color: #888; font-size: 12px; margin-left: auto; }
+  #step-counter { font-size: 12px; color: #666; margin-left: 8px; }
+
+  .speed-btn { min-width: 48px; text-align: center; }
+
+  #replay-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    background: rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  #replay-overlay.show { opacity: 1; pointer-events: all; }
+  #replay-btn-big {
+    background: rgba(100,180,255,0.15);
+    border: 2px solid #64b4ff;
+    color: #64b4ff;
+    font-size: 18px;
+    font-family: 'Courier New', monospace;
+    padding: 16px 44px;
+    border-radius: 12px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  #replay-btn-big:hover { background: rgba(100,180,255,0.3); }
+</style>
+</head>
+<body>
+
+<div id="scene-wrapper">
+  <canvas id="c"></canvas>
+
+  <div id="step-badge"></div>
+  <div id="step-desc"></div>
+
+  <div id="replay-overlay">
+    <button id="replay-btn-big">↺ REPLAY</button>
+  </div>
+</div>
+
+<div id="controls">
+  <button id="btn-play">⏸ PAUSE</button>
+  <button class="speed-btn" id="sp05">0.5×</button>
+  <button class="speed-btn active" id="sp1">1×</button>
+  <button class="speed-btn" id="sp2">2×</button>
+  <span id="speed-label">SPEED</span>
+  <span id="step-counter">STEP 1 / 5</span>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+//  CANVAS SETUP
+// ──────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('scene-wrapper');
+
+function resize() {
+  canvas.width = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); });
+
+// ──────────────────────────────────────────────
+//  LAYOUT HELPERS — all positions as % of canvas
+// ──────────────────────────────────────────────
+const W = () => canvas.width;
+const H = () => canvas.height;
+
+// TLS unit position (bottom-right area)
+const TLS_X = () => W() * 0.82;
+const TLS_Y = () => H() * 0.72;
+
+// Runway: horizontal strip near bottom right
+const RWY_X1 = () => W() * 0.62;
+const RWY_X2 = () => W() * 0.96;
+const RWY_Y  = () => H() * 0.82;
+
+// Cockpit instrument: top right
+const INST_X = () => W() * 0.86;
+const INST_Y = () => H() * 0.16;
+const INST_R = () => Math.min(W(), H()) * 0.07;
+
+// Path: dashed yellow line from aircraft start → runway threshold
+// Defined as bezier: start(left-mid), cp1, cp2, end(runway threshold)
+const PATH_P0 = () => ({ x: W() * 0.06, y: H() * 0.36 });
+const PATH_P1 = () => ({ x: W() * 0.30, y: H() * 0.28 });
+const PATH_P2 = () => ({ x: W() * 0.55, y: H() * 0.60 });
+const PATH_P3 = () => ({ x: RWY_X1() + 10, y: RWY_Y() - 4 });
+
+function bezier(t, p0, p1, p2, p3) {
+  const mt = 1 - t;
+  return {
+    x: mt*mt*mt*p0.x + 3*mt*mt*t*p1.x + 3*mt*t*t*p2.x + t*t*t*p3.x,
+    y: mt*mt*mt*p0.y + 3*mt*mt*t*p1.y + 3*mt*t*t*p2.y + t*t*t*p3.y,
+  };
+}
+function bezierTangent(t, p0, p1, p2, p3) {
+  const mt = 1 - t;
+  return {
+    x: 3*(mt*mt*(p1.x-p0.x) + 2*mt*t*(p2.x-p1.x) + t*t*(p3.x-p2.x)),
+    y: 3*(mt*mt*(p1.y-p0.y) + 2*mt*t*(p2.y-p1.y) + t*t*(p3.y-p2.y)),
+  };
+}
+
+// ──────────────────────────────────────────────
+//  STATE
+// ──────────────────────────────────────────────
+let paused = false;
+let speedMult = 1.0;
+let elapsed = 0;      // seconds since cycle start
+let lastTs = null;
+let cycleComplete = false;
+
+const CYCLE_DURATION = 18; // seconds at 1× speed
+
+// Per-step timing (seconds into cycle)
+const STEPS = [
+  { id: 1, start: 0,    end: 3.0,  color: '#ff4d4d', label: 'STEP 1', desc: 'STEP 1: TLS interrogates all aircraft transponders within the service volume' },
+  { id: 2, start: 3.0,  end: 6.0,  color: '#ff8c42', label: 'STEP 2', desc: 'STEP 2: Aircraft transponders respond with identification and position data' },
+  { id: 3, start: 6.0,  end: 9.0,  color: '#ffd700', label: 'STEP 3', desc: 'STEP 3: TLS sensors measure each transponder reply and determine each aircraft\'s position' },
+  { id: 4, start: 9.0,  end: 13.0, color: '#4dff91', label: 'STEP 4', desc: 'STEP 4: For an aircraft conducting an approach, TLS determines the displacement from the ILS approach path' },
+  { id: 5, start: 13.0, end: 17.0, color: '#4db8ff', label: 'STEP 5', desc: 'STEP 5: TLS transmits an ILS signal to guide the aircraft — localizer and glide slope are displayed on cockpit instrumentation' },
+];
+
+// ──────────────────────────────────────────────
+//  DRAW: BACKGROUND & GRID
+// ──────────────────────────────────────────────
+function drawBackground() {
+  const grd = ctx.createLinearGradient(0, 0, 0, H());
+  grd.addColorStop(0, '#0b0e1a');
+  grd.addColorStop(1, '#0d1b2a');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W(), H());
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  const gw = 40;
+  for (let x = 0; x < W(); x += gw) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H()); ctx.stroke(); }
+  for (let y = 0; y < H(); y += gw) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W(),y); ctx.stroke(); }
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: RUNWAY
+// ──────────────────────────────────────────────
+function drawRunway() {
+  const x1 = RWY_X1(), x2 = RWY_X2(), y = RWY_Y(), ry = H() * 0.025;
+
+  // Runway surface
+  ctx.fillStyle = '#2a2a3a';
+  ctx.beginPath();
+  ctx.rect(x1, y - ry, x2-x1, ry*2);
+  ctx.fill();
+
+  // Centerline dashes (white)
+  ctx.setLineDash([18, 12]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x1+20, y);
+  ctx.lineTo(x2-20, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Threshold marks
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (let i = 0; i < 8; i++) {
+    ctx.fillRect(x1 + i*8, y - ry, 4, ry*2);
+  }
+
+  // Label
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = `bold ${Math.max(10, H()*0.018)}px Courier New`;
+  ctx.fillText('RUNWAY 34', x1 + 10, y - ry - 6);
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: APPROACH PATH (dashed yellow bezier)
+// ──────────────────────────────────────────────
+function drawApproachPath(drawRatio = 1.0) {
+  const p0 = PATH_P0(), p1 = PATH_P1(), p2 = PATH_P2(), p3 = PATH_P3();
+  const steps = 120;
+  const end = Math.round(steps * drawRatio);
+
+  ctx.setLineDash([10, 8]);
+  ctx.strokeStyle = 'rgba(255,215,0,0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= end; i++) {
+    const t = i / steps;
+    const pt = bezier(t, p0, p1, p2, p3);
+    if (i === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: AIRCRAFT SVG-like
+// ──────────────────────────────────────────────
+function drawAircraft(x, y, angle, alpha = 1.0, scale = 1.0) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(scale * Math.max(0.5, Math.min(W(), H()) / 700), scale * Math.max(0.5, Math.min(W(), H()) / 700));
+
+  const c = ctx;
+  // Body
+  c.fillStyle = '#f0f0f0';
+  c.beginPath();
+  c.moveTo(28, 0);
+  c.lineTo(14, -4);
+  c.lineTo(-24, -3);
+  c.lineTo(-28, 0);
+  c.lineTo(-24, 3);
+  c.lineTo(14, 4);
+  c.closePath();
+  c.fill();
+
+  // Nose cone
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.moveTo(28, 0);
+  c.lineTo(20, -2.5);
+  c.lineTo(20, 2.5);
+  c.closePath();
+  c.fill();
+
+  // Main wings
+  c.fillStyle = '#d8d8d8';
+  c.beginPath();
+  c.moveTo(4, -3);
+  c.lineTo(0, -28);
+  c.lineTo(-8, -28);
+  c.lineTo(-10, -3);
+  c.closePath();
+  c.fill();
+  c.beginPath();
+  c.moveTo(4, 3);
+  c.lineTo(0, 28);
+  c.lineTo(-8, 28);
+  c.lineTo(-10, 3);
+  c.closePath();
+  c.fill();
+
+  // Tail fin
+  c.fillStyle = '#b0b0b0';
+  c.beginPath();
+  c.moveTo(-20, -3);
+  c.lineTo(-16, -14);
+  c.lineTo(-24, -14);
+  c.lineTo(-26, -3);
+  c.closePath();
+  c.fill();
+
+  // Engine glow
+  c.shadowColor = '#4db8ff';
+  c.shadowBlur = 8;
+  c.fillStyle = 'rgba(77,184,255,0.6)';
+  c.beginPath(); c.arc(-26, 0, 3, 0, Math.PI*2); c.fill();
+  c.shadowBlur = 0;
+
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: TLS UNIT
+// ──────────────────────────────────────────────
+function drawTLS(pulse = 0) {
+  const x = TLS_X(), y = TLS_Y();
+
+  // Glow pulse
+  if (pulse > 0) {
+    ctx.save();
+    ctx.globalAlpha = pulse * 0.35;
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, 60);
+    grd.addColorStop(0, '#ffd700');
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(x, y, 60, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Base platform
+  ctx.fillStyle = '#2a2e3a';
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x - 30, y - 12, 60, 24, 4);
+  ctx.fill(); ctx.stroke();
+
+  // Antenna mast
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x, y - 36); ctx.stroke();
+
+  // Antenna dish
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath(); ctx.arc(x, y - 38, 8, 0, Math.PI * 2); ctx.fill();
+
+  // Label
+  ctx.fillStyle = '#ffd700';
+  ctx.font = `bold ${Math.max(9, H()*0.015)}px Courier New`;
+  ctx.textAlign = 'center';
+  ctx.fillText('ANPC TLS', x, y + 28);
+  ctx.textAlign = 'left';
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: RADAR WAVES from TLS
+// ──────────────────────────────────────────────
+function drawRadarWaves(t_in_step, alpha = 1.0) {
+  const tx = TLS_X(), ty = TLS_Y();
+  const numWaves = 3;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  for (let i = 0; i < numWaves; i++) {
+    const phase = (t_in_step * 0.8 + i / numWaves) % 1.0;
+    const r = phase * Math.min(W(), H()) * 0.55;
+    const opacity = (1 - phase) * 0.5;
+    ctx.strokeStyle = `rgba(255,77,77,${opacity})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(tx, ty, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: TRANSPONDER REPLY SIGNAL (dashed line aircraft→TLS animated)
+// ──────────────────────────────────────────────
+function drawTransponderSignal(acx, acy, progress, alpha = 1.0) {
+  const tx = TLS_X(), ty = TLS_Y();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Draw line from aircraft to progress point
+  const ex = acx + (tx - acx) * progress;
+  const ey = acy + (ty - acy) * progress;
+
+  ctx.setLineDash([6, 5]);
+  ctx.lineDashOffset = -elapsed * 80;
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(acx, acy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Small dot at head
+  ctx.fillStyle = '#ffd700';
+  ctx.shadowColor = '#ffd700';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(ex, ey, 3, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: TLS → AIRCRAFT GUIDANCE BEAM
+// ──────────────────────────────────────────────
+function drawGuidanceBeam(acx, acy, alpha = 1.0) {
+  const tx = TLS_X(), ty = TLS_Y();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Beam fill (triangle sweep)
+  const grd = ctx.createLinearGradient(tx, ty, acx, acy);
+  grd.addColorStop(0, 'rgba(77,184,255,0.4)');
+  grd.addColorStop(1, 'rgba(77,184,255,0.05)');
+
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(acx + 30, acy - 20);
+  ctx.lineTo(acx + 30, acy + 20);
+  ctx.closePath();
+  ctx.fill();
+
+  // Beam line
+  ctx.setLineDash([8, 5]);
+  ctx.lineDashOffset = elapsed * 60;
+  ctx.strokeStyle = 'rgba(77,184,255,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(acx, acy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: COCKPIT INSTRUMENT (ADI/CDI gauge)
+// ──────────────────────────────────────────────
+function drawCockpitInstrument(needleOffset = 0, glideOffset = 0, active = false, alpha = 1.0) {
+  const x = INST_X(), y = INST_Y(), r = INST_R();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Outer bezel
+  const bezel = ctx.createRadialGradient(x, y, r*0.8, x, y, r*1.1);
+  bezel.addColorStop(0, '#1a1e2a');
+  bezel.addColorStop(1, '#0a0d14');
+  ctx.fillStyle = bezel;
+  ctx.strokeStyle = active ? '#4db8ff' : '#444';
+  ctx.lineWidth = active ? 2.5 : 1.5;
+  ctx.beginPath(); ctx.arc(x, y, r * 1.08, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+
+  // Face
+  ctx.fillStyle = '#0a1220';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+
+  // Sky/ground (ADI style)
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+  ctx.fillStyle = '#1a3a5c';
+  ctx.fillRect(x-r, y-r, r*2, r);
+  ctx.fillStyle = '#3a2010';
+  ctx.fillRect(x-r, y, r*2, r);
+  ctx.restore();
+
+  // Horizon line
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x - r*0.5, y);
+  ctx.lineTo(x + r*0.5, y);
+  ctx.stroke();
+
+  // LOC needle (vertical — left/right)
+  const locX = x + needleOffset * r * 0.6;
+  ctx.strokeStyle = active ? '#4dff91' : '#888';
+  ctx.lineWidth = active ? 2.5 : 1.5;
+  ctx.beginPath();
+  ctx.moveTo(locX, y - r * 0.6);
+  ctx.lineTo(locX, y + r * 0.6);
+  ctx.stroke();
+
+  // GS needle (horizontal — up/down)
+  const gsY = y + glideOffset * r * 0.5;
+  ctx.strokeStyle = active ? '#ffd700' : '#888';
+  ctx.lineWidth = active ? 2.5 : 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.6, gsY);
+  ctx.lineTo(x + r * 0.6, gsY);
+  ctx.stroke();
+
+  // Center cross
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  const cs = r * 0.12;
+  ctx.beginPath(); ctx.moveTo(x-cs, y); ctx.lineTo(x+cs, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y-cs); ctx.lineTo(x, y+cs); ctx.stroke();
+
+  // DOT guides (CDI dots)
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  for (let d = 1; d <= 2; d++) {
+    ctx.beginPath(); ctx.arc(x + r*0.3*d, y, 2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - r*0.3*d, y, 2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y + r*0.25*d, 2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y - r*0.25*d, 2, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Label
+  ctx.fillStyle = active ? '#4db8ff' : '#666';
+  ctx.font = `bold ${Math.max(8, r*0.25)}px Courier New`;
+  ctx.textAlign = 'center';
+  ctx.fillText('ILS', x, y + r + 16);
+  ctx.fillText(active ? 'ACTIVE' : 'STBY', x, y + r + 30);
+  ctx.textAlign = 'left';
+
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: TLS PROCESSING PULSE
+// ──────────────────────────────────────────────
+function drawProcessingPulse(t_in_step, alpha) {
+  const x = TLS_X(), y = TLS_Y();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  for (let i = 0; i < 3; i++) {
+    const ph = (t_in_step * 1.5 + i * 0.33) % 1.0;
+    const r = 20 + ph * 50;
+    const op = (1 - ph) * 0.7;
+    ctx.strokeStyle = `rgba(255,215,0,${op})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: AIRCRAFT GLOW (transponder receive)
+// ──────────────────────────────────────────────
+function drawAircraftGlow(x, y, color, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const grd = ctx.createRadialGradient(x, y, 0, x, y, 40);
+  grd.addColorStop(0, color);
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(x, y, 40, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  DRAW: POSITION FIX CROSSHAIR
+// ──────────────────────────────────────────────
+function drawPositionFix(x, y, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 1.5;
+  const s = 14;
+  ctx.beginPath(); ctx.moveTo(x-s, y); ctx.lineTo(x+s, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y-s); ctx.lineTo(x, y+s); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI*2); ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,215,0,0.2)';
+  ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ──────────────────────────────────────────────
+//  STEP BADGE & DESC HUD CONTROL
+// ──────────────────────────────────────────────
+const badge = document.getElementById('step-badge');
+const desc  = document.getElementById('step-desc');
+let currentStepId = -1;
+
+function showStep(step) {
+  if (step.id === currentStepId) return;
+  currentStepId = step.id;
+
+  badge.style.opacity = '0';
+  desc.style.opacity = '0';
+
+  setTimeout(() => {
+    badge.textContent = step.label;
+    badge.style.background = step.color + '22';
+    badge.style.border = `1px solid ${step.color}`;
+    badge.style.color = step.color;
+    badge.style.boxShadow = `0 0 16px ${step.color}55`;
+    desc.textContent = step.desc;
+    badge.style.opacity = '1';
+    desc.style.opacity = '1';
+  }, 200);
+
+  document.getElementById('step-counter').textContent = `STEP ${step.id} / ${STEPS.length}`;
+}
+
+function hideHUD() {
+  badge.style.opacity = '0';
+  desc.style.opacity = '0';
+  currentStepId = -1;
+}
+
+// ──────────────────────────────────────────────
+//  EASE UTILITIES
+// ──────────────────────────────────────────────
+function easeInOut(t) { return t < 0.5 ? 2*t*t : -1 + (4-2*t)*t; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function stepProgress(t, start, end) { return clamp((t - start) / (end - start), 0, 1); }
+function fadeIn(t, start, dur = 0.5) { return clamp((t - start) / dur, 0, 1); }
+function fadeOut(t, end, dur = 0.5) { return clamp((end - t) / dur, 0, 1); }
+function stepAlpha(t, start, end, fadeDur = 0.4) { return Math.min(fadeIn(t, start, fadeDur), fadeOut(t, end, fadeDur)); }
+
+// ──────────────────────────────────────────────
+//  MAIN RENDER
+// ──────────────────────────────────────────────
+function render() {
+  const t = elapsed; // seconds
+
+  // ─── Background ───────────────────────────
+  drawBackground();
+
+  // ─── Current step lookup ──────────────────
+  let activeStep = null;
+  for (const s of STEPS) {
+    if (t >= s.start && t < s.end) { activeStep = s; break; }
+  }
+  if (activeStep) showStep(activeStep);
+
+  // ─── Approach path ────────────────────────
+  // Path fully visible from step 1; draws in progressively
+  const pathDrawRatio = clamp((t - 2.0) / 3.0, 0, 1); // draws during step 2-3
+  drawApproachPath(Math.max(0.15, pathDrawRatio));
+
+  // ─── STEP 1: Radar waves ──────────────────
+  {
+    const alpha = stepAlpha(t, 0, 3.5, 0.5);
+    if (alpha > 0) drawRadarWaves(t, alpha);
+  }
+
+  // ─── Aircraft position ────────────────────
+  // Step 1-3: sits at PATH_P0 (static)
+  // Step 4-5: moves along path
+  let acT = 0;
+  if (t < 9) {
+    acT = 0;
+  } else if (t < 17) {
+    const raw = stepProgress(t, 9, 17);
+    acT = easeInOut(raw) * 0.97;
+  } else {
+    acT = 0.97;
+  }
+
+  const p0 = PATH_P0(), p1 = PATH_P1(), p2 = PATH_P2(), p3 = PATH_P3();
+  const acPos = bezier(acT, p0, p1, p2, p3);
+  const tang  = bezierTangent(acT, p0, p1, p2, p3);
+  const acAngle = Math.atan2(tang.y, tang.x);
+
+  // Aircraft alpha — fades out near end
+  const acAlpha = t > 16.5 ? clamp((17.5 - t) / 1.0, 0, 1) : 1.0;
+
+  // ─── STEP 2: Glow + transponder line ──────
+  {
+    const alpha = stepAlpha(t, 3.0, 7.0, 0.5);
+    if (alpha > 0) {
+      drawAircraftGlow(acPos.x, acPos.y, 'rgba(255,165,0,0.5)', alpha);
+      const lineProgress = stepProgress(t, 3.2, 5.5);
+      drawTransponderSignal(acPos.x, acPos.y, lineProgress, alpha);
+    }
+  }
+
+  // Keep transponder line visible in step 3
+  {
+    const alpha = stepAlpha(t, 6.0, 9.5, 0.6);
+    if (alpha > 0) {
+      drawTransponderSignal(acPos.x, acPos.y, 1.0, alpha * 0.5);
+    }
+  }
+
+  // ─── STEP 3: TLS processing pulse + position fix ──
+  {
+    const alpha = stepAlpha(t, 6.0, 9.5, 0.5);
+    if (alpha > 0) {
+      drawProcessingPulse(t, alpha);
+      drawPositionFix(acPos.x, acPos.y, alpha);
+    }
+  }
+
+  // ─── STEP 5: Guidance beam + instrument ───
+  {
+    const alpha = stepAlpha(t, 13.0, 17.5, 0.5);
+    if (alpha > 0) {
+      drawGuidanceBeam(acPos.x, acPos.y, alpha);
+      // Needle oscillates slightly then centers
+      const needleT = stepProgress(t, 13, 16);
+      const needleOff = Math.sin(needleT * Math.PI * 4) * (1 - needleT) * 0.5;
+      const glideOff  = Math.cos(needleT * Math.PI * 3) * (1 - needleT) * 0.4;
+      drawCockpitInstrument(needleOff, glideOff, true, alpha);
+    }
+  }
+
+  // Draw instrument in standby when no step 5
+  if (t < 13 || t > 17.5) {
+    const alpha = t < 13 ? 0.5 : clamp((t - 17.5)/0.5, 0, 1) * 0.5;
+    drawCockpitInstrument(0, 0, false, alpha > 0 ? alpha : 0.5);
+  }
+
+  // ─── TLS unit ─────────────────────────────
+  const tlsPulse = (t >= 6 && t < 9.5) ? Math.abs(Math.sin(t * 3)) : 0;
+  drawTLS(tlsPulse);
+
+  // ─── Aircraft ─────────────────────────────
+  drawAircraft(acPos.x, acPos.y, acAngle, acAlpha);
+
+  // ─── Landing dust ─────────────────────────
+  if (t > 16.8 && t < 18) {
+    const alpha = Math.min((t - 16.8) / 0.4, 1) * Math.max((18 - t) / 0.8, 0);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.fillStyle = '#a0a0a0';
+    for (let i = 0; i < 8; i++) {
+      const px = RWY_X1() + i * 14 - 30;
+      const py = RWY_Y() - 4;
+      const pr = (1 - Math.abs(i-4)/4) * 8;
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ─── Runway ───────────────────────────────
+  drawRunway();
+}
+
+// ──────────────────────────────────────────────
+//  ANIMATION LOOP
+// ──────────────────────────────────────────────
+const TOTAL_CYCLE = 18; // seconds
+const PAUSE_AFTER = 3;  // pause before replay
+
+function tick(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+
+  if (!paused && !cycleComplete) {
+    elapsed += dt * speedMult;
+    if (elapsed >= TOTAL_CYCLE) {
+      elapsed = TOTAL_CYCLE;
+      cycleComplete = true;
+      hideHUD();
+      document.getElementById('replay-overlay').classList.add('show');
+    }
+  }
+
+  render();
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+
+// ──────────────────────────────────────────────
+//  CONTROLS
+// ──────────────────────────────────────────────
+document.getElementById('btn-play').addEventListener('click', function() {
+  if (cycleComplete) return;
+  paused = !paused;
+  this.textContent = paused ? '▶ PLAY' : '⏸ PAUSE';
+});
+
+function setSpeed(s, btnId) {
+  speedMult = s;
+  ['sp05','sp1','sp2'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(btnId).classList.add('active');
+}
+document.getElementById('sp05').addEventListener('click', () => setSpeed(0.5, 'sp05'));
+document.getElementById('sp1').addEventListener('click', () => setSpeed(1.0, 'sp1'));
+document.getElementById('sp2').addEventListener('click', () => setSpeed(2.0, 'sp2'));
+
+function doReplay() {
+  elapsed = 0;
+  cycleComplete = false;
+  paused = false;
+  lastTs = null;
+  currentStepId = -1;
+  hideHUD();
+  document.getElementById('replay-overlay').classList.remove('show');
+  document.getElementById('btn-play').textContent = '⏸ PAUSE';
+  document.getElementById('step-counter').textContent = 'STEP 1 / 5';
+}
+
+document.getElementById('replay-btn-big').addEventListener('click', doReplay);
+</script>
+</body>
+</html>
