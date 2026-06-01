@@ -2110,6 +2110,90 @@ Example good answer for "What is DDM?":
     return c.json(result, result.ok ? 200 : 400);
   })
 
+  // ── Telegram Webhook (bot receives messages) ───────────────────────────────
+  // POST /api/telegram/webhook — called by Telegram servers
+  .post('/telegram/webhook', async (c) => {
+    // Validate secret token if set
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (secret) {
+      const header = c.req.header('x-telegram-bot-api-secret-token');
+      if (header !== secret) return c.json({ ok: false }, 403);
+    }
+    try {
+      const update = await c.req.json() as {
+        update_id: number;
+        message?: {
+          message_id: number;
+          from?: { id: number; first_name?: string; username?: string };
+          chat: { id: number; type: string };
+          text?: string;
+          date: number;
+        };
+        callback_query?: {
+          id: string;
+          from: { id: number; first_name?: string };
+          message?: { chat: { id: number } };
+          data?: string;
+        };
+      };
+
+      const cfg = getTelegramConfig();
+      const botToken = (process.env.TELEGRAM_BOT_TOKEN ?? "");
+
+      // Handle text messages
+      if (update.message?.text && botToken) {
+        const msg = update.message;
+        const chatId = msg.chat.id;
+        const text = msg.text.trim();
+        const from = msg.from?.first_name ?? "User";
+
+        let reply = "";
+
+        if (text === "/start" || text === "/help") {
+          reply =
+            `👋 *TLS Trainer Bot*\n\n` +
+            `Available commands:\n` +
+            `/status — system status\n` +
+            `/trainees — active trainee count\n` +
+            `/test — send test notification\n` +
+            `/help — this message`;
+        } else if (text === "/status") {
+          reply = `✅ *TLS Trainer is online*\n⏱ ${new Date().toLocaleString("en-SA", { timeZone: "Asia/Riyadh" })}`;
+        } else if (text === "/trainees") {
+          try {
+            const rows = await sql(`SELECT COUNT(*) as cnt FROM trainees WHERE status='active'`, []);
+            const cnt = (rows[0] as any)?.cnt ?? 0;
+            reply = `👥 *Active Trainees:* ${cnt}`;
+          } catch {
+            reply = `❌ Could not fetch trainee count.`;
+          }
+        } else if (text === "/test") {
+          await sendTelegram({ type: "test" });
+          reply = `🔔 Test notification sent!`;
+        } else {
+          reply = `❓ Unknown command. Type /help for available commands.`;
+        }
+
+        if (reply) {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: reply,
+              parse_mode: "Markdown",
+            }),
+          });
+        }
+      }
+
+      return c.json({ ok: true }, 200);
+    } catch (e: any) {
+      console.error("Telegram webhook error:", e?.message);
+      return c.json({ ok: false, error: e?.message }, 200); // always 200 to Telegram
+    }
+  })
+
   // ── Evaluation endpoints ───────────────────────────────────────────────────
   // GET /admin/evaluation/:id — get trainee evaluation
   .get('/admin/evaluation/:id', async (c) => {
