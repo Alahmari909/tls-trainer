@@ -30,6 +30,16 @@ const Faults = lazy(() => import("./pages/faults"));
 const Simulator = lazy(() => import("./pages/simulator"));
 const TLSAnimation = lazy(() => import("./pages/tls-animation"));
 
+// ── V2 Pages (new kimi-style UI) ──────────────────────────────────────────────
+const V2Home = lazy(() => import("./pages/v2/index"));
+const V2Trainee = lazy(() => import("./pages/v2/trainee"));
+const V2Module = lazy(() => import("./pages/v2/module"));
+const V2Quiz = lazy(() => import("./pages/v2/quiz"));
+const V2Simulator = lazy(() => import("./pages/v2/simulator"));
+const V2Documents = lazy(() => import("./pages/v2/documents"));
+const V2Profile = lazy(() => import("./pages/v2/profile"));
+const V2Admin = lazy(() => import("./pages/v2/admin"));
+
 // Re-export for anything that imported from app.tsx directly
 export { unlockAudio, showToast } from "./lib/audio";
 export { playAlertTone, vibrate } from "./lib/audio";
@@ -346,6 +356,7 @@ function App() {
   usePWAMeta();
 
   const [location] = useLocation();
+  const isV2Route = location === "/v2" || location.startsWith("/v2/");
   const isAdminRoute = location === "/admin" || location.startsWith("/admin");
 
   // Unlock audio on any user interaction
@@ -358,6 +369,28 @@ function App() {
       document.removeEventListener("touchstart", unlock);
     };
   }, []);
+
+  // V2 routes — fully isolated shell (new kimi-style UI)
+  if (isV2Route) {
+    return (
+      <Provider>
+        <Suspense fallback={null}>
+          <Switch>
+            <Route path="/v2" component={V2Home} />
+            <Route path="/v2/trainee" component={V2Trainee} />
+            <Route path="/v2/module/:id" component={V2Module} />
+            <Route path="/v2/quiz" component={V2Quiz} />
+            <Route path="/v2/simulator" component={V2Simulator} />
+            <Route path="/v2/documents" component={V2Documents} />
+            <Route path="/v2/profile" component={V2Profile} />
+            <Route path="/v2/admin" component={V2Admin} />
+            <Route path="/v2/admin/trainees" component={V2Admin} />
+            <Route path="/v2/admin/reports" component={V2Admin} />
+          </Switch>
+        </Suspense>
+      </Provider>
+    );
+  }
 
   // Admin gets its own fully isolated shell — no sidebar, no nav, no shared elements
   if (isAdminRoute) {
