@@ -906,131 +906,6 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       {/* ── TLS COMPONENTS SLIDESHOW ── */}
       <TLSSlideshow />
 
-      {/* ── QUICK ACCESS ── */}
-      <div style={{ padding: "18px 16px 0" }}>
-        <div style={{
-          fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
-          color: "var(--text-muted)", marginBottom: 12,
-        }}>{t("quick_access")}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {quickActions.map(a => (
-            <div
-              key={a.labelKey}
-              onClick={() => navigate(a.path)}
-              className="glass-card"
-              style={{
-                padding: "15px 10px 13px",
-                textAlign: "center", cursor: "pointer",
-                border: `1px solid ${a.color}28`,
-                background: `linear-gradient(160deg, ${a.color}0e 0%, transparent 100%)`,
-                transition: "box-shadow 0.18s, border-color 0.18s",
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.boxShadow = `0 0 16px ${a.color}35`;
-                (e.currentTarget as HTMLElement).style.borderColor = `${a.color}55`;
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                (e.currentTarget as HTMLElement).style.borderColor = `${a.color}28`;
-              }}
-            >
-              <div style={{ fontSize: 22, marginBottom: 7, lineHeight: 1 }}>{a.icon}</div>
-              <div style={{
-                fontFamily: "Inter", fontSize: 8,
-                color: a.color, letterSpacing: "0.1em",
-              }}>{t(a.labelKey)}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── TRAINING MODULES ── */}
-      <div style={{ padding: "20px 16px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em", color: "var(--text-muted)" }}>
-            {t("training_modules")}
-          </div>
-          {overallPct > 0 && (
-            <div style={{ fontFamily: "Inter", fontSize: 9, color: "#00AEEF" }}>
-              {overallPct}% COMPLETE
-            </div>
-          )}
-        </div>
-
-        {displayMods.length === 0 ? (
-          [1,2,3,4].map(i => (
-            <div key={i} className="glass-card" style={{
-              padding: "14px 16px", marginBottom: 10, height: 66,
-              border: "1px solid rgba(0,174,239,0.1)",
-              opacity: 0.4, animation: "pulse-glow 1.5s ease infinite",
-            }} />
-          ))
-        ) : (
-          displayMods.map(mod => {
-            const color = COLORS[(mod.order - 1) % COLORS.length];
-            const pct = getModProgress(mod.id);
-            return (
-              <Link key={mod.id} href="/modules" style={{ textDecoration: "none" }}>
-                <div className="glass-card" style={{
-                  padding: "13px 16px", marginBottom: 10,
-                  border: `1px solid ${color}25`,
-                  display: "flex", alignItems: "center", gap: 14,
-                  cursor: "pointer",
-                  background: `linear-gradient(90deg, ${color}08 0%, transparent 100%)`,
-                }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 9,
-                    background: `${color}15`, border: `1px solid ${color}40`,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  }}>
-                    <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 700, color }}>
-                      {String(mod.order).padStart(2, "0")}
-                    </span>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-                      <div style={{
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
-                      }}>{mod.title}</div>
-                      {pct > 0 && (
-                        <span style={{ fontFamily: "Inter", fontSize: 9, color, marginLeft: 8 }}>
-                          {Math.round(pct)}%
-                        </span>
-                      )}
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill animated-bar" style={{
-                        width: `${pct}%`,
-                        ["--bar-width" as any]: `${pct}%`,
-                        background: pct >= 100
-                          ? "linear-gradient(90deg, #00AEEF, #35D4FF)"
-                          : `linear-gradient(90deg, ${color}, #35D4FF)`,
-                      }} />
-                    </div>
-                  </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </div>
-              </Link>
-            );
-          })
-        )}
-
-        <Link href="/modules" style={{ textDecoration: "none" }}>
-          <div style={{
-            textAlign: "center", padding: "13px",
-            border: "1px solid rgba(0,174,239,0.3)", borderRadius: 10, marginTop: 6,
-            color: "#00AEEF", fontFamily: "Inter", fontSize: 11,
-            letterSpacing: "0.12em", cursor: "pointer",
-            background: "rgba(0,174,239,0.04)",
-          }}>
-            {t("view_all_modules")}
-          </div>
-        </Link>
-      </div>
-
       {/* ── RECENT ACTIVITY ── */}
       <div style={{ padding: "0 16px 40px" }}>
         <div style={{
@@ -1146,26 +1021,15 @@ function TLSSlideshow() {
   const slide = TLS_SLIDES[current];
 
   return (
-    <div style={{ padding: "18px 16px 0" }}>
-      <div style={{
-        fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
-        color: "var(--text-muted)", marginBottom: 10,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <span>TLS SYSTEM COMPONENTS</span>
-        <span style={{ color: "rgba(0,174,239,0.5)", fontSize: 8 }}>
-          {current + 1} / {TLS_SLIDES.length}
-        </span>
-      </div>
+    <div style={{ marginTop: 18, position: "relative" }}>
 
-      {/* Image container */}
+      {/* Image — full width, no padding, no border-radius */}
       <div style={{
-        borderRadius: 12, overflow: "hidden",
-        border: "1px solid rgba(0,174,239,0.2)",
+        width: "100%",
         background: "#000",
-        boxShadow: "0 0 24px rgba(0,174,239,0.08)",
         position: "relative",
-        aspectRatio: "16/9",
+        aspectRatio: "4/3",
+        overflow: "hidden",
       }}>
         <img
           key={slide.src}
@@ -1181,53 +1045,60 @@ function TLSSlideshow() {
           }}
         />
 
-        {/* Label badge */}
+        {/* Top bar: label + counter */}
         <div style={{
-          position: "absolute", top: 10, left: 10,
-          background: "rgba(0,174,239,0.15)",
-          border: "1px solid rgba(0,174,239,0.4)",
-          borderRadius: 6, padding: "3px 8px",
-          fontFamily: "var(--font-mono, monospace)",
-          fontSize: 9, color: "#00AEEF",
-          letterSpacing: "0.15em",
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.6s ease",
+          position: "absolute", top: 0, left: 0, right: 0,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 14px",
+          background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%)",
         }}>
-          {slide.label}
+          <div style={{
+            background: "rgba(0,174,239,0.15)",
+            border: "1px solid rgba(0,174,239,0.4)",
+            borderRadius: 5, padding: "3px 9px",
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: 9, color: "#00AEEF", letterSpacing: "0.15em",
+            opacity: visible ? 1 : 0, transition: "opacity 0.6s ease",
+          }}>
+            {slide.label}
+          </div>
+          <div style={{
+            fontFamily: "Inter", fontSize: 8,
+            color: "rgba(0,174,239,0.6)", letterSpacing: "0.1em",
+          }}>
+            {current + 1} / {TLS_SLIDES.length}
+          </div>
         </div>
 
-        {/* Progress dots */}
+        {/* Bottom: name + dots */}
         <div style={{
-          position: "absolute", bottom: 10, left: "50%",
-          transform: "translateX(-50%)",
-          display: "flex", gap: 5,
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: "20px 14px 12px",
+          background: "linear-gradient(0deg, rgba(0,0,0,0.75) 0%, transparent 100%)",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
         }}>
-          {TLS_SLIDES.map((_, i) => (
-            <div
-              key={i}
-              onClick={() => { setVisible(false); setTimeout(() => { setCurrent(i); setVisible(true); }, 300); }}
-              style={{
-                width: i === current ? 16 : 5,
-                height: 5, borderRadius: 3,
-                background: i === current ? "#00AEEF" : "rgba(255,255,255,0.25)",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-              }}
-            />
-          ))}
+          <div style={{
+            fontFamily: "Inter", fontSize: 13, fontWeight: 500,
+            color: "rgba(255,255,255,0.9)", letterSpacing: "0.04em",
+            textAlign: "center",
+            opacity: visible ? 1 : 0, transition: "opacity 0.6s ease",
+          }}>
+            {slide.name}
+          </div>
+          <div style={{ display: "flex", gap: 5 }}>
+            {TLS_SLIDES.map((_, i) => (
+              <div
+                key={i}
+                onClick={() => { setVisible(false); setTimeout(() => { setCurrent(i); setVisible(true); }, 300); }}
+                style={{
+                  width: i === current ? 18 : 5, height: 5, borderRadius: 3,
+                  background: i === current ? "#00AEEF" : "rgba(255,255,255,0.3)",
+                  cursor: "pointer", transition: "all 0.3s ease",
+                }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Component name */}
-      <div style={{
-        marginTop: 10, textAlign: "center",
-        fontFamily: "Inter", fontSize: 12,
-        color: "var(--text-secondary)",
-        letterSpacing: "0.05em",
-        opacity: visible ? 1 : 0,
-        transition: "opacity 0.6s ease",
-      }}>
-        {slide.name}
       </div>
     </div>
   );
