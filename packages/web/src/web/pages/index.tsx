@@ -903,6 +903,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         </div>
       </div>
 
+      {/* ── TLS COMPONENTS SLIDESHOW ── */}
+      <TLSSlideshow />
+
       {/* ── QUICK ACCESS ── */}
       <div style={{ padding: "18px 16px 0" }}>
         <div style={{
@@ -1110,6 +1113,126 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 /* ─────────────────────────────────────────────────────────────────────────────
    ROOT EXPORT — gates login vs home
 ───────────────────────────────────────────────────────────────────────────── */
+/* ── TLS Components Slideshow ── */
+const TLS_SLIDES = [
+  { src: "/components/ata.webp",          label: "ATA",          name: "Azimuth Tracking Antenna" },
+  { src: "/components/asa.webp",          label: "ASA",          name: "Azimuth Signal Antenna" },
+  { src: "/components/gs.webp",           label: "GS",           name: "Glide Slope Antenna" },
+  { src: "/components/loc.webp",          label: "LOC",          name: "Localizer Antenna" },
+  { src: "/components/interrogator.webp", label: "INTERROGATOR", name: "SSR Interrogator Unit" },
+  { src: "/components/rcu.webp",          label: "RCU",          name: "Remote Control Unit" },
+  { src: "/components/gtu.webp",          label: "GTU",          name: "Ground Transceiver Unit" },
+  { src: "/components/esa.webp",          label: "ESA",          name: "Elevation Signal Antenna" },
+  { src: "/components/calbit.webp",       label: "CALBIT",       name: "Calibration Bit Transponder" },
+];
+
+function TLSSlideshow() {
+  const [current, setCurrent] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      // fade out
+      setVisible(false);
+      setTimeout(() => {
+        setCurrent(prev => (prev + 1) % TLS_SLIDES.length);
+        setVisible(true);
+      }, 600);
+    }, 5000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [current]);
+
+  const slide = TLS_SLIDES[current];
+
+  return (
+    <div style={{ padding: "18px 16px 0" }}>
+      <div style={{
+        fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
+        color: "var(--text-muted)", marginBottom: 10,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <span>TLS SYSTEM COMPONENTS</span>
+        <span style={{ color: "rgba(0,174,239,0.5)", fontSize: 8 }}>
+          {current + 1} / {TLS_SLIDES.length}
+        </span>
+      </div>
+
+      {/* Image container */}
+      <div style={{
+        borderRadius: 12, overflow: "hidden",
+        border: "1px solid rgba(0,174,239,0.2)",
+        background: "#000",
+        boxShadow: "0 0 24px rgba(0,174,239,0.08)",
+        position: "relative",
+        aspectRatio: "16/9",
+      }}>
+        <img
+          key={slide.src}
+          src={slide.src}
+          alt={slide.name}
+          style={{
+            width: "100%", height: "100%",
+            objectFit: "contain",
+            display: "block",
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.6s ease",
+            background: "#000",
+          }}
+        />
+
+        {/* Label badge */}
+        <div style={{
+          position: "absolute", top: 10, left: 10,
+          background: "rgba(0,174,239,0.15)",
+          border: "1px solid rgba(0,174,239,0.4)",
+          borderRadius: 6, padding: "3px 8px",
+          fontFamily: "var(--font-mono, monospace)",
+          fontSize: 9, color: "#00AEEF",
+          letterSpacing: "0.15em",
+          opacity: visible ? 1 : 0,
+          transition: "opacity 0.6s ease",
+        }}>
+          {slide.label}
+        </div>
+
+        {/* Progress dots */}
+        <div style={{
+          position: "absolute", bottom: 10, left: "50%",
+          transform: "translateX(-50%)",
+          display: "flex", gap: 5,
+        }}>
+          {TLS_SLIDES.map((_, i) => (
+            <div
+              key={i}
+              onClick={() => { setVisible(false); setTimeout(() => { setCurrent(i); setVisible(true); }, 300); }}
+              style={{
+                width: i === current ? 16 : 5,
+                height: 5, borderRadius: 3,
+                background: i === current ? "#00AEEF" : "rgba(255,255,255,0.25)",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Component name */}
+      <div style={{
+        marginTop: 10, textAlign: "center",
+        fontFamily: "Inter", fontSize: 12,
+        color: "var(--text-secondary)",
+        letterSpacing: "0.05em",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.6s ease",
+      }}>
+        {slide.name}
+      </div>
+    </div>
+  );
+}
+
 export default function Index() {
   const [session, setSessionState] = useState<TraineeSession | null>(() => getSession());
 
