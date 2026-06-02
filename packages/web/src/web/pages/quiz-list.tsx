@@ -14,7 +14,7 @@ type Module = {
   progress?: number;
 };
 
-export default function QuizList() {
+export default function QuizList({ adminMode = false }: { adminMode?: boolean }) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [, navigate] = useLocation();
@@ -51,7 +51,7 @@ export default function QuizList() {
             <div
               key={mod.id}
               className="glass-card fade-in"
-              onClick={() => navigate(`/quiz/${mod.id}`)}
+              onClick={() => { if (!adminMode) navigate(`/quiz/${mod.id}`); }}
               style={{
                 marginBottom: 10,
                 border: `1px solid ${mod.color}30`,
