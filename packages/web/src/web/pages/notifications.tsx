@@ -68,7 +68,7 @@ function formatTs(ts: number): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function Notifications() {
+export default function Notifications({ adminMode = false }: { adminMode?: boolean }) {
   const [notifs, setNotifs] = useState<RealNotif[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [loading, setLoading] = useState(true);
@@ -111,10 +111,12 @@ export default function Notifications() {
     // Play sound on tap
     playAlertTone(isMsg ? "message" : (atype as any) || "info");
     vibrate("light");
-    // Navigate
+    // In admin mode — never navigate away to trainee pages
+    if (adminMode) return;
+    // Trainee navigation
     if (isMsg) navigate("/private-chat");
     else if (atype === "module") navigate("/modules");
-    else navigate("/notifications"); // stay, already here
+    // else stay on notifications
   };
 
   const filtered = filter === "all" ? notifs : notifs.filter(n => {

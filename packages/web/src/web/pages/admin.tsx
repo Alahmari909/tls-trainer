@@ -3658,7 +3658,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {activeView === "advanced"      && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Advanced /></div>}
       {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList adminMode={true} /></div>}
       {activeView === "status"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
-      {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications /></div>}
+      {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications adminMode={true} /></div>}
       {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
       {activeView === "documents"     && <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh", padding: "24px 32px" }}>
         <div style={{ marginBottom: 24 }}>
