@@ -2,1121 +2,986 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TLS Simulator Pro</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TLS PAR Simulator</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --green:#00ff41;--gdim:rgba(0,255,65,0.15);--gmid:rgba(0,255,65,0.35);
-  --cyan:#00eeff;--yellow:#ffff00;--red:#ff3333;--magenta:#ff69ff;
-  --orange:#ff9900;--bg:#050a05;--panel:#06100a;
-}
-body{background:var(--bg);color:var(--green);font-family:'Share Tech Mono',monospace;overflow:hidden;width:100vw;height:100vh;display:flex;flex-direction:column}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:rgba(0,255,65,.3)}
+  :root {
+    --green: #00ff88;
+    --green-dim: #00cc66;
+    --green-dark: #003a1a;
+    --amber: #ffaa00;
+    --red: #ff3333;
+    --cyan: #00d4ff;
+    --bg: #020c02;
+    --panel: #040f04;
+    --border: rgba(0,255,136,0.18);
+    --text: #b0ffcc;
+    --muted: #4a7a5a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); font-family:'Courier New', monospace; color:var(--text); }
 
-/* ══ TOP BAR ══ */
-#topBar{height:34px;background:linear-gradient(180deg,rgba(0,28,0,.97),rgba(0,12,0,.99));border-bottom:1px solid var(--gmid);display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;font-size:10px}
-.title{font-size:11px;font-weight:bold;letter-spacing:3px;color:#aaffaa}
-.top-badge{padding:1px 7px;border:1px solid var(--gmid);font-size:9px;letter-spacing:1px;white-space:nowrap}
-.top-badge.ok{background:rgba(0,80,0,.5);color:#aaffaa;border-color:var(--green)}
-.top-badge.alert{border-color:var(--red);color:var(--red);animation:blink 1s infinite}
-#clockDisp{color:var(--cyan);font-size:10px;margin-left:auto}
+  /* Scanline overlay */
+  body::after {
+    content:'';
+    position:fixed; top:0; left:0; right:0; bottom:0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events:none; z-index:999;
+  }
 
-/* MODE BUTTONS */
-.mode-group{display:flex;gap:2px;background:rgba(0,20,0,.7);border:1px solid var(--gmid);padding:2px}
-.mode-btn{background:transparent;border:none;color:rgba(0,255,65,.5);font-family:'Share Tech Mono',monospace;font-size:9px;padding:3px 9px;cursor:pointer;letter-spacing:1px;transition:all .15s;white-space:nowrap}
-.mode-btn:hover{color:var(--green);background:rgba(0,50,0,.6)}
-.mode-btn.active{background:rgba(0,100,0,.8);color:#aaffaa;border:1px solid rgba(0,255,65,.4)}
+  #root { display:flex; flex-direction:column; height:100vh; }
 
-/* ══ MAIN AREA ══ */
-#mainArea{display:flex;flex:1;overflow:hidden;min-height:0}
+  /* ── TOP BAR ── */
+  #topbar {
+    display:flex; align-items:center; gap:12px;
+    padding:6px 14px;
+    background:#010801;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .tb-logo { font-size:13px; font-weight:700; color:var(--green); letter-spacing:.15em; }
+  .tb-sep { width:1px; height:20px; background:var(--border); }
+  .tb-label { font-size:10px; color:var(--muted); letter-spacing:.1em; }
+  .tb-val { font-size:11px; color:var(--green); font-weight:700; }
+  .tb-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .status-dot { width:8px; height:8px; border-radius:50%; }
+  .status-dot.on  { background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 1.5s ease infinite; }
+  .status-dot.off { background:var(--muted); }
+  .status-dot.alarm { background:var(--red); box-shadow:0 0 10px var(--red); animation:blink .5s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-/* ══ CANVAS AREA ══ */
-#canvasArea{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;gap:2px;padding:4px 4px 4px 4px;background:#020602}
+  /* ── MAIN LAYOUT ── */
+  #main { display:flex; flex:1; overflow:hidden; }
 
-/* PAR mode: two stacked canvases */
-.radarWrap{flex:1;min-height:0;position:relative;background:#020902;border:1px solid rgba(0,255,65,.18);overflow:hidden}
-.radarLabel{position:absolute;top:6px;left:10px;font-size:9px;letter-spacing:2px;color:rgba(0,255,65,.35);z-index:5;pointer-events:none}
-.radarCanvas{display:block;width:100%;height:100%}
+  /* ── LEFT PANEL (controls) ── */
+  #left-panel {
+    width:180px; min-width:180px;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column; gap:0;
+    overflow-y:auto; overflow-x:hidden;
+    flex-shrink:0;
+  }
+  .panel-section { padding:10px 12px; border-bottom:1px solid rgba(0,255,136,0.08); }
+  .section-title { font-size:9px; letter-spacing:.18em; color:var(--muted); margin-bottom:8px; }
 
-/* SURVEILLANCE mode: single full canvas */
-#survWrap{flex:1;min-height:0;position:relative;background:#020802;border:1px solid rgba(0,255,65,.18);overflow:hidden;display:none}
-#survCanvas{display:block;width:100%;height:100%}
+  .btn {
+    display:block; width:100%; padding:7px 10px;
+    background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2);
+    border-radius:4px; color:var(--green); font-size:10px; font-family:inherit;
+    cursor:pointer; text-align:left; letter-spacing:.08em; margin-bottom:5px;
+    transition:all .15s;
+  }
+  .btn:hover:not(:disabled) { background:rgba(0,255,136,0.12); border-color:var(--green); }
+  .btn:disabled { color:var(--muted); border-color:rgba(0,255,136,0.06); cursor:not-allowed; }
+  .btn.red { border-color:rgba(255,51,51,0.3); color:#ff6666; }
+  .btn.red:hover:not(:disabled) { background:rgba(255,51,51,0.1); }
+  .btn.amber { border-color:rgba(255,170,0,0.3); color:var(--amber); }
+  .btn.amber:hover:not(:disabled) { background:rgba(255,170,0,0.1); }
+  .btn.active-btn { background:rgba(0,255,136,0.15); border-color:var(--green); }
 
-/* SPLIT mode */
-#splitWrap{flex:1;min-height:0;display:none;flex-direction:column;gap:2px}
-#splitTop{flex:1;min-height:0;position:relative;background:#020802;border:1px solid rgba(0,255,65,.18);overflow:hidden}
-#splitBot{flex:1;min-height:0;display:flex;gap:2px}
-#splitBotL,#splitBotR{flex:1;min-height:0;position:relative;background:#020508;border:1px solid rgba(0,255,65,.18);overflow:hidden}
-#splitTopC,#splitBotLC,#splitBotRC{display:block;width:100%;height:100%}
-.split-label{position:absolute;top:5px;left:8px;font-size:8px;letter-spacing:1px;color:rgba(0,255,65,.3);pointer-events:none;z-index:5}
+  /* Targets list */
+  .target-item {
+    padding:7px 8px; border-radius:4px; cursor:pointer; margin-bottom:4px;
+    border:1px solid rgba(0,255,136,0.1); background:rgba(0,255,136,0.02);
+    transition:all .15s;
+  }
+  .target-item:hover { background:rgba(0,255,136,0.08); }
+  .target-item.selected { background:rgba(0,255,136,0.14); border-color:var(--green); }
+  .target-item.landed { opacity:.4; }
+  .t-code { font-size:13px; font-weight:700; color:var(--green); letter-spacing:.1em; }
+  .t-cs { font-size:9px; color:var(--muted); }
+  .t-range { font-size:9px; color:var(--amber); margin-top:2px; }
 
-/* ══ RIGHT PANEL ══ */
-#rightPanel{width:278px;flex-shrink:0;flex-grow:0;background:var(--panel);border-left:1px solid rgba(0,255,65,.2);display:flex;flex-direction:column;overflow:hidden;font-size:10px;z-index:10}
-#scenarioList{flex:1;overflow-y:auto;padding:10px}
-#scenarioList h3{font-size:9px;letter-spacing:2px;color:#aaffaa;margin-bottom:8px;border-bottom:1px solid var(--gdim);padding-bottom:5px}
-.scn-btn{display:block;width:100%;padding:8px 10px;margin:3px 0;background:rgba(0,28,0,.6);border:1px solid rgba(0,255,65,.13);color:var(--green);font-family:inherit;font-size:10px;cursor:pointer;text-align:left;letter-spacing:.5px;transition:all .15s}
-.scn-btn:hover{background:rgba(0,55,0,.7);border-color:rgba(0,255,65,.35)}
-.scn-btn.active{background:rgba(0,88,0,.85);border-color:var(--green);color:#aaffaa}
-.diff-badge{float:right;font-size:8px;padding:1px 4px}
-.d-e{background:rgba(0,255,65,.15);color:var(--green)}
-.d-m{background:rgba(255,255,0,.15);color:var(--yellow)}
-.d-h{background:rgba(255,51,51,.15);color:var(--red)}
-.d-x{background:rgba(255,105,255,.15);color:var(--magenta)}
+  /* System params */
+  .param-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:10px; }
+  .param-key { color:var(--muted); }
+  .param-val { color:var(--green); font-weight:700; }
 
-#ctrlPanel{border-top:1px solid rgba(0,255,65,.18);padding:10px}
-#ctrlPanel h3{font-size:9px;letter-spacing:2px;color:#aaffaa;margin-bottom:7px}
-.cr{display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:9px;border-bottom:1px solid rgba(0,255,65,.05)}
-.cl{color:rgba(0,255,65,.45)}.cv{color:var(--green);font-weight:bold}
-.cv.ok{color:var(--green)}.cv.warn{color:var(--yellow)}.cv.crit{color:var(--red);animation:blink .8s infinite}
-.brow{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
-.btn{background:rgba(0,45,0,.7);border:1px solid rgba(0,255,65,.28);color:var(--green);font-family:inherit;font-size:9px;padding:5px 9px;cursor:pointer;letter-spacing:1px;transition:all .15s}
-.btn:hover{background:rgba(0,80,0,.8);border-color:var(--green)}
-.btn.primary{background:rgba(0,95,0,.85);border-color:var(--green);color:#aaffaa}
-.btn.danger{background:rgba(55,0,0,.7);border-color:var(--red);color:var(--red)}
-.btn:disabled{opacity:.3;cursor:not-allowed}
+  /* ── CENTER: RADAR ── */
+  #center { flex:1; display:flex; flex-direction:column; position:relative; }
+  #radar-wrap {
+    flex:1; display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; background:var(--bg);
+  }
+  #radar-canvas { border-radius:50%; cursor:crosshair; }
 
-#statusBox{padding:9px 10px;border-top:1px solid rgba(0,255,65,.18);font-size:9px}
-#statusBox h3{font-size:9px;letter-spacing:2px;color:#aaffaa;margin-bottom:7px}
-.sr{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(0,255,65,.04)}
-.sl{color:rgba(0,255,65,.45)}.sv{color:var(--green)}
+  /* Range rings label */
+  .radar-label { position:absolute; font-size:9px; color:rgba(0,255,136,0.35); letter-spacing:.08em; pointer-events:none; }
 
-/* ══ BOTTOM BAR ══ */
-#bottomBar{height:36px;background:linear-gradient(0,rgba(0,18,0,.99),rgba(0,8,0,.96));border-top:1px solid var(--gmid);display:flex;align-items:center;padding:0 12px;gap:20px;flex-shrink:0;font-size:9px;overflow-x:auto}
-.bi{display:flex;flex-direction:column;align-items:center;min-width:64px}
-.bi .lb{color:rgba(0,255,65,.4);font-size:7px;letter-spacing:1px}
-.bi .vl{color:#aaffaa;font-size:11px;font-weight:bold}
-.bi .vl.alert{color:var(--red)}.bi .vl.warn{color:var(--yellow)}
+  /* ── BOTTOM BAR ── */
+  #bottombar {
+    display:flex; gap:0; flex-shrink:0;
+    border-top:1px solid var(--border);
+    background:#010801;
+    height:38px;
+  }
+  .bb-cell {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-right:1px solid rgba(0,255,136,0.08);
+    padding:3px 8px;
+  }
+  .bb-key { font-size:8px; color:var(--muted); letter-spacing:.1em; }
+  .bb-val { font-size:12px; color:var(--green); font-weight:700; }
+  .bb-val.alarm { color:var(--red); animation:blink .5s ease infinite; }
+  .bb-val.warn  { color:var(--amber); }
 
-/* ══ CALLOUT ══ */
-#callout{position:fixed;top:42px;left:50%;transform:translateX(-50%);background:rgba(0,18,0,.97);border:1px solid var(--green);padding:6px 18px;font-size:10px;letter-spacing:1px;color:#aaffaa;z-index:100;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap}
-#callout.show{opacity:1}
+  /* ── RIGHT PANEL (track data + azimuth + elevation) ── */
+  #right-panel {
+    width:220px; min-width:220px;
+    background:var(--panel);
+    border-left:1px solid var(--border);
+    display:flex; flex-direction:column; overflow:hidden;
+    flex-shrink:0;
+  }
 
-/* ══ RESULT OVERLAY ══ */
-#resultOverlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:200}
-#resultBox{background:rgba(0,14,0,.99);border:2px solid var(--green);padding:28px 38px;text-align:center;min-width:300px}
-#resultBox h2{font-size:16px;letter-spacing:3px;margin-bottom:14px}
-#resultBox p{font-size:10px;color:rgba(0,255,65,.65);margin:3px 0;line-height:1.7}
-#resultBox .score{font-size:26px;color:var(--cyan);margin:12px 0}
+  /* Track info */
+  #track-info {
+    padding:10px 12px;
+    border-bottom:1px solid rgba(0,255,136,0.08);
+    flex-shrink:0;
+  }
+  .ti-header { font-size:9px; letter-spacing:.15em; color:var(--muted); margin-bottom:8px; }
+  .ti-code { font-size:28px; font-weight:900; color:var(--green); letter-spacing:.1em; line-height:1; margin-bottom:4px;
+    text-shadow: 0 0 20px rgba(0,255,136,.6); }
+  .ti-callsign { font-size:13px; color:var(--amber); font-weight:700; margin-bottom:8px; }
+  .ti-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .ti-cell { background:rgba(0,255,136,0.05); border:1px solid rgba(0,255,136,0.1); border-radius:4px; padding:5px 7px; }
+  .ti-lbl { font-size:8px; color:var(--muted); letter-spacing:.08em; }
+  .ti-v   { font-size:12px; color:var(--green); font-weight:700; }
+  .ti-v.danger { color:var(--red); }
+  .ti-v.warn { color:var(--amber); }
 
-/* Mobile sidebar toggle */
-#sidebarToggle{display:none;position:fixed;bottom:46px;right:8px;z-index:50;background:rgba(0,55,0,.95);border:1px solid var(--green);color:var(--green);font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px 10px;cursor:pointer;letter-spacing:1px}
-@media(max-width:600px){
-  #mainArea{position:relative}
-  #sidebarToggle{display:block}
-  #rightPanel{position:absolute;top:0;right:0;bottom:0;width:270px;transform:translateX(100%);transition:transform .25s ease;border-left:2px solid var(--green)}
-  #rightPanel.open{transform:translateX(0)}
-}
+  /* Azimuth gauge */
+  .gauge-wrap { padding:10px 12px; border-bottom:1px solid rgba(0,255,136,0.08); flex-shrink:0; }
+  .gauge-title { font-size:9px; letter-spacing:.15em; color:var(--muted); margin-bottom:8px; }
+  .gauge-bar-wrap { position:relative; height:28px; background:#010801; border:1px solid var(--border); border-radius:3px; overflow:hidden; margin-bottom:4px; }
+  .gauge-center-line { position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(0,255,136,0.3); }
+  .gauge-ticks { position:absolute; top:0; left:0; right:0; bottom:0; }
+  .gauge-needle { position:absolute; top:0; bottom:0; width:3px; background:var(--green); border-radius:2px;
+    box-shadow:0 0 8px var(--green); transition:left .4s ease; transform:translateX(-50%); }
+  .gauge-needle.danger { background:var(--red); box-shadow:0 0 10px var(--red); }
+  .gauge-limits { position:absolute; top:0; bottom:0; width:2px; background:rgba(255,51,51,0.4); }
+  .gauge-vals { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); }
+  .gauge-ddm { text-align:center; font-size:11px; color:var(--green); font-weight:700; margin-top:2px; }
+  .gauge-ddm.danger { color:var(--red); }
 
-/* SURV tooltip */
-#survTooltip{position:absolute;background:rgba(0,14,0,.97);border:1px solid rgba(0,255,65,.4);padding:8px 12px;font-size:10px;pointer-events:none;z-index:20;display:none;min-width:140px}
-#survTooltip h4{color:#aaffaa;margin-bottom:4px;font-size:10px}
-.tt-row{display:flex;justify-content:space-between;gap:10px;margin:2px 0}
-.tt-l{color:rgba(0,255,65,.5)}.tt-v{color:var(--green);font-weight:bold}
+  /* Event log */
+  #event-log {
+    flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:3px;
+    scrollbar-width:thin; scrollbar-color:rgba(0,255,136,0.2) transparent;
+  }
+  #log-title { font-size:9px; letter-spacing:.15em; color:var(--muted); padding:8px 12px 4px; flex-shrink:0; }
+  .log-entry { font-size:9px; display:flex; gap:6px; line-height:1.4; }
+  .log-ts { color:rgba(0,255,136,0.3); flex-shrink:0; }
+  .log-msg.info { color:rgba(0,255,136,0.7); }
+  .log-msg.warn { color:var(--amber); }
+  .log-msg.ok   { color:var(--green); }
+  .log-msg.err  { color:var(--red); }
+
+  /* No target selected */
+  .no-target { text-align:center; padding:20px 10px; color:var(--muted); font-size:10px; line-height:1.6; }
+
+  /* Alarm overlay */
+  #alarm-overlay {
+    display:none; position:fixed; top:0;left:0;right:0;bottom:0;
+    background:rgba(255,0,0,0.04); z-index:100; pointer-events:none;
+    animation:alarmpulse .6s ease infinite;
+  }
+  @keyframes alarmpulse { 0%,100%{opacity:0} 50%{opacity:1} }
+  #alarm-overlay.show { display:block; }
+
+  /* Landing animation */
+  .landed-flash { animation:landflash .8s ease 3; }
+  @keyframes landflash { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+  /* Mobile: stack */
+  @media(max-width:700px) {
+    #left-panel { width:130px; min-width:130px; }
+    #right-panel { width:170px; min-width:170px; }
+    .ti-code { font-size:22px; }
+  }
+  @media(max-width:520px) {
+    #left-panel { display:none; }
+    #right-panel { width:160px; min-width:160px; }
+  }
 </style>
 </head>
 <body>
 
+<div id="alarm-overlay"></div>
+
 <!-- TOP BAR -->
-<div id="topBar">
-  <div class="title">◉ TLS SIMULATOR PRO</div>
-  <div class="mode-group">
-    <button class="mode-btn" id="btnSurv"   onclick="setMode('surv')">SURVEILLANCE</button>
-    <button class="mode-btn active" id="btnPar" onclick="setMode('par')">PAR</button>
-    <button class="mode-btn" id="btnSplit"  onclick="setMode('split')">SPLIT</button>
+<div id="topbar">
+  <div class="tb-logo">◈ TLS PAR SIM</div>
+  <div class="tb-sep"></div>
+  <div>
+    <div class="tb-label">RUNWAY</div>
+    <div class="tb-val" id="tb-rwy">18L/36R</div>
   </div>
-  <div class="top-badge ok"    id="modeTag">PAR MODE</div>
-  <div class="top-badge"       id="stateTag">STANDBY</div>
-  <div class="top-badge alert" id="alertTag" style="display:none">⚠ ALERT</div>
-  <div id="clockDisp">00:00:00Z</div>
+  <div class="tb-sep"></div>
+  <div>
+    <div class="tb-label">FREQ</div>
+    <div class="tb-val">110.30 MHz</div>
+  </div>
+  <div class="tb-sep"></div>
+  <div>
+    <div class="tb-label">GLIDEPATH</div>
+    <div class="tb-val">3.00°</div>
+  </div>
+  <div class="tb-right">
+    <div class="status-dot off" id="sys-dot"></div>
+    <span class="tb-val" id="sys-state-label">STANDBY</span>
+    <div class="tb-sep"></div>
+    <div>
+      <div class="tb-label">TIME</div>
+      <div class="tb-val" id="tb-time">00:00:00</div>
+    </div>
+  </div>
 </div>
 
-<!-- CALLOUT -->
-<div id="callout"></div>
+<!-- MAIN -->
+<div id="main">
 
-<!-- RESULT OVERLAY -->
-<div id="resultOverlay">
-  <div id="resultBox">
-    <h2 id="resultTitle">APPROACH COMPLETE</h2>
-    <div class="score" id="resultScore">--</div>
-    <p id="resultDetails"></p>
-    <div class="brow" style="justify-content:center;margin-top:16px">
-      <button class="btn primary" onclick="closeResult()">CONTINUE</button>
-      <button class="btn" onclick="resetSim()">RESET</button>
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+
+    <div class="panel-section">
+      <div class="section-title">SYSTEM</div>
+      <button class="btn active-btn" id="btn-start" onclick="startSystem()">▶ ACTIVATE</button>
+      <button class="btn red" id="btn-alarm" onclick="triggerAlarm()" disabled>⚠ BITE ALARM</button>
+      <button class="btn amber" id="btn-suspend" onclick="suspendSystem()" disabled>⏸ SUSPEND</button>
+      <button class="btn" onclick="resetSystem()">↺ RESET</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">ADD TARGET</div>
+      <button class="btn" onclick="addTarget()">+ NEW AIRCRAFT</button>
+    </div>
+
+    <div class="panel-section" style="flex:1">
+      <div class="section-title">TARGETS (<span id="target-count">0</span>)</div>
+      <div id="target-list"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">SYS PARAMS</div>
+      <div class="param-row"><span class="param-key">TX PWR</span><span class="param-val" id="p-pwr">100%</span></div>
+      <div class="param-row"><span class="param-key">BITE</span><span class="param-val" id="p-bite" style="color:var(--green)">OK</span></div>
+      <div class="param-row"><span class="param-key">TEMP</span><span class="param-val" id="p-temp">38°C</span></div>
+      <div class="param-row"><span class="param-key">TRACKS</span><span class="param-val" id="p-tracks">0</span></div>
     </div>
   </div>
-</div>
 
-<!-- Mobile toggle -->
-<button id="sidebarToggle" onclick="toggleSidebar()">☰ PANEL</button>
-
-<!-- MAIN AREA -->
-<div id="mainArea">
-
-  <!-- CANVAS AREA -->
-  <div id="canvasArea">
-
-    <!-- PAR MODE: AZ + EL stacked -->
-    <div class="radarWrap" id="azWrap">
-      <div class="radarLabel">AZ — AZIMUTH</div>
-      <canvas class="radarCanvas" id="azCanvas"></canvas>
+  <!-- CENTER RADAR -->
+  <div id="center">
+    <div id="radar-wrap">
+      <canvas id="radar-canvas"></canvas>
     </div>
-    <div class="radarWrap" id="elWrap">
-      <div class="radarLabel">EL — ELEVATION</div>
-      <canvas class="radarCanvas" id="elCanvas"></canvas>
-    </div>
-
-    <!-- SURVEILLANCE MODE -->
-    <div id="survWrap">
-      <div class="radarLabel">PPI — SURVEILLANCE RADAR</div>
-      <canvas id="survCanvas"></canvas>
-      <div id="survTooltip"></div>
-    </div>
-
-    <!-- SPLIT MODE -->
-    <div id="splitWrap">
-      <div id="splitTop">
-        <div class="split-label">PPI SURVEILLANCE</div>
-        <canvas id="splitTopC"></canvas>
+    <!-- BOTTOM STATUS BAR -->
+    <div id="bottombar">
+      <div class="bb-cell">
+        <div class="bb-key">SELECTED CODE</div>
+        <div class="bb-val" id="bb-code">—</div>
       </div>
-      <div id="splitBot">
-        <div id="splitBotL">
-          <div class="split-label">AZIMUTH</div>
-          <canvas id="splitBotLC"></canvas>
-        </div>
-        <div id="splitBotR">
-          <div class="split-label">ELEVATION</div>
-          <canvas id="splitBotRC"></canvas>
-        </div>
+      <div class="bb-cell">
+        <div class="bb-key">CALLSIGN</div>
+        <div class="bb-val" id="bb-cs">—</div>
+      </div>
+      <div class="bb-cell">
+        <div class="bb-key">RANGE (NM)</div>
+        <div class="bb-val" id="bb-range">—</div>
+      </div>
+      <div class="bb-cell">
+        <div class="bb-key">AZIMUTH ERR</div>
+        <div class="bb-val" id="bb-az">—</div>
+      </div>
+      <div class="bb-cell">
+        <div class="bb-key">ELEV ERR</div>
+        <div class="bb-val" id="bb-el">—</div>
+      </div>
+      <div class="bb-cell">
+        <div class="bb-key">DDM LOC</div>
+        <div class="bb-val" id="bb-ddm-loc">—</div>
+      </div>
+      <div class="bb-cell">
+        <div class="bb-key">DDM GP</div>
+        <div class="bb-val" id="bb-ddm-gp">—</div>
+      </div>
+      <div class="bb-cell">
+        <div class="bb-key">STATUS</div>
+        <div class="bb-val" id="bb-status">STANDBY</div>
       </div>
     </div>
-
-  </div><!-- end canvasArea -->
+  </div>
 
   <!-- RIGHT PANEL -->
-  <div id="rightPanel">
-    <div id="scenarioList">
-      <h3>◈ TRAINING MODULES</h3>
-      <button class="scn-btn active" data-id="free"      onclick="selectScenario(this)">Free Practice        <span class="diff-badge d-e">EASY</span></button>
-      <button class="scn-btn"        data-id="normal"    onclick="selectScenario(this)">Normal Approach      <span class="diff-badge d-e">EASY</span></button>
-      <button class="scn-btn"        data-id="high"      onclick="selectScenario(this)">High Approach        <span class="diff-badge d-m">MED</span></button>
-      <button class="scn-btn"        data-id="low"       onclick="selectScenario(this)">Low Approach         <span class="diff-badge d-m">MED</span></button>
-      <button class="scn-btn"        data-id="drift"     onclick="selectScenario(this)">Left/Right Drift     <span class="diff-badge d-h">HARD</span></button>
-      <button class="scn-btn"        data-id="goaround"  onclick="selectScenario(this)">Go-Around            <span class="diff-badge d-h">HARD</span></button>
-      <button class="scn-btn"        data-id="emergency" onclick="selectScenario(this)">Emergency Landing    <span class="diff-badge d-x">EXT</span></button>
-      <button class="scn-btn"        data-id="multi"     onclick="selectScenario(this)">Multi-Aircraft       <span class="diff-badge d-x">EXT</span></button>
-    </div>
+  <div id="right-panel">
 
-    <div id="ctrlPanel">
-      <h3>◈ AIRCRAFT STATUS</h3>
-      <div class="cr"><span class="cl">SQUAWK</span><span class="cv" id="dSquawk">----</span></div>
-      <div class="cr"><span class="cl">RANGE</span><span class="cv" id="dRange">-- NM</span></div>
-      <div class="cr"><span class="cl">HEADING</span><span class="cv" id="dHdg">---°</span></div>
-      <div class="cr"><span class="cl">ALTITUDE</span><span class="cv" id="dAlt">---- ft</span></div>
-      <div class="cr"><span class="cl">SPEED</span><span class="cv" id="dSpd">--- kts</span></div>
-      <div class="cr"><span class="cl">AZ DEV</span><span class="cv" id="dAzDev">--</span></div>
-      <div class="cr"><span class="cl">EL DEV</span><span class="cv" id="dElDev">--</span></div>
-      <div class="cr"><span class="cl">STATUS</span><span class="cv ok" id="dStatus">STANDBY</span></div>
-      <div class="brow">
-        <button class="btn primary" id="btnStart"    onclick="startApproach()">START</button>
-        <button class="btn"         id="btnGoAround" onclick="initiateGoAround()" disabled>GO-AROUND</button>
-        <button class="btn danger"  onclick="resetSim()">RESET</button>
-      </div>
-      <div style="margin-top:9px;font-size:9px;color:rgba(0,255,65,.35);line-height:1.9">
-        <div>← → AZIMUTH | ↑ ↓ ELEVATION</div>
-        <div>SPACE PAUSE | G GO-AROUND | ESC RESET</div>
+    <!-- TRACK INFO -->
+    <div id="track-info">
+      <div class="ti-header">TRACK DATA</div>
+      <div id="ti-content">
+        <div class="no-target">Select a target<br>from the list<br>to track</div>
       </div>
     </div>
 
-    <div id="statusBox">
-      <h3>◈ SYSTEM</h3>
-      <div class="sr"><span class="sl">MODE</span>    <span class="sv" id="sModeDisp">PAR</span></div>
-      <div class="sr"><span class="sl">PAR TRACK</span><span class="sv" id="sTrack">STANDBY</span></div>
-      <div class="sr"><span class="sl">ILS FREQ</span><span class="sv">108.70 MHz</span></div>
-      <div class="sr"><span class="sl">RWY</span>     <span class="sv">31 / 310°</span></div>
-      <div class="sr"><span class="sl">GS ANGLE</span><span class="sv">3.0°</span></div>
-      <div class="sr"><span class="sl">SCORE</span>   <span class="sv" id="sScore">--</span></div>
+    <!-- AZIMUTH -->
+    <div class="gauge-wrap">
+      <div class="gauge-title">AZIMUTH DEVIATION</div>
+      <div class="gauge-bar-wrap">
+        <div class="gauge-center-line"></div>
+        <!-- ±0.5 DDM limit lines at 30% and 70% -->
+        <div class="gauge-limits" style="left:20%"></div>
+        <div class="gauge-limits" style="left:80%"></div>
+        <div class="gauge-needle" id="az-needle" style="left:50%"></div>
+      </div>
+      <div class="gauge-vals">
+        <span>-L</span><span>CTR</span><span>R+</span>
+      </div>
+      <div class="gauge-ddm" id="az-ddm">DDM: 0.000</div>
     </div>
+
+    <!-- ELEVATION -->
+    <div class="gauge-wrap">
+      <div class="gauge-title">ELEVATION DEVIATION</div>
+      <div class="gauge-bar-wrap">
+        <div class="gauge-center-line"></div>
+        <div class="gauge-limits" style="left:20%"></div>
+        <div class="gauge-limits" style="left:80%"></div>
+        <div class="gauge-needle" id="el-needle" style="left:50%"></div>
+      </div>
+      <div class="gauge-vals">
+        <span>-LOW</span><span>ON GP</span><span>HIGH+</span>
+      </div>
+      <div class="gauge-ddm" id="el-ddm">DDM: 0.000</div>
+    </div>
+
+    <!-- EVENT LOG -->
+    <div id="log-title">EVENT LOG</div>
+    <div id="event-log">
+      <div class="log-entry"><span class="log-ts">--:--:--</span><span class="log-msg info">System ready. Awaiting activation.</span></div>
+    </div>
+
   </div>
-
-</div><!-- end mainArea -->
-
-<!-- BOTTOM BAR -->
-<div id="bottomBar">
-  <div class="bi"><div class="lb">MODE</div>    <div class="vl" id="bMode">PAR</div></div>
-  <div class="bi"><div class="lb">SCENARIO</div><div class="vl" id="bScenario">FREE</div></div>
-  <div class="bi"><div class="lb">PHASE</div>   <div class="vl" id="bPhase">STANDBY</div></div>
-  <div class="bi"><div class="lb">RANGE</div>   <div class="vl" id="bRange">-- NM</div></div>
-  <div class="bi"><div class="lb">ALT</div>     <div class="vl" id="bAlt">---- ft</div></div>
-  <div class="bi"><div class="lb">AZ ERR</div>  <div class="vl" id="bAzErr">0.0°</div></div>
-  <div class="bi"><div class="lb">EL ERR</div>  <div class="vl" id="bElErr">0.0°</div></div>
-  <div class="bi"><div class="lb">TRACKS</div>  <div class="vl" id="bTracks">0</div></div>
-  <div class="bi"><div class="lb">INTERROG</div><div class="vl" id="bInterrog">0</div></div>
 </div>
 
 <script>
-// ═══════════════════════════════════════
-// CONSTANTS
-// ═══════════════════════════════════════
-const RWY_HDG=310, GS_ANGLE=3.0, GS_HB=0.5, LOC_HB=1.5;
-const INIT_RANGE=15, TD_RANGE=0.3;
-const LOC_ANGLE=35, LOC_RANGE=22, GS_RANGE_SURV=18;
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+const RUNWAY_AZ = 195; // degrees true
+const GLIDEPATH = 3.0; // degrees
+const DDM_LIMIT = 0.155; // localizer full scale
+const DDM_GP_LIMIT = 0.175; // GP full scale
+const MAX_RANGE = 18; // NM
+const APPROACH_END = 0.3; // NM — touchdown
 
-const SCENARIOS={
-  free:      {name:'FREE',     initAz:0,    initEl:0,    wind:0,  windDir:0,   turb:0,   goAround:false,multi:false},
-  normal:    {name:'NORMAL',   initAz:0.3,  initEl:0.2,  wind:5,  windDir:270, turb:0.1, goAround:false,multi:false},
-  high:      {name:'HIGH',     initAz:0.1,  initEl:1.2,  wind:10, windDir:280, turb:0.2, goAround:false,multi:false},
-  low:       {name:'LOW',      initAz:0.2,  initEl:-1.0, wind:10, windDir:260, turb:0.2, goAround:false,multi:false},
-  drift:     {name:'DRIFT',    initAz:1.8,  initEl:0.3,  wind:20, windDir:90,  turb:0.4, goAround:false,multi:false},
-  goaround:  {name:'GOAROUND', initAz:0.2,  initEl:0.1,  wind:15, windDir:270, turb:0.3, goAround:true, multi:false},
-  emergency: {name:'EMERG',    initAz:0.5,  initEl:-0.4, wind:25, windDir:180, turb:0.8, goAround:false,multi:false},
-  multi:     {name:'MULTI',    initAz:0.4,  initEl:0.2,  wind:15, windDir:270, turb:0.5, goAround:false,multi:true },
-};
+let state = 'standby'; // standby | active | alarm | suspended
+let targets = [];
+let selectedId = null;
+let sweepAngle = 0;
+let frameId = null;
+let simInterval = null;
+let clockInterval = null;
 
-// Surveillance extra tracks (non-PAR)
-const SURV_EXTRA=[
-  {id:10,squawk:'7000',range:44,bearing:330,speed:0,  heading:0,  altitude:8000},
-  {id:11,squawk:'3315',range:30,bearing:10, speed:0,  heading:0,  altitude:12000},
-  {id:12,squawk:'4674',range:40,bearing:50, speed:0,  heading:0,  altitude:15000},
-  {id:13,squawk:'0767',range:26,bearing:290,speed:0,  heading:0,  altitude:9000},
-  {id:14,squawk:'6322',range:42,bearing:160,speed:0,  heading:0,  altitude:11000},
-  {id:15,squawk:'0542',range:30,bearing:60, speed:240,heading:200,altitude:5000},
-  {id:16,squawk:'1610',range:28,bearing:220,speed:220,heading:45, altitude:6000},
-  {id:17,squawk:'1641',range:55,bearing:90, speed:0,  heading:0,  altitude:20000},
-  {id:18,squawk:'0600',range:33,bearing:300,speed:0,  heading:0,  altitude:14000},
-];
+const CALLSIGNS = ['HZ-ABC','HZ-TLS','HZ-RWY','SVA301','SVA415','SV-TRN','HZ-MSK','RYD900','SV-OPS','HZ-CAL'];
+const usedCodes = new Set();
 
-// ═══════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════
-let currentMode='par'; // 'par' | 'surv' | 'split'
-let currentScenario='free';
-let simState='STANDBY';
-let paused=false;
-let aircraft=[];       // PAR aircraft (approached runway)
-let survTracks=[];     // all tracks for surveillance
-let score=0;
-let deviationHistory=[];
-let totalTime=0;
-let interrogCount=100000+Math.floor(Math.random()*5000);
-let goAroundTriggered=false;
-let sweepAngle=0;
-let calloutQueue=[];
-let calloutTimer=null;
-let lastTime=0;
-let lastCalloutRange=999;
-let selectedSurvAC=null;
-const inputState={az:0,el:0};
-
-// ═══════════════════════════════════════
-// CANVAS REFS
-// ═══════════════════════════════════════
-const azCanvas=document.getElementById('azCanvas'), azCtx=azCanvas.getContext('2d');
-const elCanvas=document.getElementById('elCanvas'), elCtx=elCanvas.getContext('2d');
-const survCanvas=document.getElementById('survCanvas'), survCtx=survCanvas.getContext('2d');
-const splitTopC=document.getElementById('splitTopC'), stCtx=splitTopC.getContext('2d');
-const splitBotLC=document.getElementById('splitBotLC'), slCtx=splitBotLC.getContext('2d');
-const splitBotRC=document.getElementById('splitBotRC'), srCtx=splitBotRC.getContext('2d');
-
-const azWrap=document.getElementById('azWrap');
-const elWrap=document.getElementById('elWrap');
-const survWrap=document.getElementById('survWrap');
-const splitWrap=document.getElementById('splitWrap');
-const splitTop=document.getElementById('splitTop');
-const splitBotL=document.getElementById('splitBotL');
-const splitBotR=document.getElementById('splitBotR');
-
-// ═══════════════════════════════════════
-// RESIZE
-// ═══════════════════════════════════════
-function hiDPI(canvas, wrapper, ctx){
-  const dpr=window.devicePixelRatio||1;
-  const w=wrapper.clientWidth||1, h=wrapper.clientHeight||1;
-  canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
-  canvas.style.width=w+'px'; canvas.style.height=h+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-function resizeAll(){
-  if(currentMode==='par'){
-    hiDPI(azCanvas,azWrap,azCtx);
-    hiDPI(elCanvas,elWrap,elCtx);
-  } else if(currentMode==='surv'){
-    hiDPI(survCanvas,survWrap,survCtx);
-  } else {
-    hiDPI(splitTopC,splitTop,stCtx);
-    hiDPI(splitBotLC,splitBotL,slCtx);
-    hiDPI(splitBotRC,splitBotR,srCtx);
-  }
-}
-window.addEventListener('resize',()=>{resizeAll()});
-
-// ═══════════════════════════════════════
-// MODE SWITCHING
-// ═══════════════════════════════════════
-function setMode(mode){
-  currentMode=mode;
-  // Update buttons
-  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('btn'+mode.charAt(0).toUpperCase()+mode.slice(1)).classList.add('active');
-
-  // Show/hide canvas sections
-  const parVisible = mode==='par';
-  const survVisible = mode==='surv';
-  const splitVisible = mode==='split';
-  azWrap.style.display = parVisible ? '' : 'none';
-  elWrap.style.display  = parVisible ? '' : 'none';
-  survWrap.style.display = survVisible ? '' : 'none';
-  splitWrap.style.display = splitVisible ? 'flex' : 'none';
-
-  const names={par:'PAR MODE',surv:'SURVEILLANCE',split:'SPLIT VIEW'};
-  document.getElementById('modeTag').textContent = names[mode];
-  document.getElementById('sModeDisp').textContent = mode.toUpperCase();
-  document.getElementById('bMode').textContent = mode.toUpperCase();
-
-  setTimeout(resizeAll, 20);
+function genCode() {
+  let c;
+  do { c = String(Math.floor(1000 + Math.random() * 8999)); } while(usedCodes.has(c));
+  usedCodes.add(c);
+  return c;
 }
 
-// ═══════════════════════════════════════
-// AIRCRAFT FACTORY
-// ═══════════════════════════════════════
-function createPAR(id, rangeNM, azOff, elOff, squawk){
-  const gsAlt = rangeNM*Math.tan(GS_ANGLE*Math.PI/180)*6076;
-  const initAlt = gsAlt + elOff*rangeNM*6076*Math.PI/180;
+function makeTarget() {
+  const id = Date.now() + Math.random();
+  const code = genCode();
+  const cs = CALLSIGNS[Math.floor(Math.random() * CALLSIGNS.length)];
   return {
-    id, squawk: squawk||String(Math.floor(1000+Math.random()*6999)).padStart(4,'0'),
-    range:rangeNM, azDev:azOff, elDev:elOff,
-    altitude:Math.round(Math.max(200,initAlt)),
-    speed:Math.round((140+Math.floor(Math.random()*30))*(window.adminCfg?.speed_multiplier||1)),
-    heading:RWY_HDG, trail:[], selected:id===1, goAround:false, landed:false,
-  };
-}
-function createSurvExtra(d){
-  return {...d, trail:[], selected:false,
-    // give moving ones a heading
-    vx: d.speed>0 ? Math.sin(d.heading*Math.PI/180)*d.speed/3600 : 0,
-    vy: d.speed>0 ? -Math.cos(d.heading*Math.PI/180)*d.speed/3600 : 0,
+    id, code, callsign: cs,
+    range: MAX_RANGE - 1 + Math.random() * 3, // NM — far end
+    az: (Math.random() - 0.5) * 0.7,   // azimuth deviation (-1 to +1)
+    el: (Math.random() - 0.5) * 0.5,   // elevation deviation (-1 to +1)
+    speed: 0.12 + Math.random() * 0.06, // NM per tick
+    status: 'approach', // approach | landed | missed
+    age: 0,
   };
 }
 
-// ═══════════════════════════════════════
-// SCENARIO SELECT
-// ═══════════════════════════════════════
-function selectScenario(btn){
-  document.querySelectorAll('.scn-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  currentScenario=btn.dataset.id;
-  const scn=SCENARIOS[currentScenario];
-  document.getElementById('bScenario').textContent=scn.name;
-  resetSim();
+// ─────────────────────────────────────────
+//  CONTROLS
+// ─────────────────────────────────────────
+function startSystem() {
+  if (state !== 'standby') return;
+  state = 'active';
+  addLog('TLS PAR system ACTIVATED — Begin approach monitoring', 'ok');
+  addLog('BITE self-test PASSED — All subsystems nominal', 'ok');
+  updateSystemUI();
+  if (targets.length === 0) addTarget();
+  startSimLoop();
 }
 
-// ═══════════════════════════════════════
-// RESET
-// ═══════════════════════════════════════
-function resetSim(){
-  simState='STANDBY'; paused=false; goAroundTriggered=false;
-  score=0; deviationHistory=[]; totalTime=0; lastCalloutRange=999;
-  interrogCount=100000+Math.floor(Math.random()*5000);
-  calloutQueue=[]; if(calloutTimer){clearTimeout(calloutTimer);calloutTimer=null;}
-  document.getElementById('callout').classList.remove('show');
-
-  const scn=SCENARIOS[currentScenario];
-  const cfgCount = parseInt(window.adminCfg?.aircraft_count)||0;
-  const useMulti = cfgCount>1 || (cfgCount===0 && scn.multi);
-  aircraft=[];
-  aircraft.push(createPAR(1,INIT_RANGE, scn.initAz*(Math.random()<.5?1:-1), scn.initEl,'0764'));
-  if(useMulti){
-    aircraft.push(createPAR(2,INIT_RANGE+3, scn.initAz*-.5, scn.initEl*.7,'1342'));
-    aircraft.push(createPAR(3,INIT_RANGE+6, 0, .1,'2298'));
-  }
-  // Build surveillance track list: PAR aircraft + extra background
-  survTracks = [...aircraft.map(a=>({...a, bearing: getBearing(a), survRange: a.range})),
-                ...SURV_EXTRA.map(createSurvExtra)];
-
-  selectedSurvAC=null;
-  document.getElementById('survTooltip').style.display='none';
-  document.getElementById('stateTag').textContent='STANDBY';
-  document.getElementById('stateTag').style.borderColor='';
-  document.getElementById('alertTag').style.display='none';
-  document.getElementById('btnStart').disabled=false;
-  document.getElementById('btnGoAround').disabled=true;
-  document.getElementById('bPhase').textContent='STANDBY';
-  document.getElementById('sTrack').textContent='STANDBY';
-  document.getElementById('sScore').textContent='--';
-  document.getElementById('resultOverlay').style.display='none';
-  updateHUD();
+function addTarget() {
+  if (state !== 'active') { addLog('Activate system first', 'warn'); return; }
+  const t = makeTarget();
+  targets.push(t);
+  addLog(`NEW TRACK: ${t.code} (${t.callsign}) — ${t.range.toFixed(1)} NM on final`, 'info');
+  renderTargetList();
+  if (!selectedId) selectTarget(t.id);
 }
 
-// Convert PAR (range+azDev from runway centreline) to polar bearing for surv display
-function getBearing(ac){
-  // runway heading 310, aircraft azDev in degrees
-  return (RWY_HDG + 180 + ac.azDev*0.5) % 360;
+function triggerAlarm() {
+  state = 'alarm';
+  document.getElementById('p-bite').textContent = 'FAULT';
+  document.getElementById('p-bite').style.color = 'var(--red)';
+  document.getElementById('alarm-overlay').classList.add('show');
+  addLog('⚠ BITE ALARM — GTU Signal Processing fault detected', 'err');
+  addLog('ACTION: Notify ATC — Issue missed approach to all inbound', 'err');
+  updateSystemUI();
 }
 
-// ═══════════════════════════════════════
-// START / GO-AROUND
-// ═══════════════════════════════════════
-function startApproach(){
-  if(simState!=='STANDBY')return;
-  simState='ACTIVE';
-  document.getElementById('btnStart').disabled=true;
-  document.getElementById('btnGoAround').disabled=false;
-  document.getElementById('stateTag').textContent='ACTIVE';
-  document.getElementById('stateTag').style.borderColor='#00ff41';
-  document.getElementById('bPhase').textContent='FINAL APP';
-  document.getElementById('sTrack').textContent='TRACKING';
-  playTone(880,.08,.15);
-  queueCallout('RADAR CONTACT. RUNWAY 31 IN SIGHT. BEGIN APPROACH.');
-  startSession();
-}
-function initiateGoAround(){
-  if(simState!=='ACTIVE')return;
-  simState='GOAROUND'; goAroundTriggered=true;
-  aircraft[0].goAround=true;
-  document.getElementById('stateTag').textContent='GO-AROUND';
-  document.getElementById('stateTag').style.borderColor='#ff9900';
-  document.getElementById('alertTag').style.display='block';
-  document.getElementById('bPhase').textContent='GO-AROUND';
-  playTone(440,.3,.5,true);
-  queueCallout('GO-AROUND. CLIMB STRAIGHT AHEAD. MAINTAIN RUNWAY HEADING.');
-  setTimeout(()=>{ const s=calcScore(); showResult('GO-AROUND COMPLETE',s,'Procedure correctly executed.'); },6000);
+function suspendSystem() {
+  if (state !== 'active') return;
+  state = 'suspended';
+  addLog('TLS service SUSPENDED — Coordinator notified ATC', 'warn');
+  addLog('All TLS approach aircraft: execute missed approach', 'warn');
+  updateSystemUI();
 }
 
-// ═══════════════════════════════════════
-// PHYSICS UPDATE
-// ═══════════════════════════════════════
-const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
+function resetSystem() {
+  state = 'standby';
+  targets = [];
+  selectedId = null;
+  usedCodes.clear();
+  if (simInterval) clearInterval(simInterval);
+  document.getElementById('p-bite').textContent = 'OK';
+  document.getElementById('p-bite').style.color = 'var(--green)';
+  document.getElementById('alarm-overlay').classList.remove('show');
+  addLog('SYSTEM RESET — BITE check passed — Ready for service', 'ok');
+  updateSystemUI();
+  renderTargetList();
+  renderTrackInfo(null);
+  updateBottomBar(null);
+  updateGauges(null);
+}
 
-function update(dt){
-  if(simState!=='ACTIVE'&&simState!=='GOAROUND')return;
-  if(paused)return;
-  const scn=SCENARIOS[currentScenario];
-  totalTime+=dt; sweepAngle=(sweepAngle+360*dt*.5)%360;
-  interrogCount+=Math.floor(Math.random()*3+1);
-  const windAz=Math.sin((scn.windDir-RWY_HDG)*Math.PI/180)*scn.wind*.002;
-  const tAz=(Math.random()-.5)*scn.turb*.05, tEl=(Math.random()-.5)*scn.turb*.04;
+function selectTarget(id) {
+  selectedId = id;
+  renderTargetList();
+  const t = targets.find(x => x.id === id);
+  renderTrackInfo(t);
+}
 
-  // PAR aircraft
-  aircraft=aircraft.map(ac=>{
-    if(ac.landed)return ac;
-    const closure=ac.speed/3600*dt;
-    let range=ac.range-closure;
-    let azDev=ac.azDev+windAz*dt+tAz*dt;
-    let elDev=ac.elDev+tEl*dt;
-    if(ac.id===1&&simState==='ACTIVE'){azDev-=inputState.az*.3*dt; elDev+=inputState.el*.3*dt;}
-    if(ac.goAround){return{...ac,range,altitude:ac.altitude+800*dt,elDev:elDev+.5*dt,azDev,trail:[...ac.trail,{range:ac.range,azDev:ac.azDev,elDev:ac.elDev}].slice(-20)};}
-    const gsAlt=range*Math.tan(GS_ANGLE*Math.PI/180)*6076;
-    const altitude=Math.round(Math.max(0,gsAlt+(elDev*range*6076*Math.PI/180)));
-    const trail=[...ac.trail,{range:ac.range,azDev:ac.azDev,elDev:ac.elDev}].slice(-20);
-    if(ac.id===1){deviationHistory.push(Math.abs(azDev)+Math.abs(elDev));if(deviationHistory.length>200)deviationHistory.shift();}
-    updateCallouts({...ac,range,azDev,elDev,altitude});
-    if(ac.id===1&&Math.abs(azDev)>1.5)document.getElementById('alertTag').style.display='block';
-    else if(ac.id===1)document.getElementById('alertTag').style.display='none';
-    if(range<=TD_RANGE&&!ac.goAround&&!ac.landed){
-      const ac2={...ac,range,azDev,elDev,altitude,trail,landed:true};
-      if(ac.id===1){const s=calcScore();setTimeout(()=>{const v=s>=90?'PERFECT LANDING':s>=75?'GOOD APPROACH':s>=55?'ACCEPTABLE':'MISSED APPROACH';showResult(v,s,`Az dev: ${azDev.toFixed(2)}°  El dev: ${elDev.toFixed(2)}°`);},400);}
-      return ac2;
+// ─────────────────────────────────────────
+//  SIM LOOP
+// ─────────────────────────────────────────
+function startSimLoop() {
+  if (simInterval) clearInterval(simInterval);
+  simInterval = setInterval(simTick, 900);
+}
+
+function simTick() {
+  if (state !== 'active') return;
+
+  targets.forEach(t => {
+    if (t.status !== 'approach') return;
+
+    // Move closer
+    t.range = Math.max(0, t.range - t.speed);
+    t.age++;
+
+    // Gradually center azimuth & elevation (aircraft flying the beam)
+    const centerRate = t.range < 5 ? 0.985 : 0.992;
+    t.az = t.az * centerRate + (Math.random() - 0.5) * 0.018;
+    t.el = t.el * centerRate + (Math.random() - 0.5) * 0.012;
+
+    // Clamp
+    t.az = Math.max(-1, Math.min(1, t.az));
+    t.el = Math.max(-1, Math.min(1, t.el));
+
+    // Alarm if severely off course
+    if (Math.abs(t.az) > 0.85 || Math.abs(t.el) > 0.85) {
+      if (state === 'active') {
+        addLog(`⚠ DEVIATION ALERT: ${t.code} — ${Math.abs(t.az) > 0.85 ? 'LOC' : 'GP'} limit exceeded`, 'warn');
+      }
     }
-    return{...ac,range,azDev,elDev,altitude,trail};
+
+    // Range alerts
+    if (t.range <= 5 && t.age % 10 === 1) addLog(`${t.code} (${t.callsign}): ${t.range.toFixed(1)} NM — on final`, 'info');
+    if (t.range <= 1.5 && t.age % 5 === 1) addLog(`${t.code}: SHORT FINAL — ${t.range.toFixed(2)} NM`, 'warn');
+
+    // Touchdown
+    if (t.range <= APPROACH_END) {
+      t.status = 'landed';
+      usedCodes.delete(t.code);
+      addLog(`✓ ${t.code} (${t.callsign}): LANDED — Approach complete`, 'ok');
+      if (selectedId === t.id) {
+        setTimeout(() => { selectedId = null; renderTrackInfo(null); updateBottomBar(null); updateGauges(null); }, 2000);
+      }
+    }
   });
 
-  // Sync PAR aircraft to survTracks (first N entries)
-  aircraft.forEach((a,i)=>{survTracks[i]={...survTracks[i],...a,bearing:getBearing(a),survRange:a.range};});
+  // Clean up landed after a while
+  targets = targets.filter(t => t.status === 'approach' || (t.status === 'landed' && t.age < 999));
 
-  // Update extra surv tracks
-  for(let i=aircraft.length;i<survTracks.length;i++){
-    const t=survTracks[i];
-    if(t.speed>0){
-      const br=toRad(t.bearing-90);
-      const vel=t.speed/3600*dt*.25; // slow drift
-      const nx=Math.cos(br)*t.survRange+t.vx*dt;
-      const ny=Math.sin(br)*t.survRange+t.vy*dt;
-      survTracks[i]={...t,
-        survRange:Math.sqrt(nx*nx+ny*ny),
-        bearing:(toDeg(Math.atan2(ny,nx))+90+360)%360,
-        trail:[...(t.trail||[]),{range:t.survRange,bearing:t.bearing}].slice(-15),
-      };
-    }
+  renderTargetList();
+  const sel = targets.find(x => x.id === selectedId);
+  if (sel && sel.status === 'approach') {
+    renderTrackInfo(sel);
+    updateBottomBar(sel);
+    updateGauges(sel);
+  }
+  document.getElementById('p-tracks').textContent = targets.filter(t => t.status === 'approach').length;
+}
+
+// ─────────────────────────────────────────
+//  RENDER TARGET LIST
+// ─────────────────────────────────────────
+function renderTargetList() {
+  const el = document.getElementById('target-list');
+  const active = targets.filter(t => t.status === 'approach');
+  document.getElementById('target-count').textContent = active.length;
+  document.getElementById('p-tracks').textContent = active.length;
+
+  if (active.length === 0) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:10px 0">No active tracks</div>';
+    return;
   }
 
-  // auto go-around scenario
-  if(currentScenario==='goaround'&&!goAroundTriggered&&aircraft[0]&&aircraft[0].range<=4)initiateGoAround();
-  updateHUD();
+  el.innerHTML = active.map(t => `
+    <div class="target-item ${selectedId === t.id ? 'selected' : ''}" onclick="selectTarget(${t.id})">
+      <div class="t-code">${t.code}</div>
+      <div class="t-cs">${t.callsign}</div>
+      <div class="t-range">${t.range.toFixed(1)} NM →</div>
+    </div>
+  `).join('');
 }
 
-// ═══════════════════════════════════════
-// CALLOUTS
-// ═══════════════════════════════════════
-function updateCallouts(ac){
-  if(ac.id!==1)return;
-  const r=ac.range;
-  if(lastCalloutRange>10&&r<=10){queueCallout('10 MILES. COURSE AND GLIDEPATH GOOD.');lastCalloutRange=10;}
-  else if(lastCalloutRange>7&&r<=7){queueCallout('7 MILES. SLIGHTLY RIGHT OF COURSE.');lastCalloutRange=7;}
-  else if(lastCalloutRange>5&&r<=5){queueCallout('5 MILES. ON GLIDEPATH.');lastCalloutRange=5;}
-  else if(lastCalloutRange>3&&r<=3){queueCallout('3 MILES. CHECK GEAR DOWN AND LOCKED.');lastCalloutRange=3;}
-  else if(lastCalloutRange>2&&r<=2){queueCallout('2 MILES. SLIGHTLY ABOVE GLIDEPATH.');lastCalloutRange=2;}
-  else if(lastCalloutRange>1&&r<=1){queueCallout('1 MILE. ON COURSE. OVER THRESHOLD.');lastCalloutRange=1;}
-}
-const calloutEl=document.getElementById('callout');
-function queueCallout(txt){calloutQueue.push(txt);if(!calloutTimer)showNext();}
-function showNext(){
-  if(!calloutQueue.length){calloutTimer=null;return;}
-  calloutEl.textContent='▶ '+calloutQueue.shift();
-  calloutEl.classList.add('show'); playBeep();
-  calloutTimer=setTimeout(()=>{calloutEl.classList.remove('show');calloutTimer=setTimeout(showNext,350);},2800);
-}
-
-// ═══════════════════════════════════════
-// SCORE / RESULT
-// ═══════════════════════════════════════
-function calcScore(){
-  if(!deviationHistory.length)return 80;
-  return Math.round(Math.max(0,100-deviationHistory.reduce((a,b)=>a+b,0)/deviationHistory.length*38));
-}
-function showResult(title,s,details){
-  simState='COMPLETE';
-  document.getElementById('resultTitle').textContent=title;
-  document.getElementById('resultScore').textContent=s+'%';
-  document.getElementById('resultScore').style.color=s>=90?'#00ff41':s>=70?'#ffff00':'#ff3333';
-  document.getElementById('resultDetails').innerHTML=details.replace(/\n/g,'<br>');
-  document.getElementById('resultOverlay').style.display='flex';
-  document.getElementById('sScore').textContent=s+'%';
-  playTone(s>=75?660:220,.4,1.0);
-  endSession(s);
-}
-function closeResult(){document.getElementById('resultOverlay').style.display='none';}
-
-// ═══════════════════════════════════════
-// HUD
-// ═══════════════════════════════════════
-function updateHUD(){
-  const ac=aircraft[0]; if(!ac)return;
-  const azErr=ac.azDev.toFixed(2), elErr=ac.elDev.toFixed(2);
-  document.getElementById('dSquawk').textContent=ac.squawk;
-  document.getElementById('dRange').textContent=ac.range.toFixed(1)+' NM';
-  document.getElementById('dHdg').textContent=ac.heading+'°';
-  document.getElementById('dAlt').textContent=ac.altitude+' ft';
-  document.getElementById('dSpd').textContent=ac.speed+' kts';
-  document.getElementById('dAzDev').textContent=(ac.azDev>=0?'+':'')+azErr+'° '+(ac.azDev>.05?'R':ac.azDev<-.05?'L':'-');
-  document.getElementById('dElDev').textContent=(ac.elDev>=0?'+':'')+elErr+'° '+(ac.elDev>.05?'HI':ac.elDev<-.05?'LO':'-');
-  document.getElementById('dAzDev').className='cv '+(Math.abs(ac.azDev)>LOC_HB?'crit':'ok');
-  document.getElementById('dElDev').className='cv '+(Math.abs(ac.elDev)>GS_HB?'crit':'ok');
-  const phase=ac.landed?'LANDED':ac.goAround?'GO-AROUND':simState==='STANDBY'?'STANDBY':'FINAL APP';
-  document.getElementById('dStatus').textContent=phase;
-  document.getElementById('bRange').textContent=ac.range.toFixed(1)+' NM';
-  document.getElementById('bAlt').textContent=ac.altitude+' ft';
-  document.getElementById('bAzErr').textContent=(ac.azDev>=0?'+':'')+azErr+'°';
-  document.getElementById('bElErr').textContent=(ac.elDev>=0?'+':'')+elErr+'°';
-  document.getElementById('bAzErr').className='vl '+(Math.abs(ac.azDev)>LOC_HB?'alert':'');
-  document.getElementById('bElErr').className='vl '+(Math.abs(ac.elDev)>GS_HB?'alert':'');
-  document.getElementById('bInterrog').textContent=interrogCount.toLocaleString();
-  document.getElementById('bPhase').textContent=phase;
-  document.getElementById('bTracks').textContent=survTracks.length;
-}
-
-// ═══════════════════════════════════════
-// ─── DRAW HELPERS ───────────────────────
-// ═══════════════════════════════════════
-function drawBg(ctx,W,H,col){
-  ctx.fillStyle=col||'#020902'; ctx.fillRect(0,0,W,H);
-  const v=ctx.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,H*.9);
-  v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,0.55)');
-  ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
-}
-
-// ═══════════════════════════════════════
-// ─── DRAW PAR AZ ────────────────────────
-// ═══════════════════════════════════════
-function drawAZ(ctx, W, H, acs, sweep){
-  drawBg(ctx,W,H,'#020902');
-  const CX=W/2, scX=W/(LOC_HB*2*4), scY=H/(INIT_RANGE+2);
-  // Range lines
-  ctx.strokeStyle='rgba(0,255,65,.07)'; ctx.lineWidth=.5;
-  for(let r=0;r<=INIT_RANGE+1;r+=2){
-    const y=H-r*scY; ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
-    ctx.fillStyle='rgba(0,255,65,.25)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='left';
-    ctx.fillText(r+' NM',3,y-2);
+// ─────────────────────────────────────────
+//  RENDER TRACK INFO (right panel)
+// ─────────────────────────────────────────
+function renderTrackInfo(t) {
+  const el = document.getElementById('ti-content');
+  if (!t) {
+    el.innerHTML = '<div class="no-target">Select a target<br>from the list<br>to track</div>';
+    return;
   }
-  // Vertical grid
-  ctx.strokeStyle='rgba(0,255,65,.05)'; ctx.lineWidth=.5;
-  for(let d=-6;d<=6;d++){const x=CX+d*scX;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  // Centreline
-  ctx.strokeStyle='rgba(0,255,65,.22)'; ctx.lineWidth=1; ctx.setLineDash([5,4]);
-  ctx.beginPath();ctx.moveTo(CX,0);ctx.lineTo(CX,H);ctx.stroke(); ctx.setLineDash([]);
-  // LOC zone
-  const lL=CX-LOC_HB*scX, lR=CX+LOC_HB*scX;
-  ctx.fillStyle='rgba(0,255,255,.025)'; ctx.fillRect(lL,0,lR-lL,H);
-  ctx.strokeStyle='rgba(0,255,255,.18)'; ctx.lineWidth=.8; ctx.setLineDash([3,4]);
-  ctx.beginPath();ctx.moveTo(lL,0);ctx.lineTo(lL,H);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(lR,0);ctx.lineTo(lR,H);ctx.stroke(); ctx.setLineDash([]);
-  // Sweep
-  if(sweep!==null){
-    const sy=H-((sweep%180)/180)*H;
-    const sg=ctx.createLinearGradient(0,sy-18,0,sy+4);
-    sg.addColorStop(0,'rgba(0,255,65,0)'); sg.addColorStop(1,'rgba(0,255,65,.13)');
-    ctx.fillStyle=sg; ctx.fillRect(0,sy-18,W,22);
-    ctx.strokeStyle='rgba(0,255,65,.35)'; ctx.lineWidth=.7;
-    ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(W,sy);ctx.stroke();
-  }
-  // Aircraft
-  acs.forEach(ac=>{
-    if(ac.range<0||ac.landed)return;
-    const ax=CX+ac.azDev*scX, ay=H-ac.range*scY;
-    if(ac.trail.length>1){
-      ctx.strokeStyle='rgba(0,255,65,.14)'; ctx.lineWidth=1; ctx.beginPath();
-      ac.trail.forEach((t,i)=>{const tx=CX+t.azDev*scX,ty=H-t.range*scY;i===0?ctx.moveTo(tx,ty):ctx.lineTo(tx,ty);}); ctx.stroke();
-    }
-    const p=ac.id===1, inB=Math.abs(ac.azDev)<=LOC_HB;
-    ctx.fillStyle=p?(inB?'#00ff41':'#ffff00'):'rgba(0,200,200,.8)';
-    ctx.beginPath();ctx.arc(ax,ay,p?4:3,0,Math.PI*2);ctx.fill();
-    const g=ctx.createRadialGradient(ax,ay,0,ax,ay,p?11:7);
-    g.addColorStop(0,p?'rgba(0,255,65,.28)':'rgba(0,200,200,.18)');g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ax,ay,p?11:7,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=p?'#aaffaa':'rgba(0,200,200,.8)'; ctx.font=(p?9:8)+'px Share Tech Mono'; ctx.textAlign='left';
-    ctx.fillText(ac.squawk,ax+5,ay-3); ctx.fillText(ac.altitude+'ft',ax+5,ay+6);
-  });
-  // THR
-  ctx.fillStyle='rgba(0,255,65,.5)'; ctx.fillRect(CX-10,H-TD_RANGE*scY-2,20,2);
-  ctx.fillStyle='rgba(0,255,65,.35)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
-  ctx.fillText('THR 31',CX,H-TD_RANGE*scY-4);
-  // Degree axis
-  for(let d=-3;d<=3;d++){
-    ctx.fillStyle='rgba(0,255,65,.28)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
-    ctx.fillText((d>=0?'+':'')+d+'°',CX+d*scX,11);
-  }
+
+  const latDDM = (t.az * DDM_LIMIT).toFixed(3);
+  const gpDDM  = (t.el * DDM_GP_LIMIT).toFixed(3);
+  const azDeg  = (t.az * 3.5).toFixed(2);
+  const elDeg  = (t.el * 0.7).toFixed(2);
+  const locOk  = Math.abs(t.az) < 0.7;
+  const gpOk   = Math.abs(t.el) < 0.7;
+  const rangeClass = t.range < 2 ? 'warn' : '';
+  const azClass = locOk ? '' : 'danger';
+  const elClass = gpOk ? '' : 'danger';
+
+  el.innerHTML = `
+    <div class="ti-code">${t.code}</div>
+    <div class="ti-callsign">${t.callsign}</div>
+    <div class="ti-grid">
+      <div class="ti-cell">
+        <div class="ti-lbl">RANGE</div>
+        <div class="ti-v ${rangeClass}">${t.range.toFixed(2)} NM</div>
+      </div>
+      <div class="ti-cell">
+        <div class="ti-lbl">STATUS</div>
+        <div class="ti-v">${t.status.toUpperCase()}</div>
+      </div>
+      <div class="ti-cell">
+        <div class="ti-lbl">AZ ERROR</div>
+        <div class="ti-v ${azClass}">${azDeg}°</div>
+      </div>
+      <div class="ti-cell">
+        <div class="ti-lbl">EL ERROR</div>
+        <div class="ti-v ${elClass}">${elDeg}°</div>
+      </div>
+      <div class="ti-cell">
+        <div class="ti-lbl">DDM LOC</div>
+        <div class="ti-v ${azClass}">${latDDM}</div>
+      </div>
+      <div class="ti-cell">
+        <div class="ti-lbl">DDM GP</div>
+        <div class="ti-v ${elClass}">${gpDDM}</div>
+      </div>
+      <div class="ti-cell" style="grid-column:span 2">
+        <div class="ti-lbl">LOC STATUS</div>
+        <div class="ti-v" style="color:${locOk ? 'var(--green)' : 'var(--red)'}">${locOk ? '✓ WITHIN LIMITS' : '✗ DEVIATION'}</div>
+      </div>
+      <div class="ti-cell" style="grid-column:span 2">
+        <div class="ti-lbl">GP STATUS</div>
+        <div class="ti-v" style="color:${gpOk ? 'var(--green)' : 'var(--red)'}">${gpOk ? '✓ ON GLIDEPATH' : '✗ OFF GLIDEPATH'}</div>
+      </div>
+    </div>
+  `;
 }
 
-// ═══════════════════════════════════════
-// ─── DRAW PAR EL ────────────────────────
-// ═══════════════════════════════════════
-function drawEL(ctx, W, H, acs, sweep){
-  drawBg(ctx,W,H,'#020508');
-  const scX=W/(INIT_RANGE+2), ELR=5, scY=H/(ELR*2), CY=H/2;
-  ctx.strokeStyle='rgba(0,200,255,.06)'; ctx.lineWidth=.5;
-  for(let r=0;r<=INIT_RANGE+1;r+=2){
-    const x=r*scX; ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
-    ctx.fillStyle='rgba(0,200,255,.25)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
-    ctx.fillText(r+' NM',x,H-2);
-  }
-  for(let e=-ELR;e<=ELR;e++){
-    const y=CY-e*scY; ctx.strokeStyle='rgba(0,200,255,.05)'; ctx.lineWidth=.5;
-    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
-    ctx.fillStyle='rgba(0,200,255,.28)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='right';
-    ctx.fillText((e>=0?'+':'')+e+'°',W-3,y+3);
-  }
-  // GS line
-  ctx.strokeStyle='rgba(0,255,255,.32)'; ctx.lineWidth=1.4;
-  ctx.beginPath();ctx.moveTo(0,CY-GS_ANGLE*scY);ctx.lineTo(W,CY-GS_ANGLE*scY);ctx.stroke();
-  // GS zone
-  ctx.fillStyle='rgba(0,255,255,.035)';
-  ctx.fillRect(0,CY-(GS_ANGLE+GS_HB)*scY,W,GS_HB*2*scY);
-  ctx.strokeStyle='rgba(0,255,255,.18)'; ctx.lineWidth=.7; ctx.setLineDash([3,4]);
-  ctx.beginPath();ctx.moveTo(0,CY-(GS_ANGLE+GS_HB)*scY);ctx.lineTo(W,CY-(GS_ANGLE+GS_HB)*scY);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(0,CY-(GS_ANGLE-GS_HB)*scY);ctx.lineTo(W,CY-(GS_ANGLE-GS_HB)*scY);ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle='rgba(0,255,255,.45)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='left';
-  ctx.fillText('GS '+GS_ANGLE+'°',3,CY-GS_ANGLE*scY-3);
-  // Sweep
-  if(sweep!==null){
-    const sx=((sweep%180)/180)*W;
-    const sg=ctx.createLinearGradient(sx-18,0,sx+4,0);
-    sg.addColorStop(0,'rgba(0,200,255,0)');sg.addColorStop(1,'rgba(0,200,255,.1)');
-    ctx.fillStyle=sg;ctx.fillRect(sx-18,0,22,H);
-    ctx.strokeStyle='rgba(0,200,255,.3)';ctx.lineWidth=.7;
-    ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,H);ctx.stroke();
-  }
-  // Aircraft
-  acs.forEach(ac=>{
-    if(ac.range<0||ac.landed)return;
-    const ax=(INIT_RANGE-ac.range)*scX+scX;
-    const ay=CY-(GS_ANGLE+ac.elDev)*scY;
-    if(ac.trail.length>1){
-      ctx.strokeStyle='rgba(0,200,255,.14)'; ctx.lineWidth=1; ctx.beginPath();
-      ac.trail.forEach((t,i)=>{const tx=(INIT_RANGE-t.range)*scX+scX,ty=CY-(GS_ANGLE+t.elDev)*scY;i===0?ctx.moveTo(tx,ty):ctx.lineTo(tx,ty);}); ctx.stroke();
-    }
-    const p=ac.id===1, onGs=Math.abs(ac.elDev)<=GS_HB;
-    ctx.fillStyle=p?(onGs?'#00eeff':'#ff9900'):'rgba(100,200,255,.7)';
-    ctx.beginPath();ctx.arc(ax,ay,p?4:3,0,Math.PI*2);ctx.fill();
-    const g=ctx.createRadialGradient(ax,ay,0,ax,ay,p?11:7);
-    g.addColorStop(0,p?'rgba(0,220,255,.28)':'rgba(0,150,200,.18)');g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ax,ay,p?11:7,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=p?'#aaddff':'rgba(0,200,255,.7)'; ctx.font=(p?9:8)+'px Share Tech Mono'; ctx.textAlign='left';
-    ctx.fillText(ac.squawk,ax+5,ay-3); ctx.fillText((GS_ANGLE+ac.elDev).toFixed(1)+'°',ax+5,ay+6);
-  });
-  ctx.fillStyle='rgba(0,200,255,.4)'; ctx.fillRect(W-3,0,3,H);
-  ctx.fillStyle='rgba(0,200,255,.55)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='right';
-  ctx.fillText('THR',W-5,11);
-}
-
-// ═══════════════════════════════════════
-// ─── DRAW SURVEILLANCE (PPI) ─────────────
-// ═══════════════════════════════════════
-function getACSurvStatus(survRange, bearing){
-  let diff=((bearing-((RWY_HDG+180)%360))+360)%360;
-  if(diff>180)diff=360-diff;
-  if(diff<=8&&survRange<=GS_RANGE_SURV)return'GS';
-  if(diff<=LOC_ANGLE&&survRange<=LOC_RANGE)return'LOC';
-  return'SURV';
-}
-
-function drawSURV(ctx, W, H, tracks, sweep, small){
-  drawBg(ctx,W,H,'#020802');
-  const CX=W/2, CY=H/2, maxR=small?35:55, sc=(Math.min(W,H)/2)/maxR;
-  const S=Math.min(W,H);
-  const fs=small?7:Math.max(8,S*.014);
-
-  // Grid lines
-  ctx.strokeStyle='rgba(0,255,65,.06)'; ctx.lineWidth=.4;
-  const gs=-Math.ceil(maxR/10)*10;
-  for(let v=gs;v<=-gs;v+=10){
-    ctx.beginPath();ctx.moveTo(CX+v*sc,0);ctx.lineTo(CX+v*sc,H);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(0,CY+v*sc);ctx.lineTo(W,CY+v*sc);ctx.stroke();
-  }
-  // Range rings
-  [5,10,20,30,40,50].forEach(r=>{
-    if(r>maxR)return;
-    ctx.beginPath();ctx.arc(CX,CY,r*sc,0,Math.PI*2);
-    ctx.strokeStyle='rgba(0,255,65,.13)';ctx.lineWidth=.7;ctx.stroke();
-    if(!small){ctx.fillStyle='rgba(0,255,65,.35)';ctx.font=fs+'px Share Tech Mono';ctx.textAlign='right';ctx.fillText(r,CX-r*sc-3,CY+3);}
-  });
-  // Outer ring
-  ctx.beginPath();ctx.arc(CX,CY,maxR*sc,0,Math.PI*2);
-  ctx.strokeStyle='rgba(0,255,65,.18)';ctx.lineWidth=1;ctx.stroke();
-
-  // Bearing labels
-  if(!small){
-    ctx.fillStyle='rgba(0,255,65,.45)'; ctx.font=Math.max(8,S*.014)+'px Share Tech Mono'; ctx.textAlign='center';
-    [0,30,60,90,120,150,180,210,240,270,300,330].forEach(deg=>{
-      const r2=toRad(deg-90),lr=maxR*sc+14;
-      ctx.fillText(String(deg).padStart(3,'0'),CX+Math.cos(r2)*lr,CY+Math.sin(r2)*lr+3);
+// ─────────────────────────────────────────
+//  BOTTOM BAR
+// ─────────────────────────────────────────
+function updateBottomBar(t) {
+  if (!t) {
+    ['bb-code','bb-cs','bb-range','bb-az','bb-el','bb-ddm-loc','bb-ddm-gp'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+      document.getElementById(id).className = 'bb-val';
     });
-    for(let deg=0;deg<360;deg+=5){
-      const tr=toRad(deg-90),r1=maxR*sc,r2=r1+(deg%30===0?7:deg%10===0?4:2);
-      ctx.beginPath();ctx.moveTo(CX+Math.cos(tr)*r1,CY+Math.sin(tr)*r1);
-      ctx.lineTo(CX+Math.cos(tr)*r2,CY+Math.sin(tr)*r2);
-      ctx.strokeStyle=deg%30===0?'rgba(0,255,65,.35)':'rgba(0,255,65,.15)';
-      ctx.lineWidth=deg%30===0?1:.4; ctx.stroke();
-    }
+    document.getElementById('bb-status').textContent = state.toUpperCase();
+    return;
+  }
+  const latDDM = (t.az * DDM_LIMIT).toFixed(3);
+  const gpDDM  = (t.el * DDM_GP_LIMIT).toFixed(3);
+  document.getElementById('bb-code').textContent = t.code;
+  document.getElementById('bb-cs').textContent = t.callsign;
+  document.getElementById('bb-range').textContent = t.range.toFixed(2);
+  document.getElementById('bb-az').textContent = (t.az * 3.5).toFixed(2) + '°';
+  document.getElementById('bb-el').textContent = (t.el * 0.7).toFixed(2) + '°';
+  document.getElementById('bb-ddm-loc').textContent = latDDM;
+  document.getElementById('bb-ddm-gp').textContent = gpDDM;
+  document.getElementById('bb-status').textContent = state.toUpperCase();
+
+  const setWarn = (id, bad) => {
+    document.getElementById(id).className = 'bb-val' + (bad ? ' warn' : '');
+  };
+  setWarn('bb-az', Math.abs(t.az) > 0.7);
+  setWarn('bb-el', Math.abs(t.el) > 0.7);
+  setWarn('bb-ddm-loc', Math.abs(t.az) > 0.7);
+  setWarn('bb-ddm-gp', Math.abs(t.el) > 0.7);
+  document.getElementById('bb-status').className = 'bb-val' + (state === 'alarm' ? ' alarm' : state === 'suspended' ? ' warn' : '');
+}
+
+// ─────────────────────────────────────────
+//  GAUGES (azimuth + elevation)
+// ─────────────────────────────────────────
+function updateGauges(t) {
+  const azNeedle = document.getElementById('az-needle');
+  const elNeedle = document.getElementById('el-needle');
+  const azDdm = document.getElementById('az-ddm');
+  const elDdm = document.getElementById('el-ddm');
+
+  if (!t) {
+    azNeedle.style.left = '50%';
+    elNeedle.style.left = '50%';
+    azDdm.textContent = 'DDM: 0.000';
+    elDdm.textContent = 'DDM: 0.000';
+    azNeedle.className = 'gauge-needle';
+    elNeedle.className = 'gauge-needle';
+    azDdm.className = 'gauge-ddm';
+    elDdm.className = 'gauge-ddm';
+    return;
   }
 
-  // LOC zone
-  const appDir=(RWY_HDG+180)%360;
-  const locA1=toRad(appDir-LOC_ANGLE-90), locA2=toRad(appDir+LOC_ANGLE-90);
-  const gsA1=toRad(appDir-8-90), gsA2=toRad(appDir+8-90);
-  ctx.beginPath(); ctx.moveTo(CX,CY);
-  ctx.arc(CX,CY,LOC_RANGE*sc,locA1,locA2); ctx.closePath();
-  ctx.fillStyle='rgba(0,255,255,.04)'; ctx.fill();
-  ctx.strokeStyle='rgba(0,255,255,.2)'; ctx.lineWidth=.8; ctx.stroke();
-  // GS zone
-  ctx.beginPath(); ctx.moveTo(CX,CY);
-  ctx.arc(CX,CY,GS_RANGE_SURV*sc,gsA1,gsA2); ctx.closePath();
-  ctx.fillStyle='rgba(255,105,255,.06)'; ctx.fill();
-  ctx.strokeStyle='rgba(255,105,255,.25)'; ctx.lineWidth=.8; ctx.stroke();
-  // Zone labels
-  if(!small){
-    ctx.fillStyle='rgba(0,255,255,.45)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
-    const la=toRad(appDir-90); ctx.fillText('LOC',CX+Math.cos(la)*LOC_RANGE*sc*.6,CY+Math.sin(la)*LOC_RANGE*sc*.6);
-    ctx.fillStyle='rgba(255,105,255,.45)'; ctx.fillText('GS',CX+Math.cos(la)*GS_RANGE_SURV*sc*.5,CY+Math.sin(la)*GS_RANGE_SURV*sc*.5);
+  // az: -1 to +1 maps to 10% to 90%
+  const azPct = 50 + t.az * 40;
+  const elPct = 50 + t.el * 40;
+  azNeedle.style.left = `${azPct}%`;
+  elNeedle.style.left = `${elPct}%`;
+
+  const azDanger = Math.abs(t.az) > 0.7;
+  const elDanger = Math.abs(t.el) > 0.7;
+  azNeedle.className = 'gauge-needle' + (azDanger ? ' danger' : '');
+  elNeedle.className = 'gauge-needle' + (elDanger ? ' danger' : '');
+
+  const latDDM = (t.az * DDM_LIMIT).toFixed(3);
+  const gpDDM  = (t.el * DDM_GP_LIMIT).toFixed(3);
+  azDdm.textContent = `DDM: ${latDDM}`;
+  elDdm.textContent = `DDM: ${gpDDM}`;
+  azDdm.className = 'gauge-ddm' + (azDanger ? ' danger' : '');
+  elDdm.className = 'gauge-ddm' + (elDanger ? ' danger' : '');
+}
+
+// ─────────────────────────────────────────
+//  SYSTEM UI
+// ─────────────────────────────────────────
+function updateSystemUI() {
+  const dot = document.getElementById('sys-dot');
+  const lbl = document.getElementById('sys-state-label');
+  const bbStatus = document.getElementById('bb-status');
+
+  const startBtn   = document.getElementById('btn-start');
+  const alarmBtn   = document.getElementById('btn-alarm');
+  const suspendBtn = document.getElementById('btn-suspend');
+
+  dot.className = 'status-dot ' + (state === 'active' ? 'on' : state === 'alarm' ? 'alarm' : 'off');
+  lbl.textContent = state.toUpperCase();
+  lbl.style.color = state === 'active' ? 'var(--green)' : state === 'alarm' ? 'var(--red)' : state === 'suspended' ? 'var(--amber)' : 'var(--muted)';
+
+  startBtn.disabled   = state !== 'standby';
+  alarmBtn.disabled   = state !== 'active';
+  suspendBtn.disabled = state !== 'active';
+
+  bbStatus.textContent = state.toUpperCase();
+}
+
+// ─────────────────────────────────────────
+//  EVENT LOG
+// ─────────────────────────────────────────
+function addLog(msg, type = 'info') {
+  const el = document.getElementById('event-log');
+  const now = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-ts">${now}</span><span class="log-msg ${type}">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  // Keep max 80 entries
+  while (el.children.length > 80) el.removeChild(el.firstChild);
+}
+
+// ─────────────────────────────────────────
+//  CLOCK
+// ─────────────────────────────────────────
+function startClock() {
+  clockInterval = setInterval(() => {
+    document.getElementById('tb-time').textContent = new Date().toTimeString().slice(0,8);
+  }, 1000);
+}
+
+// ─────────────────────────────────────────
+//  RADAR CANVAS
+// ─────────────────────────────────────────
+const canvas = document.getElementById('radar-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeRadar() {
+  const wrap = document.getElementById('radar-wrap');
+  const size = Math.min(wrap.clientWidth, wrap.clientHeight) - 20;
+  canvas.width = size;
+  canvas.height = size;
+}
+
+function drawRadar() {
+  const W = canvas.width;
+  const H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(cx, cy) - 6;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = '#010a01';
+  ctx.fill();
+
+  // Phosphor vignette (green center glow)
+  const radGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  radGrad.addColorStop(0,   'rgba(0,255,100,0.04)');
+  radGrad.addColorStop(0.6, 'rgba(0,255,100,0.01)');
+  radGrad.addColorStop(1,   'rgba(0,0,0,0.4)');
+  ctx.fillStyle = radGrad;
+  ctx.fill();
+  ctx.restore();
+
+  // Clip to circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Range rings
+  const rings = 4;
+  for (let i = 1; i <= rings; i++) {
+    const r = (R / rings) * i;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,255,100,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Range label
+    const nm = ((MAX_RANGE / rings) * i).toFixed(0);
+    ctx.fillStyle = 'rgba(0,255,100,0.3)';
+    ctx.font = '9px Courier New';
+    ctx.fillText(`${nm}NM`, cx + r + 3, cy - 3);
   }
 
-  // Sweep
-  const swR=toRad(sweep-90);
-  const swGrad=ctx.createConicalGradient ? null : null; // fallback: line sweep
-  // Draw sweep as sector
-  ctx.beginPath(); ctx.moveTo(CX,CY);
-  ctx.arc(CX,CY,maxR*sc,swR-0.25,swR,false);
+  // Azimuth lines (every 30°)
+  for (let a = 0; a < 360; a += 30) {
+    const rad = (a - 90) * Math.PI / 180;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(rad) * R, cy + Math.sin(rad) * R);
+    ctx.strokeStyle = 'rgba(0,255,100,0.07)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Approach corridor: runway heading ≈ 180° from top = straight down
+  // Show as a narrow corridor
+  const corridorHalfWidth = 0.06; // radians ≈ ±3.4°
+  const rwRad = (180 - 90) * Math.PI / 180; // pointing down
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(rwRad - corridorHalfWidth) * R, cy + Math.sin(rwRad - corridorHalfWidth) * R);
+  ctx.lineTo(cx + Math.cos(rwRad + corridorHalfWidth) * R, cy + Math.sin(rwRad + corridorHalfWidth) * R);
   ctx.closePath();
-  const sweepFill=ctx.createLinearGradient(CX,CY,CX+Math.cos(swR)*maxR*sc,CY+Math.sin(swR)*maxR*sc);
-  sweepFill.addColorStop(0,'rgba(0,255,65,0)');
-  sweepFill.addColorStop(1,'rgba(0,255,65,0.07)');
-  ctx.fillStyle=sweepFill; ctx.fill();
-  ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(CX+Math.cos(swR)*maxR*sc,CY+Math.sin(swR)*maxR*sc);
-  ctx.strokeStyle='rgba(0,255,65,.45)';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle = 'rgba(0,255,100,0.04)';
+  ctx.fill();
+  ctx.restore();
 
-  // Aircraft tracks
-  tracks.forEach(ac=>{
-    const r=ac.survRange||ac.range; if(!r||r>maxR+5)return;
-    const br=toRad((ac.bearing||getBearing(ac))-90);
-    const ax=CX+Math.cos(br)*r*sc, ay=CY+Math.sin(br)*r*sc;
-    const st=getACSurvStatus(r,ac.bearing||getBearing(ac));
-    const col=st==='GS'?'#ff69ff':st==='LOC'?'#00ffff':'#00ff41';
-    // Trail
-    if(ac.trail&&ac.trail.length>1){
-      ctx.strokeStyle='rgba(0,255,65,.12)'; ctx.lineWidth=1; ctx.beginPath();
-      ac.trail.forEach((t,i)=>{
-        const tr2=toRad(((t.bearing||getBearing(ac))-90));
-        const rr=t.survRange||t.range||r;
-        const tx=CX+Math.cos(tr2)*rr*sc, ty=CY+Math.sin(tr2)*rr*sc;
-        i===0?ctx.moveTo(tx,ty):ctx.lineTo(tx,ty);
-      }); ctx.stroke();
+  // Centerline (runway extended)
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(rwRad) * R, cy + Math.sin(rwRad) * R);
+  ctx.strokeStyle = 'rgba(0,255,100,0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Runway threshold marker at center
+  ctx.fillStyle = 'rgba(0,255,100,0.5)';
+  ctx.fillRect(cx - 10, cy - 3, 20, 6);
+  ctx.fillStyle = 'rgba(0,255,100,0.8)';
+  ctx.font = 'bold 8px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('THR 18L', cx, cy + 16);
+  ctx.textAlign = 'left';
+
+  // ─ SWEEP ─
+  sweepAngle = (sweepAngle + 2.5) % 360;
+  if (state === 'active') {
+    const sweepRad = (sweepAngle - 90) * Math.PI / 180;
+    const sweepLen = 240; // degrees of trail
+    const sweepGrad = ctx.createConicalGradient
+      ? null // not standard
+      : null;
+
+    // Draw sweep arc (trail)
+    for (let i = 0; i < sweepLen; i += 2) {
+      const alpha = (sweepLen - i) / sweepLen * 0.35;
+      const aRad = (sweepAngle - i - 90) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, aRad, aRad + 0.035);
+      ctx.lineTo(cx, cy);
+      ctx.fillStyle = `rgba(0,255,80,${alpha})`;
+      ctx.fill();
     }
-    // Blip
-    const isPAR=ac.id<=3&&aircraft.some(a=>a.id===ac.id);
-    ctx.fillStyle=col; ctx.beginPath();ctx.arc(ax,ay,isPAR?4:3,0,Math.PI*2);ctx.fill();
-    const g=ctx.createRadialGradient(ax,ay,0,ax,ay,isPAR?12:8);
-    g.addColorStop(0,st==='GS'?'rgba(255,105,255,.25)':st==='LOC'?'rgba(0,255,255,.22)':'rgba(0,255,65,.22)');
-    g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g; ctx.beginPath();ctx.arc(ax,ay,isPAR?12:8,0,Math.PI*2);ctx.fill();
-    if(!small){
-      ctx.fillStyle=col; ctx.font='8px Share Tech Mono'; ctx.textAlign='left';
-      ctx.fillText(ac.squawk,ax+6,ay-2);
-      if(isPAR) ctx.fillText(ac.altitude+'ft',ax+6,ay+7);
+
+    // Sweep leading edge
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(sweepRad) * R, cy + Math.sin(sweepRad) * R);
+    ctx.strokeStyle = 'rgba(0,255,100,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // ─ TARGETS (blips) ─
+  targets.forEach(t => {
+    if (t.status !== 'approach') return;
+
+    // Map range + azimuth to radar XY
+    // Runway heading is "down" (rwRad). az = lateral deviation from centerline
+    const rNorm = t.range / MAX_RANGE; // 0=center 1=edge
+    const azRad = rwRad + t.az * 0.08; // slight lateral offset
+    const bx = cx + Math.cos(azRad) * rNorm * R;
+    const by = cy + Math.sin(azRad) * rNorm * R;
+
+    const isSelected = t.id === selectedId;
+    const isDanger = Math.abs(t.az) > 0.7 || Math.abs(t.el) > 0.7;
+    const color = isDanger ? '#ff4444' : isSelected ? '#00ffee' : '#00ff88';
+
+    // Blip glow
+    ctx.save();
+    const blipGrad = ctx.createRadialGradient(bx, by, 0, bx, by, isSelected ? 16 : 10);
+    blipGrad.addColorStop(0, color.replace(')', ',0.4)').replace('rgb', 'rgba'));
+    blipGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = blipGrad;
+    ctx.beginPath();
+    ctx.arc(bx, by, isSelected ? 16 : 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Blip core
+    ctx.beginPath();
+    ctx.arc(bx, by, isSelected ? 5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Selection ring
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(bx, by, 10, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
-    // Selected highlight
-    if(ac===selectedSurvAC){
-      ctx.strokeStyle=col; ctx.lineWidth=1.2;
-      ctx.beginPath();ctx.arc(ax,ay,9,0,Math.PI*2);ctx.stroke();
+
+    // Label: code + range
+    ctx.font = isSelected ? 'bold 10px Courier New' : '9px Courier New';
+    ctx.fillStyle = color;
+    const lx = bx + 12, ly = by - 4;
+    ctx.fillText(t.code, lx, ly);
+    ctx.fillStyle = 'rgba(0,255,136,0.5)';
+    ctx.font = '8px Courier New';
+    ctx.fillText(`${t.range.toFixed(1)}NM`, lx, ly + 10);
+
+    // Danger marker
+    if (isDanger) {
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 9px Courier New';
+      ctx.fillText('!', bx - 3, by + 4);
     }
   });
 
-  // Center cross
-  ctx.strokeStyle='rgba(0,255,65,.12)'; ctx.lineWidth=.5;
-  ctx.beginPath();ctx.moveTo(CX-12,CY);ctx.lineTo(CX+12,CY);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(CX,CY-12);ctx.lineTo(CX,CY+12);ctx.stroke();
+  ctx.restore(); // end clip
+
+  // Outer ring border
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,255,100,0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,255,100,0.6)';
+  ctx.fill();
+
+  frameId = requestAnimationFrame(drawRadar);
 }
 
-// ═══════════════════════════════════════
-// ─── MAIN DRAW LOOP ──────────────────────
-// ═══════════════════════════════════════
-function drawAll(){
-  const sw=(simState==='ACTIVE'||simState==='GOAROUND')?sweepAngle:null;
-  if(currentMode==='par'){
-    const W1=azWrap.clientWidth, H1=azWrap.clientHeight;
-    const W2=elWrap.clientWidth, H2=elWrap.clientHeight;
-    drawAZ(azCtx,W1,H1,aircraft,sw);
-    drawEL(elCtx,W2,H2,aircraft,sw);
-  } else if(currentMode==='surv'){
-    const W=survWrap.clientWidth, H=survWrap.clientHeight;
-    drawSURV(survCtx,W,H,survTracks,sweepAngle,false);
-  } else {
-    // SPLIT
-    const Wt=splitTop.clientWidth,  Ht=splitTop.clientHeight;
-    const Wl=splitBotL.clientWidth, Hl=splitBotL.clientHeight;
-    const Wr=splitBotR.clientWidth, Hr=splitBotR.clientHeight;
-    drawSURV(stCtx,Wt,Ht,survTracks,sweepAngle,true);
-    drawAZ(slCtx,Wl,Hl,aircraft,sw);
-    drawEL(srCtx,Wr,Hr,aircraft,sw);
-  }
-}
+// ─────────────────────────────────────────
+//  CLICK ON RADAR — select target
+// ─────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  if (state !== 'active') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const R = Math.min(cx, cy) - 6;
+  const rwRad = (180 - 90) * Math.PI / 180;
 
-// ═══════════════════════════════════════
-// SURVEILLANCE CLICK (tooltip)
-// ═══════════════════════════════════════
-document.getElementById('survCanvas').addEventListener('click',e=>handleSurvClick(e,survCanvas,survWrap));
-document.getElementById('splitTopC').addEventListener('click',e=>handleSurvClick(e,splitTopC,splitTop));
-
-function handleSurvClick(e,canvas,wrap){
-  ensureAudio();
-  const rect=canvas.getBoundingClientRect();
-  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  const W=wrap.clientWidth, H=wrap.clientHeight;
-  const CX=W/2, CY=H/2, maxR=35, sc=(Math.min(W,H)/2)/maxR;
-  let clicked=null, best=999;
-  survTracks.forEach(ac=>{
-    const r=ac.survRange||ac.range; if(!r||r>maxR+5)return;
-    const br=toRad((ac.bearing||getBearing(ac))-90);
-    const ax=CX+Math.cos(br)*r*sc, ay=CY+Math.sin(br)*r*sc;
-    const d=Math.sqrt((mx-ax)**2+(my-ay)**2);
-    if(d<16&&d<best){best=d;clicked=ac;}
+  let closest = null, minDist = 20;
+  targets.filter(t => t.status === 'approach').forEach(t => {
+    const rNorm = t.range / MAX_RANGE;
+    const azRad = rwRad + t.az * 0.08;
+    const bx = cx + Math.cos(azRad) * rNorm * R;
+    const by = cy + Math.sin(azRad) * rNorm * R;
+    const d = Math.sqrt((mx - bx) ** 2 + (my - by) ** 2);
+    if (d < minDist) { minDist = d; closest = t; }
   });
-  const tip=document.getElementById('survTooltip');
-  if(clicked){
-    selectedSurvAC=clicked;
-    const st=getACSurvStatus(clicked.survRange||clicked.range,clicked.bearing||getBearing(clicked));
-    const col=st==='GS'?'#ff69ff':st==='LOC'?'#00ffff':'#00ff41';
-    tip.innerHTML=`<h4>◉ ${clicked.squawk}</h4>
-      <div class="tt-row"><span class="tt-l">STATUS</span><span class="tt-v" style="color:${col}">${st}</span></div>
-      <div class="tt-row"><span class="tt-l">RANGE</span><span class="tt-v">${(clicked.survRange||clicked.range).toFixed(1)} NM</span></div>
-      <div class="tt-row"><span class="tt-l">BEARING</span><span class="tt-v">${Math.round(clicked.bearing||getBearing(clicked))}°</span></div>
-      <div class="tt-row"><span class="tt-l">ALT</span><span class="tt-v">${clicked.altitude} ft</span></div>
-      <div class="tt-row"><span class="tt-l">SPEED</span><span class="tt-v">${clicked.speed} kts</span></div>`;
-    tip.style.display='block';
-    tip.style.left=Math.min(mx+12,W-160)+'px';
-    tip.style.top=Math.min(my-8,H-120)+'px';
-  } else {
-    selectedSurvAC=null; tip.style.display='none';
-  }
-}
 
-// ═══════════════════════════════════════
-// AUDIO
-// ═══════════════════════════════════════
-let audioCtx=null;
-function ensureAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}
-function playTone(f,v,d,sw){
-  try{ensureAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);
-  o.frequency.value=f;if(sw)o.frequency.linearRampToValueAtTime(f*.5,audioCtx.currentTime+d);
-  o.type='sine';g.gain.setValueAtTime(v,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);
-  o.start();o.stop(audioCtx.currentTime+d);}catch(e){}}
-function playBeep(){playTone(1200,.05,.06);}
-
-// ═══════════════════════════════════════
-// KEYBOARD
-// ═══════════════════════════════════════
-document.addEventListener('keydown',e=>{
-  ensureAudio();
-  switch(e.key){
-    case'ArrowLeft': inputState.az=-1;break;case'ArrowRight':inputState.az=1;break;
-    case'ArrowUp':   inputState.el=1; break;case'ArrowDown': inputState.el=-1;break;
-    case' ':if(simState==='ACTIVE'){paused=!paused;document.getElementById('stateTag').textContent=paused?'PAUSED':'ACTIVE';}e.preventDefault();break;
-    case'Enter':if(simState==='STANDBY')startApproach();break;
-    case'g':case'G':if(simState==='ACTIVE')initiateGoAround();break;
-    case'Escape':resetSim();break;
-    case'+':case'=':if(aircraft[0])aircraft[0].speed=Math.min(200,aircraft[0].speed+5);break;
-    case'-':case'_':if(aircraft[0])aircraft[0].speed=Math.max(80,aircraft[0].speed-5);break;
-    case'1':setMode('surv');break;case'2':setMode('par');break;case'3':setMode('split');break;
-  }
-});
-document.addEventListener('keyup',e=>{
-  if(e.key==='ArrowLeft'||e.key==='ArrowRight')inputState.az=0;
-  if(e.key==='ArrowUp'||e.key==='ArrowDown')inputState.el=0;
+  if (closest) selectTarget(closest.id);
 });
 
-// ═══════════════════════════════════════
-// CLOCK
-// ═══════════════════════════════════════
-function tick(){
-  const n=new Date();
-  document.getElementById('clockDisp').textContent=
-    String(n.getUTCHours()).padStart(2,'0')+':'+String(n.getUTCMinutes()).padStart(2,'0')+':'+String(n.getUTCSeconds()).padStart(2,'0')+'Z';
-}
-setInterval(tick,1000);tick();
-
-// ═══════════════════════════════════════
-// MOBILE SIDEBAR
-// ═══════════════════════════════════════
-function toggleSidebar(){
-  const p=document.getElementById('rightPanel'),b=document.getElementById('sidebarToggle');
-  p.classList.toggle('open');
-  b.textContent=p.classList.contains('open')?'✕ CLOSE':'☰ PANEL';
-  setTimeout(resizeAll,280);
-}
-
-// ═══════════════════════════════════════
-// MAIN LOOP
-// ═══════════════════════════════════════
-function loop(ts){
-  const dt=Math.min((ts-lastTime)/1000,.1);lastTime=ts;
-  // Always spin sweep for surv and split
-  if(currentMode==='surv'||currentMode==='split'||simState==='ACTIVE'||simState==='GOAROUND')
-    sweepAngle=(sweepAngle+360*dt*.5)%360;
-  update(dt);
-  drawAll();
-  requestAnimationFrame(loop);
-}
-
-// ═══════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════
-setMode('par');
-resetSim();
-document.addEventListener('click',ensureAudio,{once:true});
-requestAnimationFrame(loop);
-
-// ═══════════════════════════════════════
-// ADMIN CONFIG + BROADCAST
-// ═══════════════════════════════════════
-// ── Session tracking (skip in admin preview mode) ──────────────────────────
-const IS_ADMIN_PREVIEW = new URLSearchParams(location.search).has('admin');
-let _sessionId = null;
-
-function _getTrainee(){
-  try { return JSON.parse(localStorage.getItem('tls_trainee_session')||'{}'); } catch(e){ return {}; }
-}
-
-async function startSession(){
-  if(IS_ADMIN_PREVIEW || _sessionId) return;
-  const t = _getTrainee();
-  if(!t.id) return;
-  try {
-    const res = await fetch('/api/simulator/session', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ traineeId:t.id, traineeName:(t.name||'Unknown'), mode: currentMode||'par', scenarioId: currentScenario||'normal', action:'start' })
-    }).then(r=>r.json()).catch(()=>null);
-    if(res && res.sessionId) _sessionId = res.sessionId;
-  } catch(e){}
-}
-
-async function endSession(score){
-  if(IS_ADMIN_PREVIEW || !_sessionId) return;
-  const sid = _sessionId; _sessionId = null;
-  try {
-    await fetch('/api/simulator/session', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ sessionId:sid, action:'end', score: score||0 })
-    }).catch(()=>{});
-  } catch(e){}
-}
-
-window.addEventListener('beforeunload', ()=>{ endSession(score||0); });
-
-(async function initAdminConfig(){
-  try {
-    const cfg = await fetch('/api/simulator/config').then(r=>r.json()).catch(()=>({}));
-    window.adminCfg = cfg;
-    // Apply default mode if set
-    if(cfg.default_mode && ['par','surveillance','split'].includes(cfg.default_mode.toLowerCase())){
-      setMode(cfg.default_mode.toLowerCase());
-    }
-    // Show disabled screen if simulator is turned off
-    if(cfg.enabled === 'false'){
-      document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#030d03;color:#FF4444;font-family:Orbitron,monospace;gap:16px;">
-        <div style="font-size:36px">⛔</div>
-        <div style="font-size:18px;letter-spacing:0.15em">SIMULATOR OFFLINE</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.3);font-family:Inter;margin-top:8px">Disabled by administrator. Please contact your instructor.</div>
-      </div>`;
-      return;
-    }
-  } catch(e){ /* non-fatal */ }
-})();
-
-// Broadcast banner
-let lastBroadcastId = null;
-const broadcastEl = document.createElement('div');
-broadcastEl.id = 'adminBroadcast';
-broadcastEl.style.cssText = `
-  display:none; position:fixed; top:0; left:0; right:0; z-index:9999;
-  padding:10px 48px 10px 16px; font-family:Inter,sans-serif; font-size:13px;
-  font-weight:600; line-height:1.4; box-shadow:0 2px 12px rgba(0,0,0,0.5);
-  animation: slideDown 0.3s ease;
-`;
-const broadcastClose = document.createElement('button');
-broadcastClose.textContent = '✕';
-broadcastClose.style.cssText = 'position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:inherit;opacity:0.7;';
-broadcastClose.onclick = () => { broadcastEl.style.display = 'none'; };
-broadcastEl.appendChild(broadcastClose);
-document.body.appendChild(broadcastEl);
-
-const style = document.createElement('style');
-style.textContent = `@keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}`;
-document.head.appendChild(style);
-
-async function pollBroadcast(){
-  try {
-    const b = await fetch('/api/simulator/broadcast').then(r=>r.json()).catch(()=>null);
-    if(b && b.id && b.id !== lastBroadcastId){
-      lastBroadcastId = b.id;
-      const colors = { info:'#1a3a6b,#60a5fa', warning:'#3a2a00,#FFD700', danger:'#3a0000,#FF4444', success:'#003a1a,#00FF88' };
-      const [bg,fg] = (colors[b.type]||colors.info).split(',');
-      broadcastEl.style.background = bg;
-      broadcastEl.style.color = fg;
-      broadcastEl.style.border = `1px solid ${fg}40`;
-      const icon = b.type==='warning'?'⚠️':b.type==='danger'?'🚨':b.type==='success'?'✅':'📢';
-      // Keep the close button, update text
-      broadcastEl.childNodes[0] && broadcastEl.childNodes[0].nodeType === 3 && broadcastEl.removeChild(broadcastEl.childNodes[0]);
-      broadcastEl.insertBefore(document.createTextNode(`${icon} ${b.message}`), broadcastClose);
-      broadcastEl.style.display = 'block';
-      broadcastEl.style.animation = 'none'; broadcastEl.offsetHeight; broadcastEl.style.animation = 'slideDown 0.3s ease';
-    } else if(!b && lastBroadcastId){
-      broadcastEl.style.display = 'none';
-      lastBroadcastId = null;
-    }
-  } catch(e){}
-}
-pollBroadcast();
-setInterval(pollBroadcast, 15000);
+// ─────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────
+window.addEventListener('resize', () => { resizeRadar(); });
+resizeRadar();
+startClock();
+drawRadar();
+updateSystemUI();
 </script>
 </body>
 </html>
