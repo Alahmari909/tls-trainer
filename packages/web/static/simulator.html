@@ -811,124 +811,89 @@ function drawRadar() {
   }
 
   // ── APPROACH CORRIDORS ──
-  // Runway heading: 180° = pointing down from center (threshold at center)
-  const rwRad = (180 - 90) * Math.PI / 180;
+  // Runway heading: pointing DOWN from center (threshold = center of radar)
+  const rwRad = (180 - 90) * Math.PI / 180; // = 90° = pointing down
 
-  // ── LOC TRIANGLE (Localizer — horizontal/azimuth limits) ──
-  // Full-scale = ±0.155 DDM ≈ ±3.5° lateral
-  const locHalfWidth = 0.065; // radians
+  // ── LOC TRIANGLE — RED (Localizer, wide) ──
+  const locHalfWidth = 0.13; // radians ≈ ±7.5° — wide outer triangle
+  const locLen = R * 0.92;   // almost full radius
+
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(rwRad - locHalfWidth) * R, cy + Math.sin(rwRad - locHalfWidth) * R);
-  ctx.lineTo(cx + Math.cos(rwRad + locHalfWidth) * R, cy + Math.sin(rwRad + locHalfWidth) * R);
+  ctx.lineTo(cx + Math.cos(rwRad - locHalfWidth) * locLen, cy + Math.sin(rwRad - locHalfWidth) * locLen);
+  ctx.lineTo(cx + Math.cos(rwRad + locHalfWidth) * locLen, cy + Math.sin(rwRad + locHalfWidth) * locLen);
   ctx.closePath();
-  // Fill
-  ctx.fillStyle = 'rgba(0,255,100,0.06)';
+  ctx.fillStyle = 'rgba(255,40,40,0.07)';
   ctx.fill();
-  // Border lines (the two sides of the triangle)
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(rwRad - locHalfWidth) * R, cy + Math.sin(rwRad - locHalfWidth) * R);
-  ctx.strokeStyle = 'rgba(0,255,100,0.55)';
-  ctx.lineWidth = 1.5;
+  // Outline — red
+  ctx.strokeStyle = 'rgba(255,60,60,0.9)';
+  ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(rwRad + locHalfWidth) * R, cy + Math.sin(rwRad + locHalfWidth) * R);
-  ctx.strokeStyle = 'rgba(0,255,100,0.55)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  // LOC label on left side
-  const locLabelRad = rwRad - locHalfWidth - 0.04;
-  const locLabelDist = R * 0.55;
-  ctx.fillStyle = 'rgba(0,255,100,0.7)';
-  ctx.font = 'bold 8px Courier New';
-  ctx.save();
-  ctx.translate(cx + Math.cos(locLabelRad) * locLabelDist, cy + Math.sin(locLabelRad) * locLabelDist);
-  ctx.rotate(locLabelRad + Math.PI / 2);
-  ctx.fillText('LOC', -10, 0);
-  ctx.restore();
+  // LOC label — left side of triangle
+  ctx.fillStyle = 'rgba(255,80,80,0.9)';
+  ctx.font = 'bold 9px Courier New';
+  const locMidAngle = rwRad - locHalfWidth * 0.7;
+  ctx.fillText('LOC', cx + Math.cos(locMidAngle) * locLen * 0.6, cy + Math.sin(locMidAngle) * locLen * 0.6);
   ctx.restore();
 
-  // ── GS TRIANGLE (Glideslope — elevation/vertical limits) ──
-  // Glideslope is narrower: ±0.175 DDM ≈ ±0.7° vertical
-  // Visually represented as a separate narrower triangle offset slightly to one side
-  // so both triangles are visible simultaneously on the PPI
-  // We shift it slightly left (-0.10 rad) and make it narrower
-  const gsOffset = -0.13; // shift left so it doesn't overlap LOC triangle
-  const gsHalfWidth = 0.028; // much narrower — GP is more precise
-  const gsBaseAngle = rwRad + gsOffset;
+  // ── G/S TRIANGLE — BLUE (Glideslope, narrow, inside LOC) ──
+  const gsHalfWidth = 0.038; // radians ≈ ±2.2° — narrow inner triangle
+  const gsLen = R * 0.70;    // shorter than LOC
 
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(gsBaseAngle - gsHalfWidth) * R, cy + Math.sin(gsBaseAngle - gsHalfWidth) * R);
-  ctx.lineTo(cx + Math.cos(gsBaseAngle + gsHalfWidth) * R, cy + Math.sin(gsBaseAngle + gsHalfWidth) * R);
+  ctx.lineTo(cx + Math.cos(rwRad - gsHalfWidth) * gsLen, cy + Math.sin(rwRad - gsHalfWidth) * gsLen);
+  ctx.lineTo(cx + Math.cos(rwRad + gsHalfWidth) * gsLen, cy + Math.sin(rwRad + gsHalfWidth) * gsLen);
   ctx.closePath();
-  // Fill amber
-  ctx.fillStyle = 'rgba(255,180,0,0.07)';
+  ctx.fillStyle = 'rgba(40,140,255,0.10)';
   ctx.fill();
-  // Border
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(gsBaseAngle - gsHalfWidth) * R, cy + Math.sin(gsBaseAngle - gsHalfWidth) * R);
-  ctx.strokeStyle = 'rgba(255,180,0,0.7)';
-  ctx.lineWidth = 1.5;
+  // Outline — blue
+  ctx.strokeStyle = 'rgba(60,160,255,0.95)';
+  ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(gsBaseAngle + gsHalfWidth) * R, cy + Math.sin(gsBaseAngle + gsHalfWidth) * R);
-  ctx.strokeStyle = 'rgba(255,180,0,0.7)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  // GS label
-  const gsLabelRad = gsBaseAngle + gsHalfWidth + 0.03;
-  const gsLabelDist = R * 0.52;
-  ctx.fillStyle = 'rgba(255,180,0,0.8)';
-  ctx.font = 'bold 8px Courier New';
-  ctx.save();
-  ctx.translate(cx + Math.cos(gsLabelRad) * gsLabelDist, cy + Math.sin(gsLabelRad) * gsLabelDist);
-  ctx.rotate(gsLabelRad + Math.PI / 2);
-  ctx.fillText('G/S', -8, 0);
-  ctx.restore();
+  // G/S label — right side
+  ctx.fillStyle = 'rgba(80,170,255,0.95)';
+  ctx.font = 'bold 9px Courier New';
+  const gsMidAngle = rwRad + gsHalfWidth * 0.7;
+  ctx.fillText('G/S', cx + Math.cos(gsMidAngle) * gsLen * 0.55, cy + Math.sin(gsMidAngle) * gsLen * 0.55);
   ctx.restore();
 
-  // ── CENTERLINE (runway extended centerline) ──
+  // ── CENTERLINE (runway extended — dashed) ──
+  ctx.save();
   ctx.beginPath();
   ctx.moveTo(cx, cy);
   ctx.lineTo(cx + Math.cos(rwRad) * R, cy + Math.sin(rwRad) * R);
-  ctx.strokeStyle = 'rgba(0,255,100,0.3)';
+  ctx.strokeStyle = 'rgba(0,255,100,0.35)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([4, 6]);
+  ctx.setLineDash([5, 7]);
   ctx.stroke();
   ctx.setLineDash([]);
+  ctx.restore();
 
-  // ── RUNWAY THRESHOLD marker at center ──
+  // ── THRESHOLD BAR (perpendicular line at center) ──
   ctx.save();
-  // Threshold bar perpendicular to runway
   const perpRad = rwRad + Math.PI / 2;
-  const thrLen = 12;
+  const thrLen = 14;
   ctx.beginPath();
   ctx.moveTo(cx + Math.cos(perpRad) * thrLen, cy + Math.sin(perpRad) * thrLen);
   ctx.lineTo(cx - Math.cos(perpRad) * thrLen, cy - Math.sin(perpRad) * thrLen);
-  ctx.strokeStyle = 'rgba(0,255,100,0.8)';
+  ctx.strokeStyle = 'rgba(0,255,100,0.9)';
   ctx.lineWidth = 2.5;
   ctx.stroke();
-  // THR label
-  ctx.fillStyle = 'rgba(0,255,100,0.8)';
+  // THR label above the bar
+  ctx.fillStyle = 'rgba(0,255,100,0.85)';
   ctx.font = 'bold 8px Courier New';
   ctx.textAlign = 'center';
-  const thrLabelX = cx + Math.cos(rwRad + Math.PI) * 18;
-  const thrLabelY = cy + Math.sin(rwRad + Math.PI) * 18;
-  ctx.fillText('THR 18L', thrLabelX, thrLabelY);
-  // LOC / G/S legend bottom-left of radar
+  ctx.fillText('THR 18L', cx + Math.cos(rwRad + Math.PI) * 20, cy + Math.sin(rwRad + Math.PI) * 20);
   ctx.textAlign = 'left';
+  // Legend bottom-left
   ctx.font = '9px Courier New';
-  ctx.fillStyle = 'rgba(0,255,100,0.6)';
-  ctx.fillText('▶ LOC', cx - R + 8, cy + R - 22);
-  ctx.fillStyle = 'rgba(255,180,0,0.7)';
-  ctx.fillText('▶ G/S', cx - R + 8, cy + R - 10);
+  ctx.fillStyle = 'rgba(255,60,60,0.8)';
+  ctx.fillText('■ LOC', cx - R + 8, cy + R - 22);
+  ctx.fillStyle = 'rgba(60,160,255,0.8)';
+  ctx.fillText('■ G/S', cx - R + 8, cy + R - 10);
   ctx.restore();
 
   // ─ SWEEP ─
