@@ -13,11 +13,11 @@ type Manual = {
 };
 
 const MANUALS: Manual[] = [
-  { id: 1, title: "TLS ANPC English",       subtitle: "Full TLS system training reference — English edition",     file: "TLS_ANPC_English.pdf",       category: "Training",     color: "#00AEEF", icon: "📘", pages: "Reference" },
-  { id: 2, title: "TLS Training June 2021", subtitle: "KSA field training manual — June 2021 revision",           file: "TLS_Training_June_2021_KSA.pdf", category: "Training",  color: "#35D4FF", icon: "📗", pages: "Reference" },
-  { id: 3, title: "Installation Manual",    subtitle: "020-00073 Rev F — TLS system installation procedures",     file: "020-00073_RevF.pdf",         category: "Installation", color: "#C9A66B", icon: "🔩", pages: "RevF" },
-  { id: 4, title: "Operation Manual",       subtitle: "020-00072 Rev F — System operation and controls",          file: "020-00072_RevF.pdf",         category: "Operation",    color: "#00D26A", icon: "⚙️", pages: "RevF" },
-  { id: 5, title: "Calibration Manual",     subtitle: "020-00071 Rev E — Calibration and alignment procedures",   file: "020-00071_RevE.pdf",         category: "Calibration",  color: "#FFD166", icon: "🎯", pages: "RevE" },
+  { id: 1, title: "introduction",            subtitle: "Full TLS system training reference — English edition",     file: "TLS_ANPC_English.pdf",       category: "Training",     color: "#00AEEF", icon: "📘", pages: "Reference" },
+  { id: 2, title: "Overview",               subtitle: "KSA field training manual — June 2021 revision",           file: "TLS_Training_June_2021_KSA.pdf", category: "Training",  color: "#35D4FF", icon: "📗", pages: "Reference" },
+  { id: 3, title: "Installation",           subtitle: "020-00073 Rev F — TLS system installation procedures",     file: "020-00073_RevF.pdf",         category: "Installation", color: "#C9A66B", icon: "🔩", pages: "RevF" },
+  { id: 4, title: "Operation",              subtitle: "020-00072 Rev F — System operation and controls",          file: "020-00072_RevF.pdf",         category: "Operation",    color: "#00D26A", icon: "⚙️", pages: "RevF" },
+  { id: 5, title: "Calibration",            subtitle: "020-00071 Rev E — Calibration and alignment procedures",   file: "020-00071_RevE.pdf",         category: "Calibration",  color: "#FFD166", icon: "🎯", pages: "RevE" },
   { id: 6, title: "Maintenance Manual",     subtitle: "020-00074 Rev G — Scheduled and corrective maintenance",   file: "020-00074_RevG.pdf",         category: "Maintenance",  color: "#FF4D4D", icon: "🔧", pages: "RevG" },
   { id: 7, title: "Container & Deployment", subtitle: "020-00076 Rev D — Shelter and deployment procedures",      file: "020-00076_RevD.pdf",         category: "Deployment",   color: "#00AEEF", icon: "📦", pages: "RevD" },
   { id: 8, title: "Packing Instructions",   subtitle: "020-00077 Rev C — Packing and transport guidelines",       file: "020-00077_RevC.pdf",         category: "Deployment",   color: "#35D4FF", icon: "🗃️", pages: "RevC" },
