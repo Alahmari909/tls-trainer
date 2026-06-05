@@ -80,4 +80,3 @@ function getStaticFilePath(pathname: string, baseDir = distDir) {
 
   return cleanPath ? `${baseDir}/${cleanPath}` : indexPath;
 }
-// trigger redeploy Fri Jun  5 21:42:53 UTC 2026
