@@ -1047,6 +1047,11 @@ const app = new Hono()
     const rows = await sql(`SELECT id, module_id as moduleId, question, option_a as optionA, option_b as optionB, option_c as optionC, option_d as optionD, correct_option as correctOption, explanation, "order" FROM questions WHERE module_id=? ORDER BY "order" ASC`, [moduleId]);
     return c.json(rows, 200);
   })
+  .get('/modules/:id/lessons', async (c) => {
+    const moduleId = Number(c.req.param('id'));
+    const rows = await sql(`SELECT id, module_id as moduleId, title, content, video_url as videoUrl, duration, "order" FROM lessons WHERE module_id=? ORDER BY "order" ASC`, [moduleId]);
+    return c.json(rows, 200);
+  })
   .get('/achievements', async (c) => {
     const rows = await sql(`SELECT id, key, name, description, icon, color, xp_reward as xpReward FROM achievements ORDER BY id`, []);
     return c.json(rows, 200);
