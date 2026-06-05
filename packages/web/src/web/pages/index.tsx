@@ -655,7 +655,6 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
   const quickActions = [
     { labelKey: "nav_modules" as const,  icon: "📡", path: "/modules",  color: "#00AEEF" },
-    { labelKey: "tls_basic" as const,    icon: "🛰️", path: "/basics",   color: "#35D4FF" },
     { labelKey: "nav_quiz" as const,     icon: "🎯", path: "/quiz",     color: "#00D26A" },
     { labelKey: "manuals" as const,      icon: "📋", path: "/manuals",  color: "#C9A66B" },
     { labelKey: "live_status" as const,  icon: "📶", path: "/status",   color: "#FFD166" },
