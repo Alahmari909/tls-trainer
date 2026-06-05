@@ -687,9 +687,6 @@ const app = new Hono()
   .use(cors({ origin: (origin) => origin ?? "*", credentials: true, exposeHeaders: ["set-auth-token"] }))
   .get('/ping', (c) => c.json({ message: `Pong! ${Date.now()}` }, 200))
   .get('/health', (c) => c.json({ status: 'ok' }, 200))
-  .get("/health/db-debug", async (c) => {
-    return c.json({ dbUrl: (process.env.DATABASE_URL ?? "NOT SET").substring(0, 40), latency: null }, 200);
-  })
   .get("/health/db", async (c) => {
     try {
       const t0 = Date.now();
@@ -1036,13 +1033,8 @@ const app = new Hono()
   // ══════════════════════════════════════════════════════════════════════════
 
   .get('/modules', async (c) => {
-    try {
-      const rows = await sql(`SELECT id, title, subtitle, description, icon, color, "order", lesson_count as lessonCount, is_published as isPublished FROM modules WHERE is_published=1 ORDER BY "order" ASC`, []);
-      return c.json(rows, 200);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return c.json({ error: msg }, 500);
-    }
+    const rows = await sql(`SELECT id, title, subtitle, description, icon, color, "order", lesson_count as lessonCount, is_published as isPublished FROM modules WHERE is_published=1 ORDER BY "order" ASC`, []);
+    return c.json(rows, 200);
   })
   .get('/modules/:id', async (c) => {
     const id = Number(c.req.param('id'));
