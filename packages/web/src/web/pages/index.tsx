@@ -879,6 +879,31 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
 
 
+      {/* ── INTRO VIDEO ── */}
+      <div style={{ padding: "18px 16px 0" }}>
+        <div style={{
+          fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
+          color: "var(--text-muted)", marginBottom: 10,
+        }}>SYSTEM INTRODUCTION</div>
+        <div style={{
+          borderRadius: 12,
+          overflow: "hidden",
+          border: "1px solid rgba(0,174,239,0.2)",
+          background: "#000",
+          boxShadow: "0 0 24px rgba(0,174,239,0.08)",
+        }}>
+          <video
+            src="/tls-intro.webm"
+            controls
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover", aspectRatio: "16/9" }}
+          />
+        </div>
+      </div>
+
       {/* ── RECENT ACTIVITY ── */}
       <div style={{ padding: "0 16px 40px" }}>
         <div style={{
