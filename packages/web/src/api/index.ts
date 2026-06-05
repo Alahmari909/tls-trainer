@@ -1033,66 +1033,57 @@ const app = new Hono()
   // ══════════════════════════════════════════════════════════════════════════
 
   .get('/modules', async (c) => {
-    const rows = await db.select().from(modules).orderBy(modules.order);
+    const rows = await sql(`SELECT id, title, subtitle, description, icon, color, "order", lesson_count as lessonCount, is_published as isPublished FROM modules WHERE is_published=1 ORDER BY "order" ASC`, []);
     return c.json(rows, 200);
   })
   .get('/modules/:id', async (c) => {
     const id = Number(c.req.param('id'));
-    const [mod] = await db.select().from(modules).where(eq(modules.id, id));
+    const [mod] = await sql(`SELECT id, title, subtitle, description, icon, color, "order", lesson_count as lessonCount, is_published as isPublished FROM modules WHERE id=?`, [id]);
     if (!mod) return c.json({ error: 'Not found' }, 404);
     return c.json(mod, 200);
   })
   .get('/modules/:id/questions', async (c) => {
     const moduleId = Number(c.req.param('id'));
-    const rows = await db.select().from(questions)
-      .where(eq(questions.moduleId, moduleId))
-      .orderBy(questions.order);
+    const rows = await sql(`SELECT id, module_id as moduleId, question, option_a as optionA, option_b as optionB, option_c as optionC, option_d as optionD, correct_option as correctOption, explanation, "order" FROM questions WHERE module_id=? ORDER BY "order" ASC`, [moduleId]);
     return c.json(rows, 200);
   })
   .get('/achievements', async (c) => {
-    const rows = await db.select().from(achievements);
+    const rows = await sql(`SELECT id, key, name, description, icon, color, xp_reward as xpReward FROM achievements ORDER BY id`, []);
     return c.json(rows, 200);
   })
   .get('/achievements/user/:userId', async (c) => {
     const userId = c.req.param('userId');
-    const allBadges = await db.select().from(achievements);
-    const earned = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
-    const earnedIds = new Set(earned.map(e => e.achievementId));
+    const allBadges = await sql(`SELECT id, key, name, description, icon, color, xp_reward as xpReward FROM achievements ORDER BY id`, []);
+    const earned = await sql(`SELECT achievement_id, earned_at FROM user_achievements WHERE user_id=?`, [userId]);
+    const earnedMap = new Map(earned.map(e => [e.achievement_id, e.earned_at]));
     const result = allBadges.map(b => ({
-      ...b, earned: earnedIds.has(b.id),
-      earnedAt: earned.find(e => e.achievementId === b.id)?.earnedAt ?? null,
+      ...b, earned: earnedMap.has(b.id),
+      earnedAt: earnedMap.get(b.id) ?? null,
     }));
     return c.json(result, 200);
   })
   .get('/progress/:userId', async (c) => {
     const userId = c.req.param('userId');
-    const rows = await db.select().from(moduleProgress).where(eq(moduleProgress.userId, userId));
+    const rows = await sql(`SELECT id, user_id as userId, module_id as moduleId, progress, completed, last_accessed_at as lastAccessedAt FROM module_progress WHERE user_id=?`, [userId]);
     return c.json(rows, 200);
   })
   .post('/progress', async (c) => {
     const body = await c.req.json();
     const { userId, moduleId, progress, completed } = body;
     const now = Date.now();
-    const existing = await db.select().from(moduleProgress)
-      .where(and(eq(moduleProgress.userId, userId), eq(moduleProgress.moduleId, moduleId)));
+    const existing = await sql(`SELECT id FROM module_progress WHERE user_id=? AND module_id=?`, [userId, moduleId]);
     if (existing.length > 0) {
-      await db.update(moduleProgress)
-        .set({ progress, completed: completed ? 1 : 0, lastAccessedAt: now })
-        .where(and(eq(moduleProgress.userId, userId), eq(moduleProgress.moduleId, moduleId)));
+      await sqlRun(`UPDATE module_progress SET progress=?, completed=?, last_accessed_at=? WHERE user_id=? AND module_id=?`, [progress, completed ? 1 : 0, now, userId, moduleId]);
     } else {
-      await db.insert(moduleProgress).values({ userId, moduleId, progress, completed: completed ? 1 : 0, lastAccessedAt: now });
+      await sqlRun(`INSERT INTO module_progress (user_id, module_id, progress, completed, last_accessed_at) VALUES (?, ?, ?, ?, ?)`, [userId, moduleId, progress, completed ? 1 : 0, now]);
     }
     return c.json({ ok: true }, 200);
   })
   .get('/ensure-user/:userId', async (c) => {
     const userId = c.req.param('userId');
-    const existing = await db.select().from(users).where(eq(users.id, userId));
+    const existing = await sql(`SELECT id FROM users WHERE id=?`, [userId]);
     if (existing.length === 0) {
-      await db.insert(users).values({
-        id: userId, name: "Trainee",
-        email: `${userId}@tls-trainer.local`,
-        role: "student", createdAt: Date.now(),
-      });
+      await sqlRun(`INSERT INTO users (id, name, email, role, created_at) VALUES (?, 'Trainee', ?, 'student', ?)`, [userId, `${userId}@tls-trainer.local`, Date.now()]);
     }
     return c.json({ ok: true }, 200);
   })
@@ -1111,48 +1102,48 @@ const app = new Hono()
     const passed = pct >= 70;
     const xpEarned = score * 10;
 
-    const existing = await db.select().from(moduleProgress)
-      .where(and(eq(moduleProgress.userId, userId), eq(moduleProgress.moduleId, moduleId)));
-    if (existing.length > 0) {
-      const prev = existing[0];
-      await db.update(moduleProgress)
-        .set({ progress: Math.max(prev.progress, pct), completed: prev.completed === 1 || passed ? 1 : 0, lastAccessedAt: now })
-        .where(and(eq(moduleProgress.userId, userId), eq(moduleProgress.moduleId, moduleId)));
+    const existingProg = await sql(`SELECT id, progress, completed FROM module_progress WHERE user_id=? AND module_id=?`, [userId, moduleId]);
+    if (existingProg.length > 0) {
+      const prev = existingProg[0] as any;
+      await sqlRun(`UPDATE module_progress SET progress=?, completed=?, last_accessed_at=? WHERE user_id=? AND module_id=?`,
+        [Math.max(prev.progress, pct), prev.completed === 1 || passed ? 1 : 0, now, userId, moduleId]);
     } else {
-      await db.insert(moduleProgress).values({ userId, moduleId, progress: pct, completed: passed ? 1 : 0, lastAccessedAt: now });
+      await sqlRun(`INSERT INTO module_progress (user_id, module_id, progress, completed, last_accessed_at) VALUES (?,?,?,?,?)`,
+        [userId, moduleId, pct, passed ? 1 : 0, now]);
     }
 
-    const [streakRow] = await db.select().from(streaks).where(eq(streaks.userId, userId));
+    const [streakRow] = await sql(`SELECT current_streak, longest_streak, last_activity_date, total_xp FROM streaks WHERE user_id=?`, [userId]) as any[];
     let newStreak = 1, longestStreak = 1;
     if (streakRow) {
-      const last = streakRow.lastActivityDate;
+      const last = streakRow.last_activity_date;
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      newStreak = last === todayStr ? streakRow.currentStreak : last === yesterday ? streakRow.currentStreak + 1 : 1;
-      longestStreak = Math.max(streakRow.longestStreak, newStreak);
-      await db.update(streaks).set({ currentStreak: newStreak, longestStreak, lastActivityDate: todayStr, totalXp: streakRow.totalXp + xpEarned })
-        .where(eq(streaks.userId, userId));
+      newStreak = last === todayStr ? streakRow.current_streak : last === yesterday ? streakRow.current_streak + 1 : 1;
+      longestStreak = Math.max(streakRow.longest_streak, newStreak);
+      await sqlRun(`UPDATE streaks SET current_streak=?, longest_streak=?, last_activity_date=?, total_xp=? WHERE user_id=?`,
+        [newStreak, longestStreak, todayStr, (streakRow.total_xp ?? 0) + xpEarned, userId]);
     } else {
-      await db.insert(streaks).values({ userId, currentStreak: 1, longestStreak: 1, lastActivityDate: todayStr, totalXp: xpEarned });
+      await sqlRun(`INSERT INTO streaks (user_id, current_streak, longest_streak, last_activity_date, total_xp) VALUES (?,1,1,?,?)`,
+        [userId, todayStr, xpEarned]);
     }
 
-    const allBadges = await db.select().from(achievements);
-    const alreadyEarned = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
-    const earnedIds = new Set(alreadyEarned.map(e => e.achievementId));
+    const allBadges = await sql(`SELECT id, key, name, icon, xp_reward as xpReward FROM achievements`, []) as any[];
+    const alreadyEarned = await sql(`SELECT achievement_id FROM user_achievements WHERE user_id=?`, [userId]) as any[];
+    const earnedIds = new Set(alreadyEarned.map((e: any) => e.achievement_id));
     const newlyUnlocked: { key: string; name: string; icon: string; xpReward: number }[] = [];
     const unlock = async (key: string) => {
-      const badge = allBadges.find(b => b.key === key);
+      const badge = allBadges.find((b: any) => b.key === key);
       if (!badge || earnedIds.has(badge.id)) return;
-      await db.insert(userAchievements).values({ userId, achievementId: badge.id, earnedAt: now });
+      await sqlRun(`INSERT INTO user_achievements (user_id, achievement_id, earned_at) VALUES (?,?,?)`, [userId, badge.id, now]);
       newlyUnlocked.push({ key: badge.key, name: badge.name, icon: badge.icon ?? '🏅', xpReward: badge.xpReward });
     };
     await unlock('first_lesson');
     if (passed) {
       await unlock(`module_${moduleId}_complete`);
-      const progress = await db.select().from(moduleProgress).where(eq(moduleProgress.userId, userId));
-      if (progress.filter(p => p.completed === 1).length >= 9) await unlock('all_modules');
+      const allProg = await sql(`SELECT completed FROM module_progress WHERE user_id=?`, [userId]) as any[];
+      if (allProg.filter((p: any) => p.completed === 1).length >= 9) await unlock('all_modules');
     }
     if (pct === 100) await unlock('quiz_perfect');
-    const finalStreak = streakRow ? Math.max(streakRow.currentStreak, newStreak) : 1;
+    const finalStreak = streakRow ? Math.max(streakRow.current_streak, newStreak) : 1;
     if (finalStreak >= 7) await unlock('streak_7');
     if (finalStreak >= 30) await unlock('streak_30');
 
@@ -1190,7 +1181,7 @@ const app = new Hono()
   })
   .get('/streaks/:userId', async (c) => {
     const userId = c.req.param('userId');
-    const [row] = await db.select().from(streaks).where(eq(streaks.userId, userId));
+    const [row] = await sql(`SELECT current_streak as currentStreak, longest_streak as longestStreak, total_xp as totalXp FROM streaks WHERE user_id=?`, [userId]) as any[];
     return c.json(row ?? { currentStreak: 0, longestStreak: 0, totalXp: 0 }, 200);
   })
   .get('/leaderboard', async (c) => {
