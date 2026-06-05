@@ -687,7 +687,10 @@ const app = new Hono()
   .use(cors({ origin: (origin) => origin ?? "*", credentials: true, exposeHeaders: ["set-auth-token"] }))
   .get('/ping', (c) => c.json({ message: `Pong! ${Date.now()}` }, 200))
   .get('/health', (c) => c.json({ status: 'ok' }, 200))
-  .get('/health/db', async (c) => {
+  .get("/health/db-debug", async (c) => {
+    return c.json({ dbUrl: (process.env.DATABASE_URL ?? "NOT SET").substring(0, 40), latency: null }, 200);
+  })
+  .get("/health/db", async (c) => {
     try {
       const t0 = Date.now();
       await sql('SELECT 1', []);
