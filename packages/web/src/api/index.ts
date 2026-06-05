@@ -1033,8 +1033,13 @@ const app = new Hono()
   // ══════════════════════════════════════════════════════════════════════════
 
   .get('/modules', async (c) => {
-    const rows = await sql(`SELECT id, title, subtitle, description, icon, color, "order", lesson_count as lessonCount, is_published as isPublished FROM modules WHERE is_published=1 ORDER BY "order" ASC`, []);
-    return c.json(rows, 200);
+    try {
+      const rows = await sql(`SELECT id, title, subtitle, description, icon, color, "order", lesson_count as lessonCount, is_published as isPublished FROM modules WHERE is_published=1 ORDER BY "order" ASC`, []);
+      return c.json(rows, 200);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ error: msg }, 500);
+    }
   })
   .get('/modules/:id', async (c) => {
     const id = Number(c.req.param('id'));
