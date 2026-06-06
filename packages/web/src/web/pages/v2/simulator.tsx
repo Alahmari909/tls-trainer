@@ -1,8 +1,9 @@
-import V2Layout from "./layout";
+import V2Layout, { BackButton } from "./layout";
 
 export default function V2Simulator() {
   return (
     <V2Layout role="trainee">
+      <BackButton to="/v2/trainee" label="← Back" />
       <div style={{ margin: "-1.5rem", borderRadius: 12, overflow: "hidden", height: "calc(100vh - 80px)" }}>
         <iframe
           src="/simulator.html"

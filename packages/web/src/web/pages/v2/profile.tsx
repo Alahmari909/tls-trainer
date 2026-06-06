@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import V2Layout from "./layout";
+import V2Layout, { BackButton } from "./layout";
 import { MODULES_DATA } from "./_data";
 
 export default function V2Profile() {
@@ -25,6 +25,7 @@ export default function V2Profile() {
 
   return (
     <V2Layout role="trainee" traineeName={name}>
+      <BackButton to="/v2/trainee" label="← Back" />
       <div style={{ maxWidth: "700px", margin: "0 auto" }}>
         <div style={{ marginBottom: "2rem" }}>
           <div style={{ fontSize: "0.72rem", letterSpacing: "0.15em", color: "#00ff88", marginBottom: "0.5rem" }}>ACCOUNT</div>

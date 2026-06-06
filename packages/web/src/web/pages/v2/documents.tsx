@@ -1,5 +1,5 @@
 import { useState } from "react";
-import V2Layout from "./layout";
+import V2Layout, { BackButton } from "./layout";
 import { DOCUMENTS } from "./_data";
 
 const CATEGORIES = ["All", "Technical", "Installation", "Operations", "Maintenance", "Calibration", "Logistics", "ATC", "Regulatory", "Training"];
@@ -26,6 +26,7 @@ export default function V2Documents() {
 
   return (
     <V2Layout role="trainee">
+      <BackButton to="/v2/trainee" label="← Back" />
       <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.72rem", letterSpacing: "0.15em", color: "#00ff88", marginBottom: "0.5rem" }}>RESOURCES</div>
         <h2 style={{ fontSize: "1.9rem", fontWeight: 900, color: "#e2e8f0", margin: "0 0 0.5rem" }}>Technical Manuals</h2>

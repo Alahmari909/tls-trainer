@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
-import V2Layout from "./layout";
+import V2Layout, { BackButton } from "./layout";
 import { MODULES_DATA, type Lesson } from "./_data";
 
 export default function V2Module() {
@@ -55,14 +55,8 @@ export default function V2Module() {
 
   return (
     <V2Layout role="trainee">
-      {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", fontSize: "0.8rem", color: "#475569" }}>
-        <button onClick={() => setLocation("/v2/trainee")} style={{ background: "none", border: "none", color: "#00ff88", cursor: "pointer", fontSize: "0.8rem" }}>
-          ← Back to Modules
-        </button>
-        <span>/</span>
-        <span style={{ color: "#94a3b8" }}>{module.title}</span>
-      </div>
+      {/* Back button */}
+      <BackButton to="/v2/trainee" label="← Back to Modules" />
 
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "1.5rem", alignItems: "start" }}>
         {/* Sidebar: lesson list */}

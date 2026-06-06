@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import V2Layout from "./layout";
+import V2Layout, { BackButton } from "./layout";
 import { MODULES_DATA } from "./_data";
 
 interface Question {
@@ -77,6 +77,7 @@ export default function V2Quiz() {
 
   return (
     <V2Layout role="trainee">
+      <BackButton to="/v2/trainee" label="← Back" />
       {/* Select phase */}
       {phase === "select" && (
         <div style={{ maxWidth: "700px", margin: "0 auto" }}>
