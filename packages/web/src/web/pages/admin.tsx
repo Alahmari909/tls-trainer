@@ -2833,12 +2833,18 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 16, lineHeight: 1.6 }}>
                 Download a full CSV report of all simulator sessions — trainee name, mode, scenario, score, pass/fail, duration, and date.
               </div>
-              <a
-                href="/api/admin/simulator/export"
-                download="simulator-report.csv"
-                style={{ ...btn, textDecoration: "none", display: "inline-block" }}
-                onClick={e => { e.currentTarget.setAttribute('href', `/api/admin/simulator/export`); }}
-              >📥 DOWNLOAD CSV REPORT</a>
+              <button
+                style={{ ...btn, cursor: "pointer" }}
+                onClick={async () => {
+                  const res = await fetch('/api/admin/simulator/export', { headers: { 'x-admin-password': adminPw } });
+                  if (!res.ok) { alert('Export failed: ' + (await res.text())); return; }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = 'simulator-report.csv'; a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >📥 DOWNLOAD CSV REPORT</button>
             </div>
             <div style={{ ...card, background: "rgba(0,255,136,0.02)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", lineHeight: 1.7 }}>
