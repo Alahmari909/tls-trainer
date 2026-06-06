@@ -2261,6 +2261,119 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
   );
 }
 
+// ─── Nav Manager Admin ────────────────────────────────────────────────────────
+function NavManagerAdmin({ adminPw }: { adminPw: string }) {
+  const [items, setItems] = React.useState<{ id: number; label: string; href: string; icon: string; order: number; isVisible: boolean }[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [newItem, setNewItem] = React.useState({ label: "", href: "", icon: "BookOpen" });
+  const [dragging, setDragging] = React.useState<number | null>(null);
+
+  const headers = { "Content-Type": "application/json", "x-admin-pw": adminPw };
+  const ICONS = ["Home","BookOpen","Zap","FileText","MessageSquare","MessageCircle","Monitor","ShieldAlert","Trophy","BarChart","Bell","Settings","Crosshair","Users"];
+  const ICON_EMOJI: Record<string,string> = { Home:"⌂", BookOpen:"📡", Zap:"⭐", FileText:"📋", MessageSquare:"💬", MessageCircle:"🔒", Monitor:"🎮", ShieldAlert:"⚠️", Trophy:"🏅", BarChart:"📊", Bell:"🔔", Settings:"⚙️", Crosshair:"🎯", Users:"👥" };
+
+  React.useEffect(() => {
+    fetch(`/api/admin/nav-items`, { headers: { "x-admin-pw": adminPw } })
+      .then(r => r.json()).then((d: any[]) => { if (Array.isArray(d)) setItems(d); }).finally(() => setLoading(false));
+  }, []);
+
+  const saveAll = async () => {
+    setSaving(true);
+    await fetch(`/api/admin/nav-items`, {
+      method: "PUT", headers,
+      body: JSON.stringify(items.map(({ id, isVisible, order, label, icon }) => ({ id, isVisible, order, label, icon }))),
+    });
+    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000);
+  };
+
+  const toggle = (id: number) => setItems(prev => prev.map(i => i.id === id ? { ...i, isVisible: !i.isVisible } : i));
+  const moveUp = (idx: number) => { if (idx === 0) return; setItems(prev => { const a = [...prev]; [a[idx-1], a[idx]] = [a[idx], a[idx-1]]; return a.map((x,i) => ({ ...x, order: i+1 })); }); };
+  const moveDown = (idx: number) => setItems(prev => { if (idx >= prev.length-1) return prev; const a = [...prev]; [a[idx], a[idx+1]] = [a[idx+1], a[idx]]; return a.map((x,i) => ({ ...x, order: i+1 })); });
+
+  const addItem = async () => {
+    if (!newItem.label || !newItem.href) return;
+    const res = await fetch(`/api/admin/nav-items`, { method: "POST", headers, body: JSON.stringify({ ...newItem, order: items.length + 1 }) });
+    const item = await res.json();
+    setItems(prev => [...prev, item]);
+    setNewItem({ label: "", href: "", icon: "BookOpen" }); setShowAdd(false);
+  };
+
+  const deleteItem = async (id: number) => {
+    await fetch(`/api/admin/nav-items/${id}`, { method: "DELETE", headers });
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const C = { primary: "#00FF88", cyan: "#00AEEF", gold: "#FFD166", red: "#FF4D4D", muted: "rgba(255,255,255,0.35)" };
+  const inp: React.CSSProperties = { background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontFamily: "Inter", fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box" };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: C.muted, fontFamily: "Inter", fontSize: 12 }}>Loading...</div>;
+
+  return (
+    <div style={{ padding: "24px 20px", maxWidth: 600 }}>
+      <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontFamily: "Orbitron", fontSize: 11, color: C.cyan, letterSpacing: "0.18em", marginBottom: 4 }}>NAV MANAGER</div>
+          <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted }}>Control trainee sidebar navigation</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowAdd(v => !v)} style={{ padding: "8px 14px", background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", borderRadius: 8, color: C.cyan, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>+ Add</button>
+          <button onClick={saveAll} disabled={saving} style={{ padding: "8px 14px", background: saving ? "rgba(0,255,136,0.05)" : "rgba(0,255,136,0.15)", border: `1px solid ${C.primary}40`, borderRadius: 8, color: C.primary, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>{saved ? "✓ Saved" : saving ? "Saving..." : "Save All"}</button>
+        </div>
+      </div>
+
+      {showAdd && (
+        <div style={{ background: "rgba(0,174,239,0.06)", border: "1px solid rgba(0,174,239,0.2)", borderRadius: 12, padding: "16px", marginBottom: 16 }}>
+          <div style={{ fontFamily: "Orbitron", fontSize: 10, color: C.cyan, letterSpacing: "0.15em", marginBottom: 12 }}>NEW ITEM</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div><div style={{ fontFamily: "Inter", fontSize: 10, color: C.muted, marginBottom: 4 }}>LABEL</div><input value={newItem.label} onChange={e => setNewItem(p => ({ ...p, label: e.target.value }))} placeholder="My Page" style={inp} /></div>
+            <div><div style={{ fontFamily: "Inter", fontSize: 10, color: C.muted, marginBottom: 4 }}>PATH</div><input value={newItem.href} onChange={e => setNewItem(p => ({ ...p, href: e.target.value }))} placeholder="/my-page" style={inp} /></div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "Inter", fontSize: 10, color: C.muted, marginBottom: 4 }}>ICON</div>
+            <select value={newItem.icon} onChange={e => setNewItem(p => ({ ...p, icon: e.target.value }))} style={{ ...inp }}>
+              {ICONS.map(ic => <option key={ic} value={ic}>{ICON_EMOJI[ic] ?? "•"} {ic}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button onClick={() => setShowAdd(false)} style={{ padding: "6px 14px", background: "none", border: "none", color: C.muted, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>Cancel</button>
+            <button onClick={addItem} style={{ padding: "6px 14px", background: "rgba(0,255,136,0.15)", border: `1px solid ${C.primary}40`, borderRadius: 8, color: C.primary, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>Add</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.map((item, idx) => (
+          <div key={item.id}
+            draggable onDragStart={() => setDragging(item.id)}
+            onDragOver={e => { e.preventDefault(); if (dragging === null || dragging === item.id) return; setItems(prev => { const a = [...prev]; const fi = a.findIndex(x => x.id === dragging); const ti = a.findIndex(x => x.id === item.id); if (fi === -1 || ti === -1) return prev; const [m] = a.splice(fi, 1); a.splice(ti, 0, m); return a.map((x, i) => ({ ...x, order: i+1 })); }); }}
+            onDragEnd={() => setDragging(null)}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: item.isVisible ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)", border: `1px solid ${item.isVisible ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)"}`, borderRadius: 10, opacity: item.isVisible ? 1 : 0.45, cursor: "grab" }}>
+            <span style={{ color: C.muted, fontSize: 14 }}>⠿</span>
+            <span style={{ fontSize: 18, width: 24, textAlign: "center" }}>{ICON_EMOJI[item.icon] ?? "•"}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "#fff" }}>{item.label}</div>
+              <div style={{ fontFamily: "Inter", fontSize: 10, color: C.muted }}>{item.href} · {item.icon}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button onClick={() => moveUp(idx)} disabled={idx === 0} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, opacity: idx === 0 ? 0.2 : 1 }}>▲</button>
+              <button onClick={() => moveDown(idx)} disabled={idx === items.length-1} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, opacity: idx === items.length-1 ? 0.2 : 1 }}>▼</button>
+              <button onClick={() => toggle(item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16 }} title={item.isVisible ? "Hide" : "Show"}>{item.isVisible ? "👁️" : "🚫"}</button>
+              <button onClick={() => deleteItem(item.id)} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 13 }}>🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 12, textAlign: "center", fontFamily: "Inter", fontSize: 10, color: C.muted }}>
+        {items.filter(i => i.isVisible).length} of {items.length} items visible to trainees
+      </div>
+    </div>
+  );
+}
+
 // ─── Simulator Admin ──────────────────────────────────────────────────────────
 function SimulatorAdmin({ adminPw }: { adminPw: string }) {
   type SimTab = "overview" | "preview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports" | "chat";
@@ -2950,11 +3063,12 @@ const NAV_LINKS = [
   { id: "about",         label: "About",          icon: "ℹ️", divider: false },
   { id: "documents",     label: "Documents",      icon: "📄", divider: false },
   { id: "common_faults",  label: "Common Faults",  icon: "⚠️", divider: false },
-  { id: "simulator",      label: "Simulator",      icon: "🛩️", divider: true  },
+  { id: "simulator",      label: "Simulator",      icon: "🛩️", divider: false },
+  { id: "nav_manager",   label: "Nav Manager",    icon: "🗂️", divider: true  },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator";
+  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -3832,6 +3946,12 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {activeView === "simulator" && (
         <div className="admin-view" style={{ background: "#030d03", minHeight: "100vh" }}>
           <SimulatorAdmin adminPw={adminPw} />
+        </div>
+      )}
+
+      {activeView === "nav_manager" && (
+        <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh" }}>
+          <NavManagerAdmin adminPw={adminPw} />
         </div>
       )}
 

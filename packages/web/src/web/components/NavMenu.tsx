@@ -53,23 +53,26 @@ function BellIcon({ traineeId }: { traineeId: string }) {
   );
 }
 
-const navItems = [
-  { path: "/",             label: "Home",          icon: "⌂",  tag: "DASHBOARD" },
-  { path: "/basics",       label: "TLS Basic",     icon: "📡",  tag: "LEARN" },
-  { path: "/advanced",     label: "TLS Advanced",  icon: "🛰️",  tag: "ADVANCED" },
-  { path: "/manuals",      label: "Manuals",       icon: "📋",  tag: "REFERENCE" },
-  { path: "/quiz",         label: "Quiz",          icon: "🎯",  tag: "ASSESSMENT" },
-  { path: "/achievements", label: "Achievements",  icon: "🏅",  tag: "PROFILE" },
-  { path: "/chat",         label: "AI Instructor", icon: "💬",  tag: "AI" },
-  { path: "/private-chat", label: "Comms",         icon: "🔒",  tag: "COMMS" },
-  { path: "/faults",        label: "Common Faults", icon: "⚠️",  tag: "FAULTS" },
-  { path: "/simulator",     label: "RCU Simulator", icon: "🎮",  tag: "SIM" },
-  { path: "/status",        label: "System Status", icon: "📶",  tag: "STATUS" },
-  { path: "/notifications",label: "Notifications", icon: "🔔",  tag: "ALERTS" },
-  { path: "/settings",     label: "Settings",      icon: "⚙️",  tag: "CONFIG" },
-  { path: "/about",        label: "About",         icon: "ℹ️",  tag: "INFO" },
-  // Admin Panel intentionally excluded — access via direct URL only
-];
+// Icon map — emoji fallback for nav items
+const ICON_EMOJI: Record<string, string> = {
+  Home: "⌂", BookOpen: "📡", Zap: "⭐", FileText: "📋",
+  MessageSquare: "💬", MessageCircle: "🔒", Monitor: "🎮",
+  ShieldAlert: "⚠️", Trophy: "🏅", BarChart: "📊",
+  Bell: "🔔", Settings: "⚙️", Crosshair: "🎯", Users: "👥",
+};
+
+interface DynNavItem { id: number; label: string; href: string; icon: string; order: number; isVisible: boolean; }
+
+function useDynamicNav() {
+  const [items, setItems] = useState<DynNavItem[]>([]);
+  useEffect(() => {
+    fetch("/api/nav-items")
+      .then(r => r.json())
+      .then((d: DynNavItem[]) => { if (Array.isArray(d)) setItems(d.filter(i => i.isVisible)); })
+      .catch(() => {});
+  }, []);
+  return items.sort((a, b) => a.order - b.order);
+}
 
 function useLiveClock() {
   const [now, setNow] = useState(() => new Date());
@@ -109,6 +112,7 @@ export default function NavMenu() {
   const [location, navigate] = useLocation();
   const [session, setSession] = useState(() => getSession());
   const now = useLiveClock();
+  const dynNavItems = useDynamicNav();
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark";
   });
@@ -316,12 +320,15 @@ export default function NavMenu() {
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "8px 0" }}>
-          {navItems.map((item, i) => {
-            const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+          {dynNavItems.length === 0 ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 11, fontFamily: "Inter" }}>Loading...</div>
+          ) : dynNavItems.map((item, i) => {
+            const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
+            const emoji = ICON_EMOJI[item.icon] ?? "•";
             return (
               <Link
-                key={item.path}
-                href={item.path}
+                key={item.id}
+                href={item.href}
                 onClick={() => setOpen(false)}
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
@@ -339,7 +346,7 @@ export default function NavMenu() {
                 onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(0,174,239,0.06)"; }}
                 onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <span style={{ fontSize: 16, flexShrink: 0, width: 22, textAlign: "center" }}>{item.icon}</span>
+                <span style={{ fontSize: 16, flexShrink: 0, width: 22, textAlign: "center" }}>{emoji}</span>
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {isActive && (
                   <div style={{

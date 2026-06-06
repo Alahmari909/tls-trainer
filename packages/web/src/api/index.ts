@@ -245,6 +245,37 @@ async function ensureTables() {
       created_at INTEGER NOT NULL,
       expires_at INTEGER
     )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS nav_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL,
+      href TEXT NOT NULL,
+      icon TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_visible INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL DEFAULT 0
+    )`);
+    // Seed default nav items if empty
+    const navRows = await sql(`SELECT id FROM nav_items LIMIT 1`);
+    if (navRows.length === 0) {
+      const defaults = [
+        ['TLS Basic',      '/basics',       'BookOpen',      1],
+        ['TLS Advanced',   '/advanced',     'Zap',           2],
+        ['Quiz',           '/quiz',         'Crosshair',     3],
+        ['Manuals',        '/manuals',      'FileText',      4],
+        ['AI Instructor',  '/chat',         'MessageSquare', 5],
+        ['Comms',          '/private-chat', 'MessageCircle', 6],
+        ['RCU Simulator',  '/simulator',    'Monitor',       7],
+        ['Common Faults',  '/faults',       'ShieldAlert',   8],
+        ['Achievements',   '/achievements', 'Trophy',        9],
+        ['Leaderboard',    '/leaderboard',  'BarChart',      10],
+        ['Notifications',  '/notifications','Bell',          11],
+        ['Settings',       '/settings',     'Settings',      12],
+      ];
+      for (const [label, href, icon, order] of defaults) {
+        await sqlRun(`INSERT INTO nav_items (label, href, icon, sort_order, is_visible, created_at) VALUES (?,?,?,?,1,?)`,
+          [label, href, icon, order, Date.now()]);
+      }
+    }
     // Default simulator config if not exists
     const cfgRows = await sql(`SELECT key FROM simulator_config WHERE key='enabled'`);
     if (cfgRows.length === 0) {
@@ -2827,4 +2858,68 @@ app.post('/admin/simulator/messages', async (c) => {
 });
 
 export type AppType = typeof app;
+// ── NAV ITEMS API ──────────────────────────────────────────────────────────────
+
+// GET /api/nav-items — public, returns visible items for trainees
+app.get('/nav-items', async (c) => {
+  const items = await sql(`SELECT * FROM nav_items ORDER BY sort_order ASC`);
+  return c.json(items.map((i: any) => ({
+    id: i.id, label: i.label, href: i.href, icon: i.icon,
+    order: i.sort_order, isVisible: i.is_visible === 1,
+  })));
+});
+
+// GET /api/admin/nav-items — admin only, returns all items
+app.get('/admin/nav-items', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const items = await sql(`SELECT * FROM nav_items ORDER BY sort_order ASC`);
+  return c.json(items.map((i: any) => ({
+    id: i.id, label: i.label, href: i.href, icon: i.icon,
+    order: i.sort_order, isVisible: i.is_visible === 1,
+  })));
+});
+
+// PUT /api/admin/nav-items — bulk update (order, visibility, label, icon)
+app.put('/admin/nav-items', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const updates = await c.req.json().catch(() => []) as { id: number; isVisible?: boolean; order?: number; label?: string; icon?: string }[];
+  if (!Array.isArray(updates)) return c.json({ error: 'Expected array' }, 400);
+  for (const item of updates) {
+    const { id, isVisible, order, label, icon } = item;
+    if (!id) continue;
+    await sqlRun(
+      `UPDATE nav_items SET is_visible=COALESCE(?,is_visible), sort_order=COALESCE(?,sort_order), label=COALESCE(?,label), icon=COALESCE(?,icon) WHERE id=?`,
+      [isVisible === undefined ? null : isVisible ? 1 : 0, order ?? null, label ?? null, icon ?? null, id]
+    );
+  }
+  const items = await sql(`SELECT * FROM nav_items ORDER BY sort_order ASC`);
+  return c.json(items.map((i: any) => ({ id: i.id, label: i.label, href: i.href, icon: i.icon, order: i.sort_order, isVisible: i.is_visible === 1 })));
+});
+
+// POST /api/admin/nav-items — add new item
+app.post('/admin/nav-items', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const { label, href, icon, order } = await c.req.json().catch(() => ({})) as any;
+  if (!label || !href || !icon) return c.json({ error: 'label, href and icon required' }, 400);
+  const maxOrder = await sql(`SELECT MAX(sort_order) as m FROM nav_items`);
+  const nextOrder = order ?? ((maxOrder[0] as any)?.m ?? 0) + 1;
+  await sqlRun(`INSERT INTO nav_items (label, href, icon, sort_order, is_visible, created_at) VALUES (?,?,?,?,1,?)`,
+    [label, href, icon, nextOrder, Date.now()]);
+  const row = await sql(`SELECT * FROM nav_items ORDER BY id DESC LIMIT 1`);
+  const i = row[0] as any;
+  return c.json({ id: i.id, label: i.label, href: i.href, icon: i.icon, order: i.sort_order, isVisible: true }, 201);
+});
+
+// DELETE /api/admin/nav-items/:id
+app.delete('/admin/nav-items/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = parseInt(c.req.param('id'));
+  await sqlRun(`DELETE FROM nav_items WHERE id=?`, [id]);
+  return c.json({ ok: true });
+});
+
 export default app;
