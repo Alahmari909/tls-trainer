@@ -1211,10 +1211,12 @@ const app = new Hono()
   })
   .get('/ensure-user/:userId', async (c) => {
     const userId = c.req.param('userId');
-    const existing = await sql(`SELECT id FROM users WHERE id=?`, [userId]);
-    if (existing.length === 0) {
-      await sqlRun(`INSERT INTO users (id, name, email, role, created_at) VALUES (?, 'Trainee', ?, 'student', ?)`, [userId, `${userId}@tls-trainer.local`, Date.now()]);
-    }
+    try {
+      const existing = await sql(`SELECT id FROM users WHERE id=?`, [userId]);
+      if (existing.length === 0) {
+        await sqlRun(`INSERT OR IGNORE INTO users (id, name, email, role, created_at) VALUES (?, 'Trainee', ?, 'student', ?)`, [userId, `${userId}@tls-trainer.local`, Date.now()]);
+      }
+    } catch { /* users table may not exist, non-fatal */ }
     return c.json({ ok: true }, 200);
   })
   .post('/quiz/submit', async (c) => {
