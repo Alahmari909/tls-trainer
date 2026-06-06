@@ -778,7 +778,7 @@ function isOnline(id: string): boolean {
   return last !== undefined && Date.now() - last < ONLINE_THRESHOLD_MS;
 }
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "TLS@Admin2025";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "TlsAdmin2025";
 
 // ── App ───────────────────────────────────────────────────────────────────────
 const app = new Hono()
