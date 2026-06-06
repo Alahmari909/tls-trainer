@@ -57,11 +57,11 @@ const REC_MS = 500, REC_MAX = 120;
 const toRad = d => d * Math.PI / 180;
 const toDeg = r => r * 180 / Math.PI;
 
-const OPEN_X = +(LOC_RANGE * 0.97);
+const OPEN_X = +(LOC_RANGE * 0.97); // kept for reference (cone opening)
 const AC_PATHS = [
-  { p0:{x:38,y:-32}, p1:{x:32,y:-14}, p2:{x:OPEN_X,y:0} },
-  { p0:{x:50,y:4},   p1:{x:36,y:1},   p2:{x:OPEN_X,y:0} },
-  { p0:{x:38,y:32},  p1:{x:32,y:14},  p2:{x:OPEN_X,y:0} },
+  { p0:{x:38,y:-32}, p1:{x:18,y:-4}, p2:{x:0.4,y:0} },
+  { p0:{x:50,y:4},   p1:{x:24,y:2},  p2:{x:0.4,y:0} },
+  { p0:{x:38,y:32},  p1:{x:18,y:4},  p2:{x:0.4,y:0} },
 ];
 
 function bezierPt(p0,p1,p2,t){ const mt=1-t; return { x:mt*mt*p0.x+2*mt*t*p1.x+t*t*p2.x, y:mt*mt*p0.y+2*mt*t*p1.y+t*t*p2.y }; }
@@ -160,8 +160,8 @@ function Radar({ aircraft, selId, onSel, zoom, flash }) {
             </g>
           );
         })}
-        <path d={locP} fill="#1c6600" fillOpacity={0.88} stroke="#28cc00" strokeWidth={1.5}/>
-        <path d={gsP} fill="#38e800" fillOpacity={0.92} stroke="#66ff22" strokeWidth={1.5}/>
+        <path d={locP} fill="#1c6600" fillOpacity={0.45} stroke="#28cc00" strokeWidth={1.5}/>
+        <path d={gsP} fill="#38e800" fillOpacity={0.35} stroke="#66ff22" strokeWidth={1.5}/>
         <line x1={0} y1={0} x2={axX} y2={axY} stroke="#fff" strokeWidth={2} opacity={0.65} strokeDasharray="6,4"/>
         {aircraft.map(ac=>{
           if(ac.phase==='idle') return null;
