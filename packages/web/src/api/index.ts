@@ -134,6 +134,10 @@ async function ensureTables() {
     // Add xp/level columns to trainees if missing
     await client.execute(`ALTER TABLE trainees ADD COLUMN xp INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN level INTEGER NOT NULL DEFAULT 1`).catch(() => {});
+    await client.execute(`ALTER TABLE trainees ADD COLUMN years_of_service INTEGER`).catch(() => {});
+    await client.execute(`ALTER TABLE trainees ADD COLUMN air_base TEXT`).catch(() => {});
+    await client.execute(`ALTER TABLE trainees ADD COLUMN avatar TEXT`).catch(() => {});
+    await client.execute(`ALTER TABLE trainees ADD COLUMN avatar_pending TEXT`).catch(() => {});
     await client.execute(`CREATE TABLE IF NOT EXISTS moderation_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       trainee_id TEXT NOT NULL,
@@ -809,19 +813,31 @@ const app = new Hono()
 
   // POST /trainee/update — trainee updates their own display name/rank/unit
   .post('/trainee/update', async (c) => {
-    const body = await c.req.json().catch(() => ({})) as { id?: string; name?: string; rank?: string; unit?: string };
+    const body = await c.req.json().catch(() => ({})) as { id?: string; name?: string; rank?: string; unit?: string; years_of_service?: number; air_base?: string };
     if (!body.id) return c.json({ error: 'id required' }, 400);
     const rows = await sql(`SELECT id FROM trainees WHERE id=?`, [body.id]);
     if (!rows.length) return c.json({ error: 'Not found' }, 404);
     const name = body.name?.trim() || undefined;
     const rank = body.rank?.trim() ?? null;
     const unit = body.unit?.trim() ?? null;
+    const years_of_service = body.years_of_service ?? null;
+    const air_base = body.air_base?.trim() ?? null;
     if (name) {
-      await sqlRun(`UPDATE trainees SET name=?, rank=?, unit=? WHERE id=?`, [name, rank, unit, body.id]);
+      await sqlRun(`UPDATE trainees SET name=?, rank=?, unit=?, years_of_service=?, air_base=? WHERE id=?`, [name, rank, unit, years_of_service, air_base, body.id]);
     } else {
-      await sqlRun(`UPDATE trainees SET rank=?, unit=? WHERE id=?`, [rank, unit, body.id]);
+      await sqlRun(`UPDATE trainees SET rank=?, unit=?, years_of_service=?, air_base=? WHERE id=?`, [rank, unit, years_of_service, air_base, body.id]);
     }
     return c.json({ ok: true }, 200);
+  })
+
+  // POST /trainee/avatar — trainee uploads profile picture (stores as pending)
+  .post('/trainee/avatar', async (c) => {
+    const body = await c.req.json().catch(() => ({})) as { id?: string; image?: string };
+    if (!body.id || !body.image) return c.json({ error: 'id + image required' }, 400);
+    if (body.image.length > 500000) return c.json({ error: 'Image too large (max ~375KB)' }, 413);
+    await sqlRun(`UPDATE trainees SET avatar_pending=? WHERE id=?`, [body.image, body.id]);
+    await logActivity(body.id, 'avatar_uploaded', { status: 'pending' });
+    return c.json({ ok: true, status: 'pending' }, 200);
   })
 
   // POST /trainee/logout
@@ -844,7 +860,7 @@ const app = new Hono()
   .get('/trainee/me/:id', async (c) => {
     const id = c.req.param('id');
     const rows = await sql(
-      `SELECT id, name, rank, unit, login_count, last_login_at, is_online, last_page, last_active_at, created_at, status FROM trainees WHERE id=?`, [id]
+      `SELECT id, name, rank, unit, login_count, last_login_at, is_online, last_page, last_active_at, created_at, status, xp, level, years_of_service, air_base, avatar, avatar_pending FROM trainees WHERE id=?`, [id]
     );
     if (!rows.length) return c.json({ error: 'Not found' }, 404);
     return c.json(rows[0], 200);
@@ -1894,6 +1910,36 @@ Example good answer for "What is DDM?":
       );
     }
     await logActivity(traineeId, 'module_completed_by_admin', { moduleId, moduleName, by: 'admin' });
+    return c.json({ ok: true }, 200);
+  })
+
+  // GET /admin/pending-avatars
+  .get('/admin/pending-avatars', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const rows = await sql(`SELECT id, name, rank, unit, avatar_pending FROM trainees WHERE avatar_pending IS NOT NULL AND avatar_pending != '' ORDER BY id`);
+    return c.json(rows, 200);
+  })
+
+  // POST /admin/avatar/approve/:id
+  .post('/admin/avatar/approve/:id', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    await sqlRun(`UPDATE trainees SET avatar=avatar_pending, avatar_pending=NULL WHERE id=?`, [id]);
+    await logActivity(id, 'avatar_approved', { by: 'admin' });
+    const [t] = await sql(`SELECT name FROM trainees WHERE id=?`, [id]);
+    sendTelegram({ type: 'admin_alert', message: `✅ Avatar approved for ${(t?.name as string) ?? id}` });
+    return c.json({ ok: true }, 200);
+  })
+
+  // POST /admin/avatar/reject/:id
+  .post('/admin/avatar/reject/:id', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    await sqlRun(`UPDATE trainees SET avatar_pending=NULL WHERE id=?`, [id]);
+    await logActivity(id, 'avatar_rejected', { by: 'admin' });
     return c.json({ ok: true }, 200);
   })
 
