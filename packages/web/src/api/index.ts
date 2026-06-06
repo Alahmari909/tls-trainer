@@ -979,6 +979,30 @@ const app = new Hono()
     }
 
     await logActivity(traineeId, 'quiz_finish', { moduleId, moduleName, score, total, pct, passed });
+
+    // Telegram quiz pass/fail alert
+    const [nameRow] = await sql(`SELECT name FROM trainees WHERE id=?`, [traineeId]).catch(() => []);
+    const traineeName = (nameRow as any)?.name ?? traineeId;
+    if (passed === 1) {
+      sendTelegram({ type: 'quiz_finish', traineeId, traineeName, moduleName, score, total });
+    } else {
+      // Send fail via quiz_finish (telegram.ts will show FAIL ❌ based on pct)
+      sendTelegram({ type: 'quiz_finish', traineeId, traineeName, moduleName, score, total });
+    }
+
+    // Module milestone: check total completed modules
+    const completedRows = await sql(
+      `SELECT COUNT(*) as cnt FROM trainee_module_progress WHERE trainee_id=? AND completed=1`,
+      [traineeId]
+    ).catch(() => []);
+    const totalCompleted = (completedRows[0] as any)?.cnt ?? 0;
+    if ([3, 6, 9, 12].includes(Number(totalCompleted))) {
+      sendTelegram({
+        type: 'system_warning',
+        message: `🏆 MILESTONE: ${traineeName} completed ${totalCompleted} modules!`,
+      });
+    }
+
     return c.json({ ok: true, pct, passed: passed === 1, attemptId }, 200);
   })
 

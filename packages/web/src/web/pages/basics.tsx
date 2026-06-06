@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import BackButton from "../components/BackButton";
+import { getSession } from "../hooks/useTelegramTrack";
 
 type Component = {
   id: string;
@@ -193,6 +194,34 @@ const specs = [
 function ComponentDetail({ comp, onBack }: { comp: Component; onBack: () => void }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { setTimeout(() => setVisible(true), 10); }, []);
+
+  // Time tracking
+  const openTimeRef = useRef<number>(Date.now());
+  useEffect(() => {
+    openTimeRef.current = Date.now();
+    const onVisibility = () => {
+      if (document.hidden) postTime();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      postTime();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comp.id]);
+
+  const postTime = () => {
+    const durationMs = Date.now() - openTimeRef.current;
+    if (durationMs < 3000) return;
+    const traineeId = getSession()?.id;
+    if (!traineeId) return;
+    fetch('/api/trainee/time', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-trainee-id': traineeId },
+      body: JSON.stringify({ traineeId, moduleId: comp.id, moduleName: comp.name, durationMs }),
+    }).catch(() => {});
+    openTimeRef.current = Date.now(); // reset so re-show doesn't double-count
+  };
 
   return (
     <div className="page" style={{

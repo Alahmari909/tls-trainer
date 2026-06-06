@@ -34,7 +34,8 @@ type Trainee = {
   id: string; name: string; email: string; role: string;
   xp: number; currentStreak: number; longestStreak: number;
   completedModules: number; totalModules: number; earnedBadges: number;
-  lastActive: number; online: boolean; createdAt: number;
+  lastActive: number; lastActiveAt?: number; lastPage?: string | null;
+  online: boolean; createdAt: number;
   status?: string; trainingLevel?: string;
 };
 
@@ -3979,8 +3980,13 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   </div>
                   <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 1, fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.email}</div>
                   <div style={{ fontSize: 10, color: t.online ? "#00CC66" : "rgba(255,255,255,0.25)", marginTop: 2, fontFamily: "Inter" }}>
-                    {t.online ? "● Online now" : `Last: ${timeAgo(t.lastActive)}`}
+                    {t.online ? "● Online now" : `Last: ${timeAgo(t.lastActiveAt ?? t.lastActive)}`}
                   </div>
+                  {t.lastPage && (
+                    <div style={{ fontSize: 9, color: "rgba(0,174,239,0.5)", marginTop: 1, fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      📍 {t.lastPage}
+                    </div>
+                  )}
                 </div>
 
                 {/* Level badge */}
