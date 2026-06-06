@@ -219,9 +219,8 @@ const W3D = {
 function IlsChannel({ aircraft, ch, onInp, onAcq, onRst }) {
   const acq = aircraft.find(a => a.channel === 0);
   const hasAc = !!acq;
-  const searching = hasAc && ch.timeoutT !== null;
-  const st = hasAc ? (searching ? 'SEARCHING' : inGsCone(acq) ? 'TRACKING' : inLocCone(acq) ? 'LOC ONLY' : 'ACQUIRED') : 'READY';
-  const stBg = st==='TRACKING'?'#ffff00':st==='LOC ONLY'?'#00ffff':st==='SEARCHING'?'#ff8800':'#c0c0c0';
+  const st = hasAc ? (inGsCone(acq) ? 'TRACKING' : inLocCone(acq) ? 'LOC ONLY' : 'ACQUIRED') : 'READY';
+  const stBg = st==='TRACKING'?'#ffff00':st==='LOC ONLY'?'#00ffff':st==='ACQUIRED'?'#00ff00':'#c0c0c0';
   const groupStyle = { border:'1px solid #808080',borderTop:'1px solid #dfdfdf',borderLeft:'1px solid #dfdfdf',marginBottom:6,background:'#d4d0c8',padding:'4px 6px' };
   return (
     <div style={groupStyle}>
@@ -233,7 +232,7 @@ function IlsChannel({ aircraft, ch, onInp, onAcq, onRst }) {
         <span style={{color:'#000'}}>Display</span>
         <span style={{color:'#000',marginLeft:4}}>Status:</span>
         <div style={{flex:1,background:stBg,color:'#000',fontSize:11,fontWeight:'bold',padding:'1px 6px',textAlign:'center',border:'1px inset #808080',fontFamily:'Arial,sans-serif'}}>
-          {st}{searching&&ch.timeoutT!==null?` ${ch.timeoutT}s`:''}
+          {st}
         </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:3,marginBottom:5,fontFamily:'Arial,sans-serif'}}>
@@ -640,22 +639,14 @@ function TLSSimulator() {
   // Clock
   useEffect(() => { const id=setInterval(()=>setClock(new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})),1000); return ()=>clearInterval(id); }, []);
 
-  // Timeout + auto-clear
+  // Auto-clear if acquired aircraft leaves LOC cone
   useEffect(() => {
     const id = setInterval(() => {
       setChannel(ch => {
         const acq = ac.find(a => a.channel === 0);
-        if (acq && !inLocCone(acq) && ch.timeoutT === null) {
+        if (acq && !inLocCone(acq)) {
           setAc(p => p.map(a => a.channel===0?{...a,channel:null}:a));
-          return {inp:'',timeoutT:null};
-        }
-        if (ch.timeoutT !== null) {
-          const newT = ch.timeoutT - 1;
-          if (newT <= 0) {
-            setAc(p => p.map(a => a.channel===0?{...a,channel:null}:a));
-            return {inp:'',timeoutT:null};
-          }
-          return {...ch, timeoutT:newT};
+          return {inp:'', timeoutT:null};
         }
         return ch;
       });
@@ -770,9 +761,8 @@ function TLSSimulator() {
   const onAcq = () => {
     const sq=channel.inp.trim(); if(!sq) return;
     if(ac.some(a=>a.channel===0)) return;
-    const matched = ac.some(a=>a.sq===sq&&a.channel===null&&inLocCone(a));
     setAc(prev=>prev.map(a=>a.sq===sq&&a.channel===null?{...a,channel:0}:a));
-    setChannel(prev=>({...prev,timeoutT:matched?null:120}));
+    setChannel(prev=>({...prev,timeoutT:null}));
   };
   const onRst = () => {
     setAc(prev=>prev.map(a=>a.channel===0?{...a,channel:null}:a));
