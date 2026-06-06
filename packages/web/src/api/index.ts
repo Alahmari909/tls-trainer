@@ -135,6 +135,19 @@ async function ensureTables() {
     await client.execute(`ALTER TABLE trainees ADD COLUMN xp INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN level INTEGER NOT NULL DEFAULT 1`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN years_of_service INTEGER`).catch(() => {});
+    await client.execute(`CREATE TABLE IF NOT EXISTS registration_requests (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      rank TEXT,
+      unit TEXT,
+      air_base TEXT,
+      years_of_service INTEGER,
+      pin TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      review_note TEXT,
+      ts INTEGER NOT NULL,
+      reviewed_at INTEGER
+    )`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN air_base TEXT`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN avatar TEXT`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN avatar_pending TEXT`).catch(() => {});
@@ -747,34 +760,22 @@ const app = new Hono()
   // TRAINEE AUTH
   // ══════════════════════════════════════════════════════════════════════════
 
-  // POST /trainee/register
+  // POST /trainee/register — saves as pending request, requires admin approval
   .post('/trainee/register', async (c) => {
     const body = await c.req.json().catch(() => ({})) as {
-      name?: string; rank?: string; unit?: string; pin?: string;
+      name?: string; rank?: string; unit?: string; air_base?: string; years_of_service?: number; pin?: string;
     };
     if (!body.name?.trim()) return c.json({ error: 'Name required' }, 400);
-
+    if (!body.pin?.trim()) return c.json({ error: 'PIN required' }, 400);
     const id = uuid();
     const now = Date.now();
     await sqlRun(
-      `INSERT INTO trainees (id, name, rank, unit, pin, created_at, last_login_at, login_count, is_online, last_page, last_active_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, '/', ?)`,
-      [id, body.name.trim(), body.rank ?? null, body.unit ?? null, body.pin ?? null, now, now, now]
+      `INSERT INTO registration_requests (id, name, rank, unit, air_base, years_of_service, pin, status, ts)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [id, body.name.trim(), body.rank ?? null, body.unit ?? null, body.air_base ?? null, body.years_of_service ?? null, body.pin.trim(), now]
     );
-    onlineHeartbeats.set(id, now);
-    await logActivity(id, 'register', { name: body.name });
-    // Register always fires Telegram (first-time only by definition)
-    markTelegramSent(id, "login");
-    sendTelegram({ type: "login", traineeId: id, traineeName: body.name.trim() });
-
-    // Also ensure legacy user exists so progress/streaks FKs work
-    await db.insert(users).values({
-      id, name: body.name.trim(),
-      email: `${id}@tls-trainer.local`,
-      role: "student", createdAt: now,
-    }).catch(() => {});
-
-    return c.json({ ok: true, id, name: body.name.trim(), rank: body.rank ?? null, unit: body.unit ?? null }, 200);
+    sendTelegram({ type: "admin_alert", message: `📋 طلب تسجيل جديد: ${body.name.trim()} — بانتظار موافقة الأدمن` });
+    return c.json({ ok: true, pending: true, requestId: id }, 200);
   })
 
   // POST /trainee/login
@@ -789,7 +790,8 @@ const app = new Hono()
     const t = rows[0] as { id: string; name: string; rank: string | null; unit: string | null; pin: string | null; login_count: number; status: string | null };
 
     // Block gate — blocked trainees cannot log in
-    if (t.status === 'blocked') return c.json({ error: 'blocked', message: 'Your account has been blocked. Contact your instructor.' }, 403);
+    if (t.status === 'blocked') return c.json({ error: 'blocked', message: 'تم إيقاف حسابك. تواصل مع المدرب.' }, 403);
+    if (t.status === 'suspended') return c.json({ error: 'suspended', message: 'حسابك معلّق مؤقتاً. تواصل مع المدرب.' }, 403);
 
     // PIN check only if PIN was set
     if (t.pin && body.pin !== t.pin) return c.json({ error: 'Wrong PIN' }, 401);
@@ -1910,6 +1912,59 @@ Example good answer for "What is DDM?":
       );
     }
     await logActivity(traineeId, 'module_completed_by_admin', { moduleId, moduleName, by: 'admin' });
+    return c.json({ ok: true }, 200);
+  })
+
+  // GET /admin/registration-requests
+  .get('/admin/registration-requests', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const rows = await sql(`SELECT * FROM registration_requests ORDER BY ts DESC`);
+    return c.json(rows, 200);
+  })
+
+  // POST /admin/registration/approve/:id
+  .post('/admin/registration/approve/:id', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const reqId = c.req.param('id');
+    const [req] = await sql(`SELECT * FROM registration_requests WHERE id=?`, [reqId]);
+    if (!req) return c.json({ error: 'Request not found' }, 404);
+    if (req.status === 'approved') return c.json({ error: 'Already approved' }, 400);
+    const now = Date.now();
+    // Create trainee account
+    await sqlRun(
+      `INSERT OR IGNORE INTO trainees (id, name, rank, unit, air_base, years_of_service, pin, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '/', ?, 'active')`,
+      [reqId, req.name, req.rank, req.unit, req.air_base, req.years_of_service, req.pin, now, now, now]
+    );
+    await db.insert(users).values({ id: reqId, name: req.name as string, email: `${reqId}@tls-trainer.local`, role: "student", createdAt: now }).catch(() => {});
+    await sqlRun(`UPDATE registration_requests SET status='approved', reviewed_at=? WHERE id=?`, [now, reqId]);
+    await sqlRun(`INSERT INTO trainee_alerts (trainee_id, message, alert_type, read, ts) VALUES (?, ?, 'info', 0, ?)`,
+      [reqId, 'تمت الموافقة على تسجيلك. يمكنك الدخول الآن.', now]).catch(() => {});
+    sendTelegram({ type: 'admin_alert', message: `✅ تمت الموافقة على تسجيل: ${req.name}` });
+    return c.json({ ok: true }, 200);
+  })
+
+  // POST /admin/registration/reject/:id
+  .post('/admin/registration/reject/:id', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const reqId = c.req.param('id');
+    const { note } = await c.req.json().catch(() => ({})) as { note?: string };
+    const now = Date.now();
+    await sqlRun(`UPDATE registration_requests SET status='rejected', review_note=?, reviewed_at=? WHERE id=?`, [note ?? null, now, reqId]);
+    sendTelegram({ type: 'admin_alert', message: `❌ تم رفض طلب تسجيل` });
+    return c.json({ ok: true }, 200);
+  })
+
+  // POST /admin/registration/suspend/:id
+  .post('/admin/registration/suspend/:id', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const reqId = c.req.param('id');
+    const now = Date.now();
+    await sqlRun(`UPDATE registration_requests SET status='suspended', reviewed_at=? WHERE id=?`, [now, reqId]);
     return c.json({ ok: true }, 200);
   })
 
