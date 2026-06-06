@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from "hono/cors";
+import * as XLSX from 'xlsx';
 import { eq, and, desc } from "drizzle-orm";
 // AI SDK import removed — using direct Anthropic fetch instead
 import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
@@ -225,6 +226,16 @@ async function ensureTables() {
       pass_score INTEGER NOT NULL DEFAULT 70,
       active INTEGER NOT NULL DEFAULT 1,
       created_at INTEGER NOT NULL
+    )`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS simulator_aircraft_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER,
+      trainee_id TEXT,
+      callsign TEXT,
+      altitude_ft INTEGER,
+      heading_deg INTEGER,
+      event_type TEXT NOT NULL,
+      ts INTEGER NOT NULL
     )`);
     await client.execute(`CREATE TABLE IF NOT EXISTS simulator_broadcast (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2659,33 +2670,113 @@ app.delete('/admin/simulator/broadcast/:id', async (c) => {
   return c.json({ ok: true }, 200);
 });
 
-// ── Admin: export report ──────────────────────────────────────────────────────
+// ── Simulator: aircraft event (called from Replit) ───────────────────────────
+app.post('/simulator/aircraft-event', async (c) => {
+  let body: any;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON' }, 400); }
+  const { trainee_id, session_id, callsign, altitude_ft, heading_deg, event_type, ts } = body;
+  if (!event_type || !callsign) return c.json({ error: 'Missing fields' }, 400);
+  const now = ts ?? Date.now();
+  await sqlRun(
+    `INSERT INTO simulator_aircraft_events (session_id, trainee_id, callsign, altitude_ft, heading_deg, event_type, ts)
+     VALUES (?,?,?,?,?,?,?)`,
+    [session_id ?? null, trainee_id ?? null, callsign, altitude_ft ?? null, heading_deg ?? null, event_type, now]
+  );
+  return c.json({ ok: true }, 200);
+});
+
+// ── Admin: export report (Excel) ─────────────────────────────────────────────
 app.get('/admin/simulator/export', async (c) => {
   if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+
   const sessions = await sql(
-    `SELECT s.trainee_id, s.trainee_name, s.mode, s.score, s.passed, s.started_at, s.ended_at, s.duration_ms,
+    `SELECT s.id, s.trainee_id, s.trainee_name, s.mode, s.score, s.passed, s.started_at, s.ended_at, s.duration_ms,
             sc.name as scenario_name, sc.difficulty
      FROM simulator_sessions s
      LEFT JOIN simulator_scenarios sc ON sc.id = s.scenario_id
      ORDER BY s.started_at DESC`
   );
-  // Build CSV
-  const header = 'Trainee ID,Trainee Name,Mode,Scenario,Difficulty,Score,Passed,Started,Duration(min)\n';
-  const rows = (sessions as any[]).map(r =>
-    [
-      r.trainee_id, r.trainee_name, r.mode,
-      r.scenario_name ?? 'Free',
-      r.difficulty ?? '-',
-      r.score ?? '-',
-      r.passed ? 'YES' : 'NO',
-      r.started_at ? new Date(r.started_at).toISOString() : '-',
-      r.duration_ms ? (r.duration_ms / 60000).toFixed(1) : '-',
-    ].join(',')
-  ).join('\n');
-  return new Response(header + rows, {
+
+  // For each session, fetch aircraft events grouped by callsign
+  const sessionRows: any[] = [];
+  for (const s of sessions as any[]) {
+    const events = await sql(
+      `SELECT callsign, altitude_ft, heading_deg, event_type, ts
+       FROM simulator_aircraft_events
+       WHERE session_id=?
+       ORDER BY ts ASC`,
+      [s.id]
+    ) as any[];
+
+    // Group events by callsign
+    const byCallsign: Record<string, any> = {};
+    for (const ev of events) {
+      if (!byCallsign[ev.callsign]) byCallsign[ev.callsign] = { callsign: ev.callsign };
+      if (ev.event_type === 'localizer_entry') {
+        byCallsign[ev.callsign].altitude_ft = ev.altitude_ft;
+        byCallsign[ev.callsign].heading_deg = ev.heading_deg;
+        byCallsign[ev.callsign].localizer_entry_time = ev.ts ? new Date(ev.ts).toISOString() : '';
+      }
+      if (ev.event_type === 'gs_entry') {
+        byCallsign[ev.callsign].gs_entry_time = ev.ts ? new Date(ev.ts).toISOString() : '';
+      }
+      if (ev.event_type === 'touchdown') {
+        byCallsign[ev.callsign].touchdown_time = ev.ts ? new Date(ev.ts).toISOString() : '';
+      }
+    }
+
+    const aircraft = Object.values(byCallsign);
+    if (aircraft.length === 0) {
+      // Session with no aircraft data → one row still
+      sessionRows.push({
+        'Trainee ID': s.trainee_id,
+        'Trainee Name': s.trainee_name ?? '',
+        Mode: s.mode,
+        Scenario: s.scenario_name ?? 'Free',
+        Difficulty: s.difficulty ?? '-',
+        Score: s.score ?? '-',
+        Passed: s.passed ? 'YES' : 'NO',
+        Started: s.started_at ? new Date(s.started_at).toISOString() : '',
+        'Duration (min)': s.duration_ms ? (s.duration_ms / 60000).toFixed(1) : '',
+        Callsign: '',
+        'Altitude (ft)': '',
+        'Heading (°)': '',
+        'Localizer Entry': '',
+        'GS Entry': '',
+        Touchdown: '',
+      });
+    } else {
+      for (const ac of aircraft) {
+        sessionRows.push({
+          'Trainee ID': s.trainee_id,
+          'Trainee Name': s.trainee_name ?? '',
+          Mode: s.mode,
+          Scenario: s.scenario_name ?? 'Free',
+          Difficulty: s.difficulty ?? '-',
+          Score: s.score ?? '-',
+          Passed: s.passed ? 'YES' : 'NO',
+          Started: s.started_at ? new Date(s.started_at).toISOString() : '',
+          'Duration (min)': s.duration_ms ? (s.duration_ms / 60000).toFixed(1) : '',
+          Callsign: ac.callsign ?? '',
+          'Altitude (ft)': ac.altitude_ft ?? '',
+          'Heading (°)': ac.heading_deg ?? '',
+          'Localizer Entry': ac.localizer_entry_time ?? '',
+          'GS Entry': ac.gs_entry_time ?? '',
+          Touchdown: ac.touchdown_time ?? '',
+        });
+      }
+    }
+  }
+
+  const ws = XLSX.utils.json_to_sheet(sessionRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+  return new Response(buf, {
     headers: {
-      'Content-Type': 'text/csv',
-      'Content-Disposition': 'attachment; filename="simulator-report.csv"',
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="simulator-report.xlsx"',
     }
   });
 });

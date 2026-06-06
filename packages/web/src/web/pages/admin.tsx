@@ -2841,14 +2841,14 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
                   const blob = await res.blob();
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
-                  a.href = url; a.download = 'simulator-report.csv'; a.click();
+                  a.href = url; a.download = 'simulator-report.xlsx'; a.click();
                   URL.revokeObjectURL(url);
                 }}
-              >📥 DOWNLOAD CSV REPORT</button>
+              >📥 DOWNLOAD EXCEL REPORT</button>
             </div>
             <div style={{ ...card, background: "rgba(0,255,136,0.02)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", lineHeight: 1.7 }}>
-                The CSV includes: Trainee ID · Trainee Name · Mode · Scenario · Difficulty · Score · Passed · Started · Duration(min)
+                Excel report includes: Trainee ID · Trainee Name · Mode · Scenario · Difficulty · Score · Passed · Started · Duration · Callsign · Altitude · Heading · Localizer Entry · GS Entry · Touchdown
               </div>
             </div>
           </div>
