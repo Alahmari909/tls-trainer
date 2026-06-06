@@ -778,7 +778,7 @@ function isOnline(id: string): boolean {
   return last !== undefined && Date.now() - last < ONLINE_THRESHOLD_MS;
 }
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "TLS@Admin2025";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "TLS319522";
 
 // ── App ───────────────────────────────────────────────────────────────────────
 const app = new Hono()
@@ -2234,6 +2234,78 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
   // ── Backup endpoints ──────────────────────────────────────────────────────
 
   // POST /admin/backup/create
+
+  // Retake requests list
+  .get('/admin/retake-requests', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? '';
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    try {
+      const rows = db.prepare(
+        `SELECT rr.id, rr.trainee_id, t.name as trainee_name, rr.module_id, 
+                m.title as module_name, rr.ts, rr.reason
+         FROM retake_requests rr
+         JOIN trainees t ON t.id = rr.trainee_id
+         JOIN modules m ON m.id = rr.module_id
+         WHERE rr.status = 'pending'
+         ORDER BY rr.ts DESC`
+      ).all() as any[];
+      return c.json(rows, 200);
+    } catch {
+      return c.json([], 200);
+    }
+  })
+
+  // Approve retake request
+  .post('/admin/retake-request/:id/approve', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? '';
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    try {
+      db.prepare("UPDATE retake_requests SET status='approved' WHERE id=?").run(id);
+      return c.json({ ok: true }, 200);
+    } catch {
+      return c.json({ ok: false, error: 'Not found' }, 404);
+    }
+  })
+
+  // Deny retake request
+  .post('/admin/retake-request/:id/deny', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? '';
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    try {
+      db.prepare("UPDATE retake_requests SET status='denied' WHERE id=?").run(id);
+      return c.json({ ok: true }, 200);
+    } catch {
+      return c.json({ ok: false, error: 'Not found' }, 404);
+    }
+  })
+
+  // Change admin password
+  .post('/admin/change-password', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? '';
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    return c.json({ ok: false, error: 'Password must be changed via Railway environment variables (ADMIN_PASSWORD)' }, 400);
+  })
+
+  // Update trainee training level
+  .post('/admin/trainee/:id/training-level', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? '';
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    const body = await c.req.json() as { level?: string };
+    const validLevels = ['basic', 'intermediate', 'advanced'];
+    if (!body.level || !validLevels.includes(body.level)) {
+      return c.json({ error: 'Invalid level. Must be: basic, intermediate, advanced' }, 400);
+    }
+    try {
+      db.prepare("UPDATE trainees SET training_level=? WHERE id=?").run(body.level, id);
+      return c.json({ ok: true, level: body.level }, 200);
+    } catch {
+      return c.json({ ok: false, error: 'Trainee not found' }, 404);
+    }
+  })
+
   .post('/admin/backup/create', async (c) => {
     const pw = c.req.header('x-admin-password');
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
@@ -2732,7 +2804,7 @@ app.get('/faults/:id/media/:mediaId', async (c) => {
 // POST /admin/faults — create fault (title, cause, solution)
 app.post('/admin/faults', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
-  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const body = await c.req.json();
   const { title, cause, solution } = body as any;
   if (!title || !cause || !solution) return c.json({ error: 'Missing fields' }, 400);
@@ -2745,7 +2817,7 @@ app.post('/admin/faults', async (c) => {
 // PATCH /admin/faults/:id — update title/cause/solution
 app.patch('/admin/faults/:id', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
-  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
   const body = await c.req.json();
   const fields: string[] = [];
@@ -2762,7 +2834,7 @@ app.patch('/admin/faults/:id', async (c) => {
 // DELETE /admin/faults/:id — delete fault + cascade media
 app.delete('/admin/faults/:id', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
-  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
   await sqlRun(`DELETE FROM fault_media WHERE fault_id=?`, [id]);
   await sqlRun(`DELETE FROM common_faults WHERE id=?`, [id]);
@@ -2772,7 +2844,7 @@ app.delete('/admin/faults/:id', async (c) => {
 // POST /admin/faults/:id/media — add media to a fault (base64)
 app.post('/admin/faults/:id/media', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
-  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const faultId = c.req.param('id');
   const body = await c.req.json();
   const { media_data, mime_type, filename, sort_order } = body as any;
@@ -2789,7 +2861,7 @@ app.post('/admin/faults/:id/media', async (c) => {
 // DELETE /admin/faults/media/:mediaId — remove one media item
 app.delete('/admin/faults/media/:mediaId', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
-  if (pw !== (process.env.ADMIN_PASSWORD ?? 'admin123')) return c.json({ error: 'Unauthorized' }, 401);
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const mediaId = c.req.param('mediaId');
   await sqlRun(`DELETE FROM fault_media WHERE id=?`, [mediaId]);
   return c.json({ ok: true }, 200);
@@ -2801,7 +2873,7 @@ app.delete('/admin/faults/media/:mediaId', async (c) => {
 
 const simAuth = (c: any) => {
   const pw = c.req.header('x-admin-password') ?? c.req.header('x-admin-pw') ?? '';
-  return pw === (process.env.ADMIN_PASSWORD ?? 'admin123');
+  return pw === (process.env.ADMIN_PASSWORD ?? 'TLS319522');
 };
 
 // GET /api/simulator/config — public, read-only (used by simulator.html)
