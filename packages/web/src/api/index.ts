@@ -1638,13 +1638,17 @@ Example good answer for "What is DDM?":
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
 
     const allTrainees = await sql(
-      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status FROM trainees ORDER BY last_active_at DESC`
+      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level FROM trainees ORDER BY last_active_at DESC`
     );
 
     const allProgress = await sql(`SELECT trainee_id, completed FROM trainee_module_progress`);
     const allAttempts = await sql(`SELECT trainee_id, pct FROM quiz_attempts`);
     const allModules = await db.select().from(modules);
     const totalMods = allModules.length;
+
+    // Fetch streak and badge data for all trainees
+    const allStreaks = await sql(`SELECT user_id, current_streak, longest_streak FROM streaks`).catch(() => []);
+    const allBadges  = await sql(`SELECT user_id, COUNT(*) as badge_count FROM user_achievements GROUP BY user_id`).catch(() => []);
 
     const result = allTrainees.map(t => {
       const id = t.id as string;
@@ -1655,22 +1659,33 @@ Example good answer for "What is DDM?":
         ? Math.round(attempts.reduce((s, a) => s + (a.pct as number), 0) / attempts.length)
         : 0;
 
+      const streakRow = allStreaks.find((s: any) => s.user_id === id);
+      const badgeRow  = allBadges.find((b: any) => b.user_id === id);
+
       return {
         id,
         name: t.name,
         rank: t.rank,
         unit: t.unit,
+        email: '',
         createdAt: t.created_at,
         lastLoginAt: t.last_login_at,
         loginCount: t.login_count,
         online: isOnline(id),
         lastPage: t.last_page,
         lastActiveAt: t.last_active_at,
+        lastActive: (t.last_active_at as number) ?? 0,
         completedModules,
         totalModules: totalMods,
         quizAttempts: attempts.length,
         avgScore,
         status: (t.status as string) ?? 'active',
+        xp:            (t.xp as number)  ?? 0,
+        level:         (t.level as number) ?? 1,
+        currentStreak: (streakRow?.current_streak  as number) ?? 0,
+        longestStreak: (streakRow?.longest_streak  as number) ?? 0,
+        earnedBadges:  (badgeRow?.badge_count      as number) ?? 0,
+        trainingLevel: 'basic',
       };
     });
 
