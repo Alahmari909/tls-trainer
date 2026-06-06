@@ -2251,6 +2251,29 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
 
   // POST /admin/backup/create
 
+
+  // AI key diagnostic (admin only)
+  .get('/admin/ai/test-key', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? '';
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const apiKey = process.env.ANTHROPIC_API_KEY ?? '';
+    if (!apiKey) return c.json({ ok: false, error: 'ANTHROPIC_API_KEY not set' });
+    const keyPreview = apiKey.slice(0, 8) + '...' + apiKey.slice(-4);
+    const keyFormat = apiKey.startsWith('sk-ant-') ? 'valid-format' : 'INVALID-format (must start with sk-ant-)';
+    // Try minimal API call
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-3-haiku-20240307', max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] }),
+      });
+      const body = await res.text();
+      return c.json({ ok: res.ok, status: res.status, keyPreview, keyFormat, response: body.slice(0, 200) });
+    } catch (e: any) {
+      return c.json({ ok: false, keyPreview, keyFormat, error: e?.message });
+    }
+  })
+
   // Retake requests list
   .get('/admin/retake-requests', async (c) => {
     const pw = c.req.header('x-admin-password') ?? '';
