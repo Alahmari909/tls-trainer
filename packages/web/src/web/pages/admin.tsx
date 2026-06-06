@@ -3045,6 +3045,142 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
   );
 }
 
+// ─── AI Knowledge Panel ─────────────────────────────────────────────────────
+type AiDocEntry = { filename: string; dir_name: string; chunks: number; last_indexed: number };
+type AiIndexStatus = { chunkCount: number; docCount: number; docs: AiDocEntry[] };
+type AiIndexResult = { indexed: string[]; skipped: string[]; errors: { file: string; err: string }[] };
+
+function AiKnowledgePanel({ adminPw }: { adminPw: string }) {
+  const [status, setStatus] = React.useState<AiIndexStatus | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [result, setResult] = React.useState<AiIndexResult | null>(null);
+  const [msg, setMsg] = React.useState<string | null>(null);
+
+  const loadStatus = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/ai/index-status', { headers: { 'x-admin-password': adminPw } });
+      if (res.ok) setStatus(await res.json() as AiIndexStatus);
+    } catch {}
+  }, [adminPw]);
+
+  React.useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  const runIndex = async (reindex = false) => {
+    setBusy(true); setResult(null); setMsg(null);
+    try {
+      const res = await fetch('/api/admin/ai/index-pdfs', {
+        method: 'POST',
+        headers: { 'x-admin-password': adminPw, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reindex }),
+      });
+      const data = await res.json() as any;
+      if (data.error) setMsg(`خطأ: ${data.error}. ${data.detail ?? ''}`);
+      else { setResult(data as AiIndexResult); await loadStatus(); }
+    } catch { setMsg('خطأ في الشبكة'); }
+    finally { setBusy(false); }
+  };
+
+  const CC = { green: '#00FF88', gold: '#FFD700', red: '#FF4444', blue: '#4FC3F7', dim: 'rgba(255,255,255,0.38)' };
+  const card: React.CSSProperties = { background: 'rgba(0,255,136,0.04)', border: '1px solid rgba(0,255,136,0.15)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 };
+  const btn = (col: string, bg: string): React.CSSProperties => ({
+    padding: '10px 20px', background: bg, border: `1px solid ${col}55`, borderRadius: 8,
+    color: col, fontSize: 12, fontFamily: 'Inter', cursor: busy ? 'not-allowed' : 'pointer',
+    opacity: busy ? 0.55 : 1, transition: 'opacity 0.2s',
+  });
+
+  return (
+    <div style={{ maxWidth: 900, padding: '4px 0' }}>
+      <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 11, color: CC.green, letterSpacing: '0.18em', marginBottom: 24 }}>
+        🧠 AI KNOWLEDGE BASE
+      </div>
+
+      <div style={card}>
+        <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 10, color: CC.dim, fontFamily: 'Orbitron, monospace', letterSpacing: '0.12em' }}>INDEXED DOCS</div>
+            <div style={{ fontSize: 30, color: CC.green, fontFamily: 'Orbitron, monospace', fontWeight: 700, marginTop: 4 }}>{status?.docCount ?? '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: CC.dim, fontFamily: 'Orbitron, monospace', letterSpacing: '0.12em' }}>TOTAL CHUNKS</div>
+            <div style={{ fontSize: 30, color: CC.gold, fontFamily: 'Orbitron, monospace', fontWeight: 700, marginTop: 4 }}>{status?.chunkCount?.toLocaleString() ?? '—'}</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: CC.dim, fontFamily: 'Inter', marginBottom: 20, lineHeight: 1.6 }}>
+          عند كل سؤال، يبحث الذكاء الاصطناعي في المستندات المفهرسة ويضيف المقتطفات ذات الصلة للسياق تلقائياً.
+          فهرس المستندات الجديدة بعد إضافة أي ملف PDF في صفحات admin-docs أو pdfs.
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button onClick={() => runIndex(false)} disabled={busy} style={btn(CC.green, 'rgba(0,255,136,0.08)')}>
+            {busy ? '⏳ جاري الفهرسة...' : '📄 فهرسة المستندات الجديدة'}
+          </button>
+          <button onClick={() => runIndex(true)} disabled={busy} style={btn(CC.gold, 'rgba(255,215,0,0.06)')}>
+            {busy ? '⏳ ...' : '🔄 إعادة فهرسة الكل'}
+          </button>
+          <button onClick={loadStatus} disabled={busy} style={btn(CC.blue, 'rgba(79,195,247,0.06)')}>
+            ↻ تحديث
+          </button>
+        </div>
+        {msg && <div style={{ marginTop: 14, fontSize: 12, color: CC.red, fontFamily: 'Inter', background: 'rgba(255,68,68,0.06)', padding: '8px 12px', borderRadius: 8 }}>{msg}</div>}
+      </div>
+
+      {result && (
+        <div style={{ ...card, borderColor: 'rgba(0,255,136,0.3)' }}>
+          <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 10, color: CC.green, letterSpacing: '0.12em', marginBottom: 14 }}>نتيجة الفهرسة</div>
+          {result.indexed.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: CC.green, fontFamily: 'Inter', marginBottom: 6 }}>✅ تمت الفهرسة ({result.indexed.length} ملف):</div>
+              <div style={{ maxHeight: 180, overflowY: 'auto', padding: '8px 12px', background: 'rgba(0,255,136,0.04)', borderRadius: 8 }}>
+                {result.indexed.map((f, i) => <div key={i} style={{ fontSize: 11, color: 'rgba(0,255,136,0.75)', fontFamily: 'Inter', marginBottom: 2 }}>• {f}</div>)}
+              </div>
+            </div>
+          )}
+          {result.skipped.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: CC.dim, fontFamily: 'Inter' }}>⏭️ تم تخطيه ({result.skipped.length} ملف — مفهرس مسبقاً أو كبير جداً)</div>
+            </div>
+          )}
+          {result.errors.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: CC.red, fontFamily: 'Inter', marginBottom: 6 }}>❌ أخطاء ({result.errors.length}):</div>
+              {result.errors.map((e, i) => (
+                <div key={i} style={{ fontSize: 11, color: 'rgba(255,68,68,0.8)', fontFamily: 'Inter', marginBottom: 2 }}>• {e.file}: {e.err}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {status && status.docs.length > 0 && (
+        <div style={card}>
+          <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 10, color: CC.dim, letterSpacing: '0.12em', marginBottom: 14 }}>المستندات المفهرسة الحالية</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {status.docs.map((doc, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.025)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)', fontFamily: 'Inter' }}>{doc.filename}</div>
+                  <div style={{ fontSize: 10, color: CC.dim, fontFamily: 'Inter', marginTop: 2 }}>{doc.dir_name}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 11, color: CC.gold, fontFamily: 'Orbitron, monospace' }}>{doc.chunks} chunks</div>
+                  <div style={{ fontSize: 10, color: CC.dim, fontFamily: 'Inter', marginTop: 2 }}>{new Date(doc.last_indexed).toLocaleDateString('ar-SA')}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {status && status.docs.length === 0 && !busy && (
+        <div style={{ ...card, textAlign: 'center', padding: '40px 24px' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🧠</div>
+          <div style={{ color: CC.dim, fontSize: 13, fontFamily: 'Inter', marginBottom: 8 }}>لم يتم فهرسة أي مستند بعد</div>
+          <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, fontFamily: 'Inter' }}>اضغط "فهرسة المستندات الجديدة" لبدء بناء قاعدة معرفة الذكاء الاصطناعي</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Admin Nav Items ──────────────────────────────────────────────────────────
 // ADMIN_NAV kept for type reference only — navigation is entirely via ☰ MENU dropdown
 const ADMIN_NAV = [] as const;
@@ -3064,11 +3200,12 @@ const NAV_LINKS = [
   { id: "documents",     label: "Documents",      icon: "📄", divider: false },
   { id: "common_faults",  label: "Common Faults",  icon: "⚠️", divider: false },
   { id: "simulator",      label: "Simulator",      icon: "🛩️", divider: false },
+  { id: "ai-knowledge",  label: "AI Knowledge",   icon: "🧠", divider: false },
   { id: "nav_manager",   label: "Nav Manager",    icon: "🗂️", divider: true  },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager";
+  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager" | "ai-knowledge";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -3955,6 +4092,11 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         </div>
       )}
 
+      {activeView === "ai-knowledge" && (
+        <div className="admin-view" style={{ padding: '24px 32px', minHeight: '100vh' }}>
+          <AiKnowledgePanel adminPw={adminPw} />
+        </div>
+      )}
       {activeView === "nav_manager" && (
         <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh" }}>
           <NavManagerAdmin adminPw={adminPw} />
