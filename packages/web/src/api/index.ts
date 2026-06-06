@@ -7,7 +7,6 @@ import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
 import { db } from "./database";
 import * as fflate from 'fflate';
 import * as fs from 'fs';
-import { spawnSync } from 'child_process';
 import * as path from 'path';
 import {
   modules, questions, achievements, userAchievements,
@@ -322,7 +321,7 @@ async function ensureTables() {
       indexed_at INTEGER NOT NULL
     )`).catch(() => {});
     await client.execute(`CREATE INDEX IF NOT EXISTS idx_ai_chunks_fn ON ai_doc_chunks(filename)`).catch(() => {});
-        console.log('[ensureTables] All tables ready');
+    console.log('[ensureTables] All tables ready');
     // Reset all is_online flags on startup — in-memory heartbeats are the source of truth
     await sqlRun(`UPDATE trainees SET is_online=0`);
     console.log('[startup] Cleared stale is_online flags');
@@ -335,14 +334,25 @@ async function ensureTables() {
 }
 ensureTables();
 
-// ── PDF RAG helpers ───────────────────────────────────────────────────────────
-const STATIC_PDF_DIRS = [
-  path.join(import.meta.dir, '..', '..', 'static', 'admin-docs'),
-  path.join(import.meta.dir, '..', '..', 'static', 'pdfs'),
-];
+// ── RAG helpers ───────────────────────────────────────────────────────────────
+async function searchKnowledgeChunks(query: string, limit = 8): Promise<string[]> {
+  const stopWords = new Set(['what','that','this','with','from','have','will','your','they','their',
+    'ماهو','ماهي','كيف','ماذا','لماذا','هل','في','من','على','إلى','عن','مع']);
+  const words = query.toLowerCase()
+    .replace(/[^\w\s\u0600-\u06FF]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w))
+    .slice(0, 6);
+  if (words.length === 0) return [];
+  const conditions = words.map(() => 'content LIKE ?').join(' OR ');
+  const params = [...words.map(w => `%${w}%`), limit];
+  return sql(`SELECT content FROM ai_doc_chunks WHERE ${conditions} LIMIT ?`, params)
+    .then(rows => rows.map((r: any) => r.content as string))
+    .catch(() => []);
+}
 
 function splitIntoChunks(text: string, size = 700, overlap = 120): string[] {
-  const cleaned = text.replace(/s+/g, ' ').trim();
+  const cleaned = text.replace(/\s+/g, ' ').trim();
   const chunks: string[] = [];
   let start = 0;
   while (start < cleaned.length) {
@@ -353,21 +363,6 @@ function splitIntoChunks(text: string, size = 700, overlap = 120): string[] {
   return chunks;
 }
 
-async function searchKnowledgeChunks(query: string, limit = 8): Promise<string[]> {
-  const stopWords = new Set(['what','that','this','with','from','have','will','your','they','their',
-    'ماهو','ماهي','كيف','ماذا','لماذا','هل','في','من','على','إلى','عن','مع']);
-  const words = query.toLowerCase()
-    .replace(/[^ws؀-ۿ]/g, ' ')
-    .split(/s+/)
-    .filter(w => w.length > 2 && !stopWords.has(w))
-    .slice(0, 6);
-  if (words.length === 0) return [];
-  const conditions = words.map(() => 'content LIKE ?').join(' OR ');
-  const params = [...words.map(w => `%${w}%`), limit];
-  return sql(`SELECT content FROM ai_doc_chunks WHERE ${conditions} LIMIT ?`, params)
-    .then(rows => rows.map((r: any) => r.content as string))
-    .catch(() => []);
-}
 
 // ── Backup Engine ─────────────────────────────────────────────────────────────
 
@@ -1384,7 +1379,7 @@ const app = new Hono()
       return c.json({ reply: 'عذراً، مفتاح API غير مضبوط.\nSorry, AI API key is not configured.' }, 200);
     }
 
-    // ── Build RAG context from DB + indexed PDFs ─────────────────────────────
+    // ── Build RAG context ────────────────────────────────────────────────────
     const [dbQuestions, dbLessons, pdfChunks] = await Promise.all([
       sql(`SELECT question, correct_option, option_a, option_b, option_c, option_d, explanation
            FROM questions ORDER BY module_id, "order" LIMIT 150`).catch(() => []),
@@ -1392,7 +1387,6 @@ const app = new Hono()
       searchKnowledgeChunks(message),
     ]);
 
-    // Format Q&A knowledge (compact)
     let qaContext = '';
     for (const q of dbQuestions as any[]) {
       const opts: Record<string, string> = { a: q.option_a, b: q.option_b, c: q.option_c, d: q.option_d };
@@ -1400,41 +1394,30 @@ const app = new Hono()
       qaContext += `س: ${q.question}\nج: ${answer}. ${q.explanation ?? ''}\n`;
     }
 
-    // Format lesson context (first 300 chars each)
     let lessonContext = '';
     for (const l of dbLessons as any[]) {
       const preview = (l.content as string || '')
-        .replace(/#+s*/g, '').replace(/*+/g, '').replace(/
-+/g, ' ')
+        .replace(/#+\s*/g, '').replace(/\*+/g, '').replace(/\n+/g, ' ')
         .slice(0, 320).trim();
       if (preview) lessonContext += `[${l.title}]: ${preview}\n`;
     }
 
-    // Format PDF chunks (deduplicated)
     const pdfContext = [...new Set(pdfChunks)].join('\n—\n');
-
     const hasRagContent = qaContext.length > 0 || lessonContext.length > 0 || pdfContext.length > 0;
 
-    const systemPrompt = `أنت مدرب خبير في منظومة TLS (Transponder Landing System) التابعة لسلاح الجو الملكي السعودي — وحدة الرادار الأرضي ANPC جدة.
+    const systemPrompt = `أنت مدرب خبير في منظومة TLS التابعة لسلاح الجو الملكي السعودي — وحدة الرادار الأرضي ANPC جدة.
 
 قواعد صارمة:
 1. أجب بنفس لغة السؤال — عربي إذا السؤال عربي، إنجليزي إذا إنجليزي.
 2. الإجابة مختصرة ودقيقة — 3-5 جمل أو نقاط.
 3. ابدأ بالإجابة المباشرة أولاً ثم الشرح.
 4. أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
-5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ASA, ESA...).
+5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ESA...).
 ${hasRagContent ? `
-=== قاعدة المعرفة (مصدرك الرئيسي — أولويتها على أي معرفة أخرى) ===
-
-مكونات TLS الأساسية:
-- ASA (Azimuth Sensor Assembly): 3 عناصر (HIGH,LOW,REF) — يقيس الانحراف الجانبي للطائرة. DDM=0 على المحور، موجب=يسار، سالب=يمين، انحراف كامل=0.175 DDM.
-- ESA (Elevation Sensor Assembly): 4 عناصر (HIGH,MED,LOW,REF) — يقيس الارتفاع، يحدد ما إذا كانت الطائرة فوق/تحت مسار الهبوط.
-- ATA (Azimuth Tracking Antenna): هوائي منفرد على حامل ثلاثي — يعزز دقة ASA في تتبع الزاوية الجانبية.
-- CAL/BIT: اختبارات ذاتية تلقائية للتحقق من دقة النظام وتوفير إشارة مرجعية للمعايرة.
-- GTU (Ground Transponder Unit): رف إلكترونيات يحتوي بطاقات إرسال GTU 1-4 + CPU + MIU + UPS. يولد إشارات ILS للطائرة.
-${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice(0, 8000)}` : ''}${lessonContext ? `\n--- محتوى الدروس ---\n${lessonContext.slice(0, 3000)}` : ''}${pdfContext ? `\n--- مقتطفات من المستندات الرسمية ---\n${pdfContext.slice(0, 4000)}` : ''}
-=== نهاية قاعدة المعرفة ===
-اعتمد على قاعدة المعرفة أعلاه كمصدر أساسي. إذا لم تجد فيها إجابة واضحة، استخدم معرفتك العامة بأنظمة الملاحة الجوية مع الإشارة إلى ذلك.
+=== قاعدة المعرفة ===
+${qaContext ? `[أسئلة وإجابات]:\n${qaContext.slice(0, 6000)}` : ''}
+${lessonContext ? `[دروس]:\n${lessonContext.slice(0, 3000)}` : ''}
+${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''}
 ` : ''}`;
 
     try {
@@ -1451,7 +1434,7 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
         },
         body: JSON.stringify({
           model: 'claude-3-5-haiku-20241022',
-          max_tokens: 900,
+          max_tokens: 800,
           system: systemPrompt,
           messages: msgs,
         }),
@@ -1462,8 +1445,8 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
         return c.json({ reply: `عذراً، خطأ من خدمة الذكاء الاصطناعي (${res.status}).\nSorry, AI service error (${res.status}).` }, 200);
       }
       const data = await res.json() as any;
-      const reply = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
-      return c.json({ reply }, 200);
+      const text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
+      return c.json({ reply: text }, 200);
     } catch (e: any) {
       console.error('[AI] fetch error:', e?.message);
       return c.json({ reply: 'عذراً، تعذر الاتصال بخدمة الذكاء الاصطناعي.\nSorry, could not reach the AI service.' }, 200);
@@ -2075,6 +2058,19 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
     const body = await c.req.json().catch(() => ({})) as { reindex?: boolean };
     const reindex = !!body.reindex;
 
+    // Lazy-load spawnSync and dirs to avoid any top-level module issues
+    let spawnSyncFn: typeof import('child_process').spawnSync | null = null;
+    try { spawnSyncFn = (await import('child_process')).spawnSync; } catch {}
+
+    const STATIC_PDF_DIRS = (() => {
+      try {
+        return [
+          path.join(import.meta.dir, '..', '..', 'static', 'admin-docs'),
+          path.join(import.meta.dir, '..', '..', 'static', 'pdfs'),
+        ];
+      } catch { return []; }
+    })();
+
     const indexed: string[] = [], skipped: string[] = [], errors: { file: string; err: string }[] = [];
     const now = Date.now();
 
@@ -2099,8 +2095,11 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
         }
 
         try {
-          // Use pdftotext (poppler-utils) — pure system command, no npm deps
-          const result = spawnSync('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
+          if (!spawnSyncFn) {
+            errors.push({ file, err: 'pdftotext not available on this server' });
+            continue;
+          }
+          const result = spawnSyncFn('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
             encoding: 'utf8',
             maxBuffer: 30 * 1024 * 1024,
           });
@@ -2129,7 +2128,7 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
     return c.json({ ok: true, indexed, skipped, errors }, 200);
   })
 
-  // GET /admin/pending-avatars
+    // GET /admin/pending-avatars
   .get('/admin/pending-avatars', async (c) => {
     const pw = c.req.header('x-admin-password');
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
