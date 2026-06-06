@@ -63,15 +63,38 @@ const ICON_EMOJI: Record<string, string> = {
 
 interface DynNavItem { id: number; label: string; href: string; icon: string; order: number; isVisible: boolean; }
 
+const FALLBACK_NAV: DynNavItem[] = [
+  { id:1,  label:"TLS Basic",     href:"/basics",       icon:"BookOpen",      order:1,  isVisible:true },
+  { id:2,  label:"TLS Advanced",  href:"/advanced",     icon:"Zap",           order:2,  isVisible:true },
+  { id:3,  label:"Quiz",          href:"/quiz",         icon:"Crosshair",     order:3,  isVisible:true },
+  { id:4,  label:"Manuals",       href:"/manuals",      icon:"FileText",      order:4,  isVisible:true },
+  { id:5,  label:"AI Instructor", href:"/chat",         icon:"MessageSquare", order:5,  isVisible:true },
+  { id:6,  label:"Comms",         href:"/private-chat", icon:"MessageCircle", order:6,  isVisible:true },
+  { id:7,  label:"RCU Simulator", href:"/simulator",    icon:"Monitor",       order:7,  isVisible:true },
+  { id:8,  label:"Common Faults", href:"/faults",       icon:"ShieldAlert",   order:8,  isVisible:true },
+  { id:9,  label:"Achievements",  href:"/achievements", icon:"Trophy",        order:9,  isVisible:true },
+  { id:10, label:"Leaderboard",   href:"/leaderboard",  icon:"BarChart",      order:10, isVisible:true },
+  { id:11, label:"Notifications", href:"/notifications",icon:"Bell",          order:11, isVisible:true },
+  { id:12, label:"Settings",      href:"/settings",     icon:"Settings",      order:12, isVisible:true },
+];
+
 function useDynamicNav() {
   const [items, setItems] = useState<DynNavItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     fetch("/api/nav-items")
       .then(r => r.json())
-      .then((d: DynNavItem[]) => { if (Array.isArray(d)) setItems(d.filter(i => i.isVisible)); })
-      .catch(() => {});
+      .then((d: DynNavItem[]) => {
+        if (Array.isArray(d) && d.length > 0) {
+          setItems(d.filter(i => i.isVisible));
+        } else {
+          setItems(FALLBACK_NAV);
+        }
+        setLoaded(true);
+      })
+      .catch(() => { setItems(FALLBACK_NAV); setLoaded(true); });
   }, []);
-  return items.sort((a, b) => a.order - b.order);
+  return { items: items.sort((a, b) => a.order - b.order), loaded };
 }
 
 function useLiveClock() {
@@ -112,7 +135,7 @@ export default function NavMenu() {
   const [location, navigate] = useLocation();
   const [session, setSession] = useState(() => getSession());
   const now = useLiveClock();
-  const dynNavItems = useDynamicNav();
+  const { items: dynNavItems } = useDynamicNav();
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark";
   });
@@ -320,9 +343,7 @@ export default function NavMenu() {
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "8px 0" }}>
-          {dynNavItems.length === 0 ? (
-            <div style={{ padding: "20px", textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 11, fontFamily: "Inter" }}>Loading...</div>
-          ) : dynNavItems.map((item, i) => {
+          {dynNavItems.map((item, i) => {
             const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
             const emoji = ICON_EMOJI[item.icon] ?? "•";
             return (
