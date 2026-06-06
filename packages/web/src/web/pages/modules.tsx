@@ -230,20 +230,37 @@ export default function Modules() {
             background: `linear-gradient(135deg, ${currentMod.color}15 0%, transparent 100%)`,
             flexShrink: 0,
           }}>
-            <button
-              onClick={() => setActiveLesson(null)}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 6,
-                color: currentMod.color, marginBottom: 8, padding: 0,
-                fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.1em",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-              BACK TO MODULE
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <button
+                onClick={() => setActiveLesson(null)}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6,
+                  color: currentMod.color, padding: 0,
+                  fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.1em",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                BACK TO MODULE
+              </button>
+              <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 12 }}>|</span>
+              <button
+                onClick={() => { setActiveLesson(null); setSelected(null); }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 6,
+                  color: "rgba(255,255,255,0.4)", padding: 0,
+                  fontFamily: "Orbitron", fontSize: 10, letterSpacing: "0.1em",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                MODULES LIST
+              </button>
+            </div>
             <div className="font-orbitron" style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>
               {currentLesson.title}
             </div>
