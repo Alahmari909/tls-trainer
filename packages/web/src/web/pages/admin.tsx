@@ -3514,12 +3514,13 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         fetch("/api/admin/retake-requests", { headers: { "x-admin-password": adminPw } }),
         fetch("/api/admin/registration-requests", { headers: { "x-admin-password": adminPw } }),
       ]);
-      if (!res.ok) { setError("Session expired. Please log in again."); return; }
+      if (!res.ok) { setError("⚠️ فشل التحقق — تأكد من صلاحية الجلسة"); return; }
+      setError(""); // clear any previous error on success
       const data = await res.json() as Trainee[];
       setTrainees(data); setLastRefresh(new Date());
       if (retakeRes.ok) setRetakeRequests(await retakeRes.json() as any[]);
       if (regRes.ok) setRegRequests(await regRes.json() as any[]);
-    } catch { setError("Failed to load data."); }
+    } catch { setError("تعذر تحميل البيانات — تحقق من الاتصال"); }
     finally { setLoading(false); }
   }, [adminPw]);
 
