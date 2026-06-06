@@ -1313,7 +1313,7 @@ const app = new Hono()
       [userId, window24h]
     );
     const questionsUsed = usageRows.length;
-    const questionsRemaining = Math.max(0, 20 - questionsUsed);
+    const questionsRemaining = Math.max(0, 50 - questionsUsed);
     return c.json({ qualified: true, questionsUsed, questionsRemaining, resetsIn: 'tomorrow' }, 200);
   })
   .post('/chat/ai', async (c) => {
@@ -1327,8 +1327,8 @@ const app = new Hono()
         `SELECT ts FROM activity_log WHERE trainee_id=? AND event='ai_question' AND ts>=?`,
         [userId, window24h]
       );
-      if (usageRows.length >= 20) {
-        return c.json({ error: 'limit', message: 'You have reached your 20 questions limit. Resets tomorrow.' }, 200);
+      if (usageRows.length >= 50) {
+        return c.json({ error: 'limit', message: 'وصلت للحد اليومي (50 سؤال). يتجدد غداً.\nDaily limit reached (50 questions). Resets tomorrow.' }, 200);
       }
       // Log usage before answering
       await sqlRun(`INSERT INTO activity_log (trainee_id, event, detail, page, ts) VALUES (?, 'ai_question', ?, 'ai_chat', ?)`,
@@ -1339,16 +1339,17 @@ const app = new Hono()
     if (!apiKey) {
       return c.json({ reply: 'عذراً، مفتاح API غير مضبوط من قِبَل المسؤول.\nSorry, AI API key is not configured. Please contact the administrator.' }, 200);
     }
-    const systemPrompt = `You are a TLS (Transponder Landing System) expert instructor for the Royal Saudi Air Force Ground Radar unit.
-CRITICAL RULES:
-1. Always respond in English only — no Arabic or any other language, ever.
-2. Keep answers SHORT and CONCISE — maximum 3-4 sentences or 5 bullet points.
-3. Give the direct answer first, then a brief explanation.
-4. No long paragraphs. No unnecessary details.
-5. Think like a military instructor — brief, precise, to the point.
+    const systemPrompt = `أنت مدرب خبير في منظومة الهبوط بالترددات المتباينة (TLS) التابعة لسلاح الجو الملكي السعودي — وحدة الرادار الأرضي ANPC جدة.
 
-Example good answer for "What is DDM?":
-"DDM (Difference in Depth of Modulation) measures the difference between 90Hz and 150Hz signal strengths in ILS/TLS. It guides aircraft to the centerline — zero DDM means on course, positive means fly left, negative means fly right. Full scale deflection = 0.175 DDM."`;
+قواعد صارمة:
+1. أجب بنفس لغة السؤال — عربي إذا السؤال عربي، إنجليزي إذا إنجليزي.
+2. الإجابة مختصرة ودقيقة — 3-4 جمل أو 5 نقاط كحد أقصى.
+3. ابدأ بالإجابة المباشرة أولاً ثم الشرح.
+4. لا فقرات طويلة — أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
+5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ESA...).
+
+مثال على إجابة جيدة لسؤال "ما هو DDM؟":
+"DDM (Difference in Depth of Modulation) هو الفرق في عمق التضمين بين إشارتَي 90Hz و150Hz في منظومة ILS/TLS. يُستخدم لتوجيه الطائرة نحو المحور المركزي — DDM=0 يعني على المسار الصحيح، موجب يعني يسار، سالب يعني يمين. الانحراف الكامل = 0.175 DDM."`;
     try {
       const msgs = [
         ...history.slice(-10).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
@@ -1362,8 +1363,8 @@ Example good answer for "What is DDM?":
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 600,
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 800,
           system: systemPrompt,
           messages: msgs,
         }),
