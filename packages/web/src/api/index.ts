@@ -311,7 +311,17 @@ async function ensureTables() {
         await sqlRun(`INSERT OR IGNORE INTO simulator_config (key, value) VALUES (?,?)`, [k, v]);
       }
     }
-    console.log('[ensureTables] All tables ready');
+    await client.execute(`CREATE TABLE IF NOT EXISTS ai_doc_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      dir_name TEXT NOT NULL DEFAULT '',
+      chunk_index INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      indexed_at INTEGER NOT NULL
+    )`).catch(() => {});
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_ai_chunks_fn ON ai_doc_chunks(filename)`).catch(() => {});
+        console.log('[ensureTables] All tables ready');
     // Reset all is_online flags on startup — in-memory heartbeats are the source of truth
     await sqlRun(`UPDATE trainees SET is_online=0`);
     console.log('[startup] Cleared stale is_online flags');
@@ -323,6 +333,40 @@ async function ensureTables() {
   }
 }
 ensureTables();
+
+// ── PDF RAG helpers ───────────────────────────────────────────────────────────
+const STATIC_PDF_DIRS = [
+  path.resolve(new URL(import.meta.url).pathname, '../../static/admin-docs'),
+  path.resolve(new URL(import.meta.url).pathname, '../../static/pdfs'),
+];
+
+function splitIntoChunks(text: string, size = 700, overlap = 120): string[] {
+  const cleaned = text.replace(/s+/g, ' ').trim();
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < cleaned.length) {
+    const chunk = cleaned.slice(start, start + size).trim();
+    if (chunk.length > 60) chunks.push(chunk);
+    start += size - overlap;
+  }
+  return chunks;
+}
+
+async function searchKnowledgeChunks(query: string, limit = 8): Promise<string[]> {
+  const stopWords = new Set(['what','that','this','with','from','have','will','your','they','their',
+    'ماهو','ماهي','كيف','ماذا','لماذا','هل','في','من','على','إلى','عن','مع']);
+  const words = query.toLowerCase()
+    .replace(/[^ws؀-ۿ]/g, ' ')
+    .split(/s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w))
+    .slice(0, 6);
+  if (words.length === 0) return [];
+  const conditions = words.map(() => 'content LIKE ?').join(' OR ');
+  const params = [...words.map(w => `%${w}%`), limit];
+  return sql(`SELECT content FROM ai_doc_chunks WHERE ${conditions} LIMIT ?`, params)
+    .then(rows => rows.map((r: any) => r.content as string))
+    .catch(() => []);
+}
 
 // ── Backup Engine ─────────────────────────────────────────────────────────────
 
@@ -1320,7 +1364,7 @@ const app = new Hono()
     const body = await c.req.json();
     const { message, history = [], userId } = body as { message: string; userId?: string; history: { role: 'user' | 'assistant'; content: string }[] };
 
-    // ── Rate limit: 20 questions per 24h (skip for admin / no userId) ────────
+    // ── Rate limit: 50 questions per 24h ────────────────────────────────────
     if (userId) {
       const window24h = Date.now() - 24 * 60 * 60 * 1000;
       const usageRows = await sql(
@@ -1330,26 +1374,68 @@ const app = new Hono()
       if (usageRows.length >= 50) {
         return c.json({ error: 'limit', message: 'وصلت للحد اليومي (50 سؤال). يتجدد غداً.\nDaily limit reached (50 questions). Resets tomorrow.' }, 200);
       }
-      // Log usage before answering
       await sqlRun(`INSERT INTO activity_log (trainee_id, event, detail, page, ts) VALUES (?, 'ai_question', ?, 'ai_chat', ?)`,
         [userId, message.slice(0, 120), Date.now()]);
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return c.json({ reply: 'عذراً، مفتاح API غير مضبوط من قِبَل المسؤول.\nSorry, AI API key is not configured. Please contact the administrator.' }, 200);
+      return c.json({ reply: 'عذراً، مفتاح API غير مضبوط.\nSorry, AI API key is not configured.' }, 200);
     }
-    const systemPrompt = `أنت مدرب خبير في منظومة الهبوط بالترددات المتباينة (TLS) التابعة لسلاح الجو الملكي السعودي — وحدة الرادار الأرضي ANPC جدة.
+
+    // ── Build RAG context from DB + indexed PDFs ─────────────────────────────
+    const [dbQuestions, dbLessons, pdfChunks] = await Promise.all([
+      sql(`SELECT question, correct_option, option_a, option_b, option_c, option_d, explanation
+           FROM questions ORDER BY module_id, "order" LIMIT 150`).catch(() => []),
+      sql(`SELECT title, content FROM lessons ORDER BY module_id, "order" LIMIT 25`).catch(() => []),
+      searchKnowledgeChunks(message),
+    ]);
+
+    // Format Q&A knowledge (compact)
+    let qaContext = '';
+    for (const q of dbQuestions as any[]) {
+      const opts: Record<string, string> = { a: q.option_a, b: q.option_b, c: q.option_c, d: q.option_d };
+      const answer = opts[q.correct_option] ?? q.option_a ?? '';
+      qaContext += `س: ${q.question}\nج: ${answer}. ${q.explanation ?? ''}\n`;
+    }
+
+    // Format lesson context (first 300 chars each)
+    let lessonContext = '';
+    for (const l of dbLessons as any[]) {
+      const preview = (l.content as string || '')
+        .replace(/#+s*/g, '').replace(/*+/g, '').replace(/
++/g, ' ')
+        .slice(0, 320).trim();
+      if (preview) lessonContext += `[${l.title}]: ${preview}\n`;
+    }
+
+    // Format PDF chunks (deduplicated)
+    const pdfContext = [...new Set(pdfChunks)].join('\n—\n');
+
+    const hasRagContent = qaContext.length > 0 || lessonContext.length > 0 || pdfContext.length > 0;
+
+    const systemPrompt = `أنت مدرب خبير في منظومة TLS (Transponder Landing System) التابعة لسلاح الجو الملكي السعودي — وحدة الرادار الأرضي ANPC جدة.
 
 قواعد صارمة:
 1. أجب بنفس لغة السؤال — عربي إذا السؤال عربي، إنجليزي إذا إنجليزي.
-2. الإجابة مختصرة ودقيقة — 3-4 جمل أو 5 نقاط كحد أقصى.
+2. الإجابة مختصرة ودقيقة — 3-5 جمل أو نقاط.
 3. ابدأ بالإجابة المباشرة أولاً ثم الشرح.
-4. لا فقرات طويلة — أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
-5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ESA...).
+4. أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
+5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ASA, ESA...).
+${hasRagContent ? `
+=== قاعدة المعرفة (مصدرك الرئيسي — أولويتها على أي معرفة أخرى) ===
 
-مثال على إجابة جيدة لسؤال "ما هو DDM؟":
-"DDM (Difference in Depth of Modulation) هو الفرق في عمق التضمين بين إشارتَي 90Hz و150Hz في منظومة ILS/TLS. يُستخدم لتوجيه الطائرة نحو المحور المركزي — DDM=0 يعني على المسار الصحيح، موجب يعني يسار، سالب يعني يمين. الانحراف الكامل = 0.175 DDM."`;
+مكونات TLS الأساسية:
+- ASA (Azimuth Sensor Assembly): 3 عناصر (HIGH,LOW,REF) — يقيس الانحراف الجانبي للطائرة. DDM=0 على المحور، موجب=يسار، سالب=يمين، انحراف كامل=0.175 DDM.
+- ESA (Elevation Sensor Assembly): 4 عناصر (HIGH,MED,LOW,REF) — يقيس الارتفاع، يحدد ما إذا كانت الطائرة فوق/تحت مسار الهبوط.
+- ATA (Azimuth Tracking Antenna): هوائي منفرد على حامل ثلاثي — يعزز دقة ASA في تتبع الزاوية الجانبية.
+- CAL/BIT: اختبارات ذاتية تلقائية للتحقق من دقة النظام وتوفير إشارة مرجعية للمعايرة.
+- GTU (Ground Transponder Unit): رف إلكترونيات يحتوي بطاقات إرسال GTU 1-4 + CPU + MIU + UPS. يولد إشارات ILS للطائرة.
+${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice(0, 8000)}` : ''}${lessonContext ? `\n--- محتوى الدروس ---\n${lessonContext.slice(0, 3000)}` : ''}${pdfContext ? `\n--- مقتطفات من المستندات الرسمية ---\n${pdfContext.slice(0, 4000)}` : ''}
+=== نهاية قاعدة المعرفة ===
+اعتمد على قاعدة المعرفة أعلاه كمصدر أساسي. إذا لم تجد فيها إجابة واضحة، استخدم معرفتك العامة بأنظمة الملاحة الجوية مع الإشارة إلى ذلك.
+` : ''}`;
+
     try {
       const msgs = [
         ...history.slice(-10).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
@@ -1364,7 +1450,7 @@ const app = new Hono()
         },
         body: JSON.stringify({
           model: 'claude-3-5-haiku-20241022',
-          max_tokens: 800,
+          max_tokens: 900,
           system: systemPrompt,
           messages: msgs,
         }),
@@ -1375,8 +1461,8 @@ const app = new Hono()
         return c.json({ reply: `عذراً، خطأ من خدمة الذكاء الاصطناعي (${res.status}).\nSorry, AI service error (${res.status}).` }, 200);
       }
       const data = await res.json() as any;
-      const text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
-      return c.json({ reply: text }, 200);
+      const reply = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
+      return c.json({ reply }, 200);
     } catch (e: any) {
       console.error('[AI] fetch error:', e?.message);
       return c.json({ reply: 'عذراً، تعذر الاتصال بخدمة الذكاء الاصطناعي.\nSorry, could not reach the AI service.' }, 200);
@@ -1967,6 +2053,100 @@ const app = new Hono()
     const now = Date.now();
     await sqlRun(`UPDATE registration_requests SET status='suspended', reviewed_at=? WHERE id=?`, [now, reqId]);
     return c.json({ ok: true }, 200);
+  })
+
+  // GET /admin/ai/index-status
+  .get('/admin/ai/index-status', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const [chunkCount, docCount] = await Promise.all([
+      sql('SELECT COUNT(*) as cnt FROM ai_doc_chunks').then((r: any[]) => r[0]?.cnt ?? 0),
+      sql('SELECT COUNT(DISTINCT filename) as cnt FROM ai_doc_chunks').then((r: any[]) => r[0]?.cnt ?? 0),
+    ]);
+    const docs = await sql('SELECT DISTINCT filename, dir_name, COUNT(*) as chunks, MAX(indexed_at) as last_indexed FROM ai_doc_chunks GROUP BY filename ORDER BY last_indexed DESC');
+    return c.json({ chunkCount, docCount, docs }, 200);
+  })
+
+  // POST /admin/ai/index-pdfs
+  .post('/admin/ai/index-pdfs', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json().catch(() => ({})) as { reindex?: boolean };
+    const reindex = !!body.reindex;
+
+    // Try to get a PDF parser (pdf-parse or system pdftotext)
+    type PdfParser = (buf: Buffer) => Promise<{ text: string }>;
+    let pdfParser: PdfParser | null = null;
+    try {
+      const mod = await import('pdf-parse' as any);
+      pdfParser = ((mod as any).default ?? mod) as PdfParser;
+    } catch {}
+
+    const indexed: string[] = [], skipped: string[] = [], errors: { file: string; err: string }[] = [];
+    const now = Date.now();
+
+    for (const dir of STATIC_PDF_DIRS) {
+      if (!fs.existsSync(dir)) continue;
+      const dirName = path.basename(dir);
+      let files: string[];
+      try { files = fs.readdirSync(dir).filter((f: string) => f.toLowerCase().endsWith('.pdf')); }
+      catch { continue; }
+
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        let stat: ReturnType<typeof fs.statSync>;
+        try { stat = fs.statSync(filePath); } catch { continue; }
+
+        if (stat.size > 30 * 1024 * 1024) {
+          skipped.push(`${file} (too large: ${Math.round(stat.size / 1024 / 1024)}MB)`);
+          continue;
+        }
+
+        const docId = `${file}::${stat.mtimeMs}`;
+        if (!reindex) {
+          const exists = await sql('SELECT id FROM ai_doc_chunks WHERE doc_id=? LIMIT 1', [docId]).catch(() => []);
+          if ((exists as any[]).length > 0) { skipped.push(file); continue; }
+        }
+
+        try {
+          let text = '';
+
+          // Try system pdftotext first (fastest, no dep)
+          try {
+            const proc = Bun.spawn(['pdftotext', '-enc', 'UTF-8', '-q', filePath, '-'], { stderr: 'pipe' });
+            const out = await new Response(proc.stdout).text();
+            await proc.exited;
+            if (out.trim().length > 100) text = out;
+          } catch {}
+
+          // Fallback: pdf-parse
+          if (!text && pdfParser) {
+            const buf = fs.readFileSync(filePath);
+            const data = await pdfParser(buf as any);
+            text = data.text ?? '';
+          }
+
+          if (!text || text.trim().length < 50) {
+            errors.push({ file, err: 'Could not extract text (no parser or encrypted PDF)' });
+            continue;
+          }
+
+          const chunks = splitIntoChunks(text);
+          await sqlRun('DELETE FROM ai_doc_chunks WHERE filename=?', [file]);
+          for (let i = 0; i < chunks.length; i++) {
+            await sqlRun(
+              'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,indexed_at) VALUES (?,?,?,?,?,?)',
+              [docId, file, dirName, i, chunks[i], now]
+            );
+          }
+          indexed.push(`${file} (${chunks.length} chunks)`);
+        } catch (e: any) {
+          errors.push({ file, err: e?.message?.slice(0, 100) ?? 'unknown error' });
+        }
+      }
+    }
+
+    return c.json({ ok: true, indexed, skipped, errors }, 200);
   })
 
   // GET /admin/pending-avatars
