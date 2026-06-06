@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { createRequire } from 'module';
 import { cors } from "hono/cors";
 import * as XLSX from 'xlsx';
 import { eq, and, desc } from "drizzle-orm";
@@ -8,6 +7,7 @@ import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
 import { db } from "./database";
 import * as fflate from 'fflate';
 import * as fs from 'fs';
+import { spawnSync } from 'child_process';
 import * as path from 'path';
 import {
   modules, questions, achievements, userAchievements,
@@ -2075,29 +2075,17 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
     const body = await c.req.json().catch(() => ({})) as { reindex?: boolean };
     const reindex = !!body.reindex;
 
-    // Try to get a PDF parser (pdf-parse via createRequire, then pdftotext fallback)
-    type PdfParser = (buf: Buffer) => Promise<{ text: string }>;
-    let pdfParser: PdfParser | null = null;
-    try {
-      const _req = createRequire(import.meta.url);
-      const mod: any = _req('pdf-parse');
-      pdfParser = (mod.default ?? mod) as PdfParser;
-    } catch {}
-
     const indexed: string[] = [], skipped: string[] = [], errors: { file: string; err: string }[] = [];
     const now = Date.now();
 
     for (const dir of STATIC_PDF_DIRS) {
       if (!fs.existsSync(dir)) continue;
       const dirName = path.basename(dir);
-      let files: string[];
-      try { files = fs.readdirSync(dir).filter((f: string) => f.toLowerCase().endsWith('.pdf')); }
-      catch { continue; }
+      const allFiles = fs.readdirSync(dir).filter((f: string) => f.toLowerCase().endsWith('.pdf'));
 
-      for (const file of files) {
+      for (const file of allFiles) {
         const filePath = path.join(dir, file);
-        let stat: ReturnType<typeof fs.statSync>;
-        try { stat = fs.statSync(filePath); } catch { continue; }
+        const stat = fs.statSync(filePath);
 
         if (stat.size > 30 * 1024 * 1024) {
           skipped.push(`${file} (too large: ${Math.round(stat.size / 1024 / 1024)}MB)`);
@@ -2111,25 +2099,15 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
         }
 
         try {
-          let text = '';
-
-          // Try system pdftotext first (fastest, no dep)
-          try {
-            const proc = Bun.spawn(['pdftotext', '-enc', 'UTF-8', '-q', filePath, '-'], { stderr: 'pipe' });
-            const out = await new Response(proc.stdout).text();
-            await proc.exited;
-            if (out.trim().length > 100) text = out;
-          } catch {}
-
-          // Fallback: pdf-parse
-          if (!text && pdfParser) {
-            const buf = fs.readFileSync(filePath);
-            const data = await pdfParser(buf as any);
-            text = data.text ?? '';
-          }
+          // Use pdftotext (poppler-utils) — pure system command, no npm deps
+          const result = spawnSync('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
+            encoding: 'utf8',
+            maxBuffer: 30 * 1024 * 1024,
+          });
+          const text = (result.status === 0 && result.stdout) ? result.stdout : '';
 
           if (!text || text.trim().length < 50) {
-            errors.push({ file, err: 'Could not extract text (no parser or encrypted PDF)' });
+            errors.push({ file, err: result.error ? 'pdftotext not installed on server' : 'No text extracted (PDF may be image-based or encrypted)' });
             continue;
           }
 
