@@ -222,11 +222,12 @@ export default function Modules() {
           background: "var(--bg-primary)",
           display: "flex", flexDirection: "column",
           overflow: "hidden",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}>
           {/* Lesson header */}
           <div style={{
             padding: "14px 16px 12px",
-            paddingTop: "max(14px, calc(env(safe-area-inset-top) + 14px))",
             borderBottom: `1px solid ${currentMod.color}30`,
             background: `linear-gradient(135deg, ${currentMod.color}15 0%, transparent 100%)`,
             flexShrink: 0,
