@@ -2439,7 +2439,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
         <div style={{ position: "relative", width: "100%", height: "calc(100vh - 130px)", background: "#020602" }}>
           <iframe
             key="sim-admin-preview"
-            src="/simulator.html?admin=1"
+            src="https://stable-dental-distributedcomputing.replit.app"
             style={{ width: "100%", height: "100%", border: "none", display: "block" }}
             title="Simulator Admin Preview"
           />
