@@ -416,7 +416,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         overflow: "hidden",
       }}>
         <div className="scan-line" />
-        <RadarHero />
+        <RadarRings />
 
         {/* Corner brackets */}
         {[{top:12,left:14},{top:12,right:14},{bottom:12,left:14},{bottom:12,right:14}].map((pos,i) => (
