@@ -3460,6 +3460,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const [selectedId, setSelectedId] = useState<string | null>(() => sessionStorage.getItem("tls_admin_selected") || null);
   const [retakeRequests, setRetakeRequests] = useState<Array<{ id: number; trainee_id: string; trainee_name: string; module_id: number; module_name: string; ts: number }>>([]);
   const [retakeActioning, setRetakeActioning] = useState<number | null>(null);
+  const [regRequests, setRegRequests] = useState<Array<{ id: string; name: string; rank: string|null; unit: string|null; air_base: string|null; years_of_service: number|null; status: string; ts: number; review_note: string|null }>>([]);
+  const [regActioning, setRegActioning] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<AdminView>("dashboard");
 
   // ── Menu dropdown ─────────────────────────────────────────────────────────────
@@ -3507,14 +3509,16 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
   const fetchData = useCallback(async () => {
     try {
-      const [res, retakeRes] = await Promise.all([
+      const [res, retakeRes, regRes] = await Promise.all([
         fetch("/api/admin/trainees", { headers: { "x-admin-password": adminPw } }),
         fetch("/api/admin/retake-requests", { headers: { "x-admin-password": adminPw } }),
+        fetch("/api/admin/registration-requests", { headers: { "x-admin-password": adminPw } }),
       ]);
       if (!res.ok) { setError("Session expired. Please log in again."); return; }
       const data = await res.json() as Trainee[];
       setTrainees(data); setLastRefresh(new Date());
       if (retakeRes.ok) setRetakeRequests(await retakeRes.json() as any[]);
+      if (regRes.ok) setRegRequests(await regRes.json() as any[]);
     } catch { setError("Failed to load data."); }
     finally { setLoading(false); }
   }, [adminPw]);
@@ -3634,8 +3638,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                         }}
                       >
                         <span>{link.icon}</span>{link.label}
-                        {link.id === "trainees" && retakeRequests.length > 0 && (
-                          <span style={{ marginLeft: "auto", background: "#FFD700", color: "#000", borderRadius: 10, padding: "0 5px", fontSize: 8, fontWeight: 700 }}>{retakeRequests.length}</span>
+                        {link.id === "trainees" && (retakeRequests.length + regRequests.filter(r=>r.status==="pending").length) > 0 && (
+                          <span style={{ marginLeft: "auto", background: "#FFD700", color: "#000", borderRadius: 10, padding: "0 5px", fontSize: 8, fontWeight: 700 }}>{retakeRequests.length + regRequests.filter(r=>r.status==="pending").length}</span>
                         )}
                       </button>
                       {link.divider && <div style={{ height: 1, background: "rgba(0,255,136,0.2)", margin: "2px 0" }} />}
@@ -3707,6 +3711,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
             {[
               { label: "PENDING RETAKES", value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.2)" },
+              { label: "طلبات تسجيل", value: String(regRequests.filter(r=>r.status==="pending").length), color: regRequests.filter(r=>r.status==="pending").length > 0 ? "#FF9500" : "rgba(255,255,255,0.2)" },
               { label: "BLOCKED",  value: String(trainees.filter(t => (t as any).status === "blocked").length), color: "#FF4444" },
               { label: "ADVANCED", value: String(trainees.filter(t => (t as any).trainingLevel === "advanced").length), color: "#FFD700" },
             ].map(({ label, value, color }) => (
@@ -4033,6 +4038,83 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       )}
 
       <div style={{ paddingBottom: 40 }}>
+
+        {/* -- REGISTRATION REQUESTS -- */}
+        {regRequests.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+              <div style={{ fontSize:11, fontFamily:"Orbitron, monospace", color:"#FF9500", letterSpacing:"0.15em" }}>
+                طلبات التسجيل
+              </div>
+              {regRequests.filter(r=>r.status==="pending").length > 0 && (
+                <span style={{ background:"#FF9500", color:"#000", borderRadius:10, padding:"1px 7px", fontSize:9, fontWeight:700 }}>
+                  {regRequests.filter(r=>r.status==="pending").length} جديد
+                </span>
+              )}
+            </div>
+            {regRequests.map(req => {
+              const isPending = req.status === "pending";
+              const statusColor = req.status==="approved"?"#00FF88":req.status==="rejected"?"#FF4D4D":req.status==="suspended"?"#FFD166":"#FF9500";
+              const statusLabel = req.status==="approved"?"مقبول":req.status==="rejected"?"مرفوض":req.status==="suspended"?"معلّق":"قيد المراجعة";
+              return (
+                <div key={req.id} style={{
+                  padding:"14px 16px", marginBottom:10, borderRadius:10,
+                  background:"rgba(255,149,0,0.05)", border:"1px solid " + statusColor + "30",
+                  display:"flex", flexWrap:"wrap", gap:10, alignItems:"center",
+                }}>
+                  <div style={{ flex:1, minWidth:160 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#fff", marginBottom:3 }}>{req.name}</div>
+                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", lineHeight:1.6 }}>
+                      {[req.rank, req.unit, req.air_base].filter(Boolean).join(" · ")}
+                      {req.years_of_service ? " · " + req.years_of_service + " سنوات" : ""}
+                    </div>
+                    <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", marginTop:2 }}>
+                      {new Date(req.ts).toLocaleString("ar-SA")}
+                    </div>
+                  </div>
+                  <span style={{ padding:"2px 8px", borderRadius:6, background:statusColor + "20", color:statusColor, fontSize:9, fontWeight:700 }}>
+                    {statusLabel}
+                  </span>
+                  {isPending && (
+                    <div style={{ display:"flex", gap:6 }}>
+                      <button
+                        disabled={regActioning===req.id}
+                        onClick={async()=>{
+                          setRegActioning(req.id);
+                          await fetch("/api/admin/registration/approve/" + req.id, {method:"POST", headers:{"x-admin-password":adminPw}});
+                          setRegActioning(null);
+                          setRegRequests(r=>r.map(x=>x.id===req.id?{...x,status:"approved"}:x));
+                        }}
+                        style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:"#00FF88", color:"#000", fontSize:11, fontWeight:700 }}
+                      >قبول</button>
+                      <button
+                        disabled={regActioning===req.id}
+                        onClick={async()=>{
+                          setRegActioning(req.id);
+                          await fetch("/api/admin/registration/reject/" + req.id, {method:"POST", headers:{"x-admin-password":adminPw, "Content-Type":"application/json"}, body:"{}"});
+                          setRegActioning(null);
+                          setRegRequests(r=>r.map(x=>x.id===req.id?{...x,status:"rejected"}:x));
+                        }}
+                        style={{ padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer", background:"#FF4D4D", color:"#fff", fontSize:11, fontWeight:700 }}
+                      >رفض</button>
+                      <button
+                        disabled={regActioning===req.id}
+                        onClick={async()=>{
+                          setRegActioning(req.id);
+                          await fetch("/api/admin/registration/suspend/" + req.id, {method:"POST", headers:{"x-admin-password":adminPw}});
+                          setRegActioning(null);
+                          setRegRequests(r=>r.map(x=>x.id===req.id?{...x,status:"suspended"}:x));
+                        }}
+                        style={{ padding:"6px 14px", borderRadius:8, border:"1px solid #FFD16640", cursor:"pointer", background:"rgba(255,209,102,0.2)", color:"#FFD166", fontSize:11, fontWeight:700 }}
+                      >تعليق</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
 
         {/* ── RETAKE REQUESTS ── */}
         {retakeRequests.length > 0 && (
