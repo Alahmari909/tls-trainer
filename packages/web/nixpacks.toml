@@ -1,0 +1,3 @@
+# Railway: install poppler-utils so pdftotext is available for PDF indexing
+[phases.setup]
+nixPkgs = ["poppler_utils"]
