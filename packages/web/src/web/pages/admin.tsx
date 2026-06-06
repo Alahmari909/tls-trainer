@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
-import Modules from "./modules";
+
 import Basics from "./basics";
 import Advanced from "./advanced";
 import QuizList from "./quiz-list";
@@ -311,8 +311,8 @@ function TraineeDetailModal({
   const [detail, setDetail] = useState<TraineeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   // Restore tab + msgText from sessionStorage so they survive iOS app-switch / reload
-  const [tab, setTab] = useState<"overview" | "activity" | "quiz" | "modules" | "notes" | "messages" | "moderation" | "evaluation">(
-    () => (sessionStorage.getItem(`tls_admin_tab_${traineeId}`) as "overview" | "activity" | "quiz" | "modules" | "notes" | "messages" | "moderation" | "evaluation") || "overview"
+  const [tab, setTab] = useState<"overview" | "activity" | "quiz" | "notes" | "messages" | "moderation" | "evaluation">(
+    () => (sessionStorage.getItem(`tls_admin_tab_${traineeId}`) as "overview" | "activity" | "quiz" | "notes" | "messages" | "moderation" | "evaluation") || "overview"
   );
   const [actionResult, setActionResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [modLog, setModLog] = useState<ModerationEntry[]>([]);
@@ -386,7 +386,7 @@ function TraineeDetailModal({
   const s = detail?.stats;
   const initials = t ? t.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase() : "?";
 
-  const TABS = ["overview", "activity", "quiz", "modules", "notes", "messages", "moderation", "evaluation"] as const;
+  const TABS = ["overview", "activity", "quiz", "notes", "messages", "moderation", "evaluation"] as const;
 
   // Evaluation state
   const [evalRating, setEvalRating] = useState<string>("pending");
@@ -1043,45 +1043,6 @@ ${weaknessSection}${strengthSection}
                     </div>
                     {/* Per-question breakdown button */}
                     <QuizAnswerBreakdown attemptId={a.id} traineeId={detail.trainee.id} adminPw={adminPw} />
-                  </div>
-                ))}
-              </div>
-            )
-
-            // ── MODULES TAB ──
-            : tab === "modules" ? (
-              <div>
-                {detail.moduleProgress.length === 0 ? (
-                  <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 12 }}>No module progress yet</div>
-                ) : detail.moduleProgress.map(p => (
-                  <div key={p.id} style={{
-                    padding: "12px 14px", marginBottom: 8,
-                    background: "rgba(0,174,239,0.04)", border: `1px solid ${C.cyan}15`,
-                    borderRadius: 10,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "Inter" }}>
-                        Module {p.module_id} {p.module_name ? `— ${p.module_name}` : ""}
-                      </div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {p.assigned_by_admin === 1 && (
-                          <span style={{ fontSize: 8, fontFamily: "Inter", padding: "2px 6px", background: `${C.gold}15`, border: `1px solid ${C.gold}35`, color: C.gold, borderRadius: 8 }}>ASSIGNED</span>
-                        )}
-                        {p.completed === 1 && (
-                          <span style={{ fontSize: 8, fontFamily: "Inter", padding: "2px 6px", background: `${C.green}15`, border: `1px solid ${C.green}35`, color: C.green, borderRadius: 8 }}>DONE</span>
-                        )}
-                        <span className="font-orbitron" style={{ fontSize: 11, color: p.completed ? C.green : C.cyan }}>{Math.round(p.progress)}%</span>
-                      </div>
-                    </div>
-                    <div className="progress-bar" style={{ height: 4 }}>
-                      <div className="progress-fill" style={{
-                        width: `${p.progress}%`,
-                        background: p.completed ? `linear-gradient(90deg, ${C.green}, ${C.blue})` : `linear-gradient(90deg, ${C.cyan}, ${C.blue})`,
-                      }} />
-                    </div>
-                    {p.last_accessed_at > 0 && (
-                      <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 4, fontFamily: "Inter" }}>Last accessed: {timeAgo(p.last_accessed_at)}</div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -2980,7 +2941,6 @@ const NAV_LINKS = [
   { id: "trainees",      label: "Trainees",       icon: "👥", divider: false },
   { id: "reports",       label: "Reports",        icon: "📊", divider: false },
   { id: "settings",      label: "Settings",       icon: "⚙️", divider: true  },
-  { id: "modules",       label: "Modules",        icon: "📡", divider: false },
   { id: "basics",        label: "TLS Basic",      icon: "📘", divider: false },
   { id: "advanced",      label: "TLS Advanced",   icon: "⭐", divider: false },
   { id: "quiz",          label: "Quiz",           icon: "🎯", divider: false },
@@ -2994,7 +2954,7 @@ const NAV_LINKS = [
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "modules" | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator";
+  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator";
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
@@ -3422,7 +3382,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 
   // ── Admin mode flag — suppresses Telegram tracking inside imported pages ──────
-  const IMPORTED_VIEWS = ["modules", "basics", "advanced", "quiz", "chat", "status", "notifications", "about", "documents", "simulator"];
+  const IMPORTED_VIEWS = ["basics", "advanced", "quiz", "chat", "status", "notifications", "about", "documents", "simulator"];
   useEffect(() => {
     if (IMPORTED_VIEWS.includes(activeView)) {
       sessionStorage.setItem("tls_admin_mode", "1");
@@ -3773,7 +3733,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       )}
 
       {/* ── IMPORTED TRAINEE PAGES ── dark wrapper keeps admin shell consistent */}
-      {activeView === "modules"       && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Modules /></div>}
       {activeView === "basics"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Basics /></div>}
       {activeView === "advanced"      && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Advanced /></div>}
       {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList adminMode={true} /></div>}
