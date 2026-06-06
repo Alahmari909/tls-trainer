@@ -336,8 +336,8 @@ ensureTables();
 
 // ── PDF RAG helpers ───────────────────────────────────────────────────────────
 const STATIC_PDF_DIRS = [
-  path.resolve(new URL(import.meta.url).pathname, '../../static/admin-docs'),
-  path.resolve(new URL(import.meta.url).pathname, '../../static/pdfs'),
+  path.join(path.dirname(new URL(import.meta.url).pathname), '../..', 'static/admin-docs'),
+  path.join(path.dirname(new URL(import.meta.url).pathname), '../..', 'static/pdfs'),
 ];
 
 function splitIntoChunks(text: string, size = 700, overlap = 120): string[] {
