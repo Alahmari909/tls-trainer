@@ -13,634 +13,332 @@ type Notification = { id: number; message?: string; text?: string; alert_type?: 
 
 const COLORS = ["#00AEEF","#35D4FF","#00D26A","#FFD166","#00AEEF","#35D4FF","#C9A66B","#00D26A","#FF4D4D"];
 
-/* ── Radar rings decoration ── */
 function RadarRings() {
   return (
-    <div style={{
-      position: "absolute", top: "50%", left: "50%",
-      transform: "translate(-50%,-50%)",
-      width: 320, height: 320, pointerEvents: "none",
-    }}>
-      {[1,2,3].map(n => (
-        <div key={n} style={{
-          position: "absolute", inset: 0, borderRadius: "50%",
-          border: `1px solid rgba(0,174,239,${0.18 - n * 0.04})`,
-          animation: `radar-ring ${2.5 + n * 0.6}s ease-in-out infinite`,
-          animationDelay: `${n * 0.4}s`,
-          transform: `scale(${0.3 + n * 0.22})`,
-        }} />
+    <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:320,height:320,pointerEvents:"none" }}>
+      {[1,2,3].map(n=>(
+        <div key={n} style={{ position:"absolute",inset:0,borderRadius:"50%",border:`1px solid rgba(0,174,239,${0.18-n*0.04})`,animation:`radar-ring ${2.5+n*0.6}s ease-in-out infinite`,animationDelay:`${n*0.4}s`,transform:`scale(${0.3+n*0.22})` }} />
       ))}
-      <div style={{
-        position: "absolute", top: "50%", left: "50%",
-        width: "50%", height: 1, transformOrigin: "0 50%",
-        background: "linear-gradient(90deg, rgba(0,174,239,0.7), transparent)",
-        animation: "radar-sweep 3s linear infinite",
-      }} />
-      <div style={{
-        position: "absolute", top: "50%", left: "50%",
-        transform: "translate(-50%,-50%)",
-        width: 8, height: 8, borderRadius: "50%",
-        background: "#00AEEF", boxShadow: "0 0 10px #00AEEF, 0 0 20px rgba(0,174,239,0.5)",
-        animation: "pulse-glow 1.5s ease infinite",
-      }} />
+      <div style={{ position:"absolute",top:"50%",left:"50%",width:"50%",height:1,transformOrigin:"0 50%",background:"linear-gradient(90deg,rgba(0,174,239,0.7),transparent)",animation:"radar-sweep 3s linear infinite" }} />
+      <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:8,height:8,borderRadius:"50%",background:"#00AEEF",boxShadow:"0 0 10px #00AEEF,0 0 20px rgba(0,174,239,0.5)",animation:"pulse-glow 1.5s ease infinite" }} />
     </div>
   );
 }
 
-/* ── Live clock ── */
 function useLiveClock() {
   const fmt = () => {
     const now = new Date();
-    const day = String(now.getDate()).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2,"0");
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const mon = months[now.getMonth()];
     const yr = now.getFullYear();
     let h = now.getHours();
-    const ampm = h >= 12 ? "PM" : "AM";
-    h = h % 12 || 12;
-    const min = String(now.getMinutes()).padStart(2, "0");
+    const ampm = h>=12?"PM":"AM";
+    h = h%12||12;
+    const min = String(now.getMinutes()).padStart(2,"0");
     return `${day} ${mon} ${yr} · ${String(h).padStart(2,"0")}:${min} ${ampm}`;
   };
-  const [clock, setClock] = useState(fmt);
-  useEffect(() => {
-    const id = setInterval(() => setClock(fmt()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const [clock,setClock] = useState(fmt);
+  useEffect(()=>{ const id=setInterval(()=>setClock(fmt()),1000); return()=>clearInterval(id); },[]);
   return clock;
 }
 
-/* ── XP bar ── */
 function XpBar({ xp }: { xp: number }) {
-  const level = Math.floor(xp / 500) + 1;
-  const pct = (xp % 500) / 5;
+  const level = Math.floor(xp/500)+1;
+  const pct = (xp%500)/5;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div className="font-orbitron" style={{ fontSize: 9, color: "#FFD166", letterSpacing: "0.1em", flexShrink: 0 }}>LVL {level}</div>
-      <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg, #FFD166, #C9A66B)", borderRadius: 2, transition: "width 0.8s ease" }} />
+    <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+      <div className="font-orbitron" style={{ fontSize:9,color:"#FFD166",letterSpacing:"0.1em",flexShrink:0 }}>LVL {level}</div>
+      <div style={{ flex:1,height:4,background:"rgba(255,255,255,0.08)",borderRadius:2,overflow:"hidden" }}>
+        <div style={{ height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#FFD166,#C9A66B)",borderRadius:2,transition:"width 0.8s ease" }} />
       </div>
-      <div style={{ fontSize: 9, color: "var(--text-muted)", flexShrink: 0 }}>{xp} XP</div>
+      <div className="font-orbitron" style={{ fontSize:9,color:"rgba(255,255,255,0.35)",letterSpacing:"0.05em",flexShrink:0 }}>{xp} XP</div>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────
    LOGIN / REGISTER SCREEN
-───────────────────────────────────────────────────────────────────────────── */
+───────────────────────────────────────────────────────── */
 function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
-  const [mode, setMode] = useState<"pick" | "register" | "login">("pick");
+  const [mode, setMode] = useState<"pick"|"register"|"login"|"pending">("pick");
   const [trainees, setTrainees] = useState<TraineeListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Show force-logout reason if set (e.g. blocked while online)
   const [forceLogoutMsg] = useState(() => {
     const msg = sessionStorage.getItem('tls_force_logout_reason');
     if (msg) { sessionStorage.removeItem('tls_force_logout_reason'); return msg; }
     return null;
   });
 
-  // Register form
-  const [name, setName] = useState("");
-  const [rank, setRank] = useState("");
-  const [unit, setUnit] = useState("");
-  const [pin, setPin] = useState("");
+  // Register fields
+  const [name, setName]   = useState("");
+  const [rank, setRank]   = useState("");
+  const [unit, setUnit]   = useState("");
+  const [airBase, setAirBase] = useState("");
+  const [years, setYears] = useState("");
+  const [pin,  setPin]    = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pendingName, setPendingName] = useState("");
 
-  // Login (existing trainee pick)
+  // Login
   const [selectedId, setSelectedId] = useState("");
   const [loginPin, setLoginPin] = useState("");
 
   useEffect(() => {
     if (mode === "login") {
-      fetch("/api/trainee/list").then(r => r.json()).then((rows: TraineeListItem[]) => setTrainees(rows)).catch(() => {});
+      fetch("/api/trainee/list").then(r=>r.json()).then((rows:TraineeListItem[])=>setTrainees(rows)).catch(()=>{});
     }
   }, [mode]);
 
   const doRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    unlockAudio(); // unlock audio on first user gesture
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (!pin.trim() || !/^\d{4}$/.test(pin.trim())) { setError("PIN must be exactly 4 digits"); return; }
+    unlockAudio();
+    if (!name.trim())  { setError("الاسم مطلوب"); return; }
+    if (!pin.trim() || !/^\d{4,8}$/.test(pin.trim())) { setError("رمز الدخول لازم يكون 4-8 أرقام"); return; }
+    if (pin !== confirmPin) { setError("رمز الدخول وتأكيده غير متطابقين"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), rank: rank.trim() || undefined, unit: unit.trim() || undefined, pin: pin.trim() }),
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          name: name.trim(), rank: rank.trim()||undefined,
+          unit: unit.trim()||undefined, air_base: airBase.trim()||undefined,
+          years_of_service: years ? parseInt(years) : undefined,
+          pin: pin.trim(),
+        }),
       });
-      const data = await res.json() as { ok: boolean; id?: string; name?: string; rank?: string | null; unit?: string | null; error?: string };
-      if (!data.ok || !data.id) { setError(data.error ?? "Registration failed"); return; }
-      const session: TraineeSession = { id: data.id, name: data.name!, rank: data.rank, unit: data.unit };
-      setSession(session);
-      // Track login event (fires Telegram)
-      fetch("/api/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "login", userId: data.id, traineeName: data.name }),
-      }).catch(() => {});
-      onLogin(session);
-    } catch { setError("Connection error"); } finally { setLoading(false); }
+      const data = await res.json() as { ok:boolean; pending?:boolean; requestId?:string; error?:string };
+      if (!data.ok) { setError(data.error ?? "فشل التسجيل"); return; }
+      // Show pending screen
+      setPendingName(name.trim());
+      setMode("pending");
+    } catch { setError("خطأ في الاتصال"); } finally { setLoading(false); }
   };
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    unlockAudio(); // unlock audio on first user gesture
-    if (!selectedId) { setError("Select a trainee"); return; }
+    unlockAudio();
+    if (!selectedId) { setError("اختر اسمك من القائمة"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedId, pin: loginPin.trim() || undefined }),
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ id:selectedId, pin:loginPin.trim()||undefined }),
       });
-      const data = await res.json() as { ok: boolean; id?: string; name?: string; rank?: string | null; unit?: string | null; error?: string; message?: string };
-      if (res.status === 403 && data.error === 'blocked') { setError(data.message ?? 'Your account has been blocked. Contact your instructor.'); return; }
-      if (!data.ok || !data.id) { setError(data.error ?? "Login failed"); return; }
-      const session: TraineeSession = { id: data.id, name: data.name!, rank: data.rank, unit: data.unit };
+      const data = await res.json() as { ok:boolean; id?:string; name?:string; rank?:string|null; unit?:string|null; error?:string; message?:string };
+      if (res.status===403 && data.error==='blocked')    { setError(data.message ?? 'حسابك موقوف. تواصل مع المدرب.'); return; }
+      if (res.status===403 && data.error==='suspended')  { setError(data.message ?? 'حسابك معلّق مؤقتاً.'); return; }
+      if (!data.ok || !data.id) { setError(data.error ?? "بيانات الدخول غير صحيحة"); return; }
+      const session: TraineeSession = { id:data.id, name:data.name!, rank:data.rank, unit:data.unit };
       setSession(session);
-      // Track login event (fires Telegram)
-      fetch("/api/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "login", userId: data.id, traineeName: data.name }),
-      }).catch(() => {});
+      fetch("/api/track",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"login", userId:data.id, traineeName:data.name }) }).catch(()=>{});
       onLogin(session);
-    } catch { setError("Connection error"); } finally { setLoading(false); }
+    } catch { setError("خطأ في الاتصال"); } finally { setLoading(false); }
+  };
+
+  const C = { cyan:"#00AEEF", navy:"#071426" };
+  const cardStyle: React.CSSProperties = {
+    padding:24, border:"1px solid rgba(0,174,239,0.25)",
+    background:"rgba(7,20,38,0.85)", borderRadius:16,
+    backdropFilter:"blur(12px)",
+  };
+  const inputStyle: React.CSSProperties = {
+    width:"100%", padding:"10px 12px", boxSizing:"border-box" as const,
+    background:"rgba(0,0,0,0.3)", border:"1px solid rgba(0,174,239,0.3)",
+    borderRadius:8, color:"#fff", fontSize:13, outline:"none", fontFamily:"inherit",
   };
 
   return (
     <div className="page" style={{
-      background: "var(--bg-primary)",
-      minHeight: "100vh",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "24px",
+      background:"var(--bg-primary)", minHeight:"100vh",
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      padding:"24px",
     }}>
       <style>{`
         @keyframes radar-ring { 0%,100%{opacity:0.4}50%{opacity:0.9} }
         @keyframes radar-sweep { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes pulse-glow { 0%,100%{opacity:1;transform:translate(-50%,-50%) scale(1)} 50%{opacity:0.6;transform:translate(-50%,-50%) scale(1.3)} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
 
-      {/* Corner brackets */}
-      {[{top:16,left:16},{top:16,right:16},{bottom:16,left:16},{bottom:16,right:16}].map((pos,i) => (
+      {[{top:16,left:16},{top:16,right:16},{bottom:16,left:16},{bottom:16,right:16}].map((pos,i)=>(
         <div key={i} style={{
           position:"fixed",...pos,width:16,height:16,
-          borderTop: i<2?"2px solid rgba(0,174,239,0.5)":undefined,
-          borderBottom: i>=2?"2px solid rgba(0,174,239,0.5)":undefined,
-          borderLeft: (i===0||i===2)?"2px solid rgba(0,174,239,0.5)":undefined,
-          borderRight: (i===1||i===3)?"2px solid rgba(0,174,239,0.5)":undefined,
+          borderTop:i<2?"2px solid rgba(0,174,239,0.5)":undefined,
+          borderBottom:i>=2?"2px solid rgba(0,174,239,0.5)":undefined,
+          borderLeft:(i===0||i===2)?"2px solid rgba(0,174,239,0.5)":undefined,
+          borderRight:(i===1||i===3)?"2px solid rgba(0,174,239,0.5)":undefined,
         }} />
       ))}
 
       {/* Logo */}
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <div className="font-orbitron" style={{ fontSize: 28, fontWeight: 700, color: "#fff", letterSpacing: "0.05em" }}>
-          TLS TRAINER
-        </div>
-        <div style={{ fontFamily: "Inter", fontSize: 9, letterSpacing: "0.2em", color: "#00AEEF", marginTop: 4 }}>
-          TRANSPONDER LANDING SYSTEM
-        </div>
-        <div style={{ fontFamily: "Inter", fontSize: 7, letterSpacing: "0.15em", color: "rgba(0,174,239,0.5)", marginTop: 6 }}>
-          ◈ GROUND RADAR UNIT · ANPC · JEDDAH ◈
-        </div>
+      <div style={{ textAlign:"center", marginBottom:32 }}>
+        <div className="font-orbitron" style={{ fontSize:28,fontWeight:700,color:"#fff",letterSpacing:"0.05em" }}>TLS TRAINER</div>
+        <div style={{ fontFamily:"Inter",fontSize:9,letterSpacing:"0.2em",color:"#00AEEF",marginTop:4 }}>TRANSPONDER LANDING SYSTEM</div>
+        <div style={{ fontFamily:"Inter",fontSize:7,letterSpacing:"0.15em",color:"rgba(0,174,239,0.5)",marginTop:6 }}>◈ GROUND RADAR UNIT · ANPC · JEDDAH ◈</div>
       </div>
 
-      <div style={{ width: "100%", maxWidth: 380 }}>
-        {/* Force-logout banner (shown when admin blocked an online trainee) */}
+      <div style={{ width:"100%", maxWidth:400 }}>
         {forceLogoutMsg && (
-          <div style={{
-            padding: "12px 16px", marginBottom: 16, borderRadius: 10,
-            background: "rgba(255,77,77,0.12)", border: "1px solid rgba(255,77,77,0.4)",
-            color: "#FF4D4D", fontSize: 12, fontFamily: "Inter, sans-serif", textAlign: "center",
-            lineHeight: 1.5,
-          }}>
+          <div style={{ padding:"12px 16px",marginBottom:16,borderRadius:10,background:"rgba(255,77,77,0.12)",border:"1px solid rgba(255,77,77,0.4)",color:"#FF4D4D",fontSize:12,textAlign:"center",lineHeight:1.5 }}>
             🚫 {forceLogoutMsg}
           </div>
         )}
 
-        {/* Pick mode */}
-        {mode === "pick" && (
-          <div className="glass-card" style={{ padding: 24, border: "1px solid rgba(0,174,239,0.25)" }}>
-            <div className="font-orbitron" style={{ fontSize: 11, color: "#00AEEF", letterSpacing: "0.15em", textAlign: "center", marginBottom: 24 }}>
+        {/* PICK */}
+        {mode==="pick" && (
+          <div style={cardStyle}>
+            <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em",textAlign:"center",marginBottom:24 }}>
               IDENTIFY YOURSELF
             </div>
-            <button
-              onClick={() => setMode("register")}
-              style={{
-                width: "100%", padding: "14px 0", marginBottom: 12,
-                background: "linear-gradient(135deg, #00AEEF20, #35D4FF15)",
-                border: "1px solid #00AEEF60", borderRadius: 10, cursor: "pointer",
-                color: "#00AEEF", fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em",
-              }}
-            >
-              + NEW TRAINEE
-            </button>
-            <button
-              onClick={() => setMode("login")}
-              style={{
-                width: "100%", padding: "14px 0",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, cursor: "pointer",
-                color: "var(--text-secondary)", fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em",
-              }}
-            >
-              RETURNING TRAINEE
-            </button>
+            <button onClick={()=>setMode("register")} style={{
+              width:"100%",padding:"14px 0",marginBottom:12,
+              background:"linear-gradient(135deg,#00AEEF20,#35D4FF15)",
+              border:"1px solid #00AEEF60",borderRadius:10,cursor:"pointer",
+              color:"#00AEEF",fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",
+            }}>+ تسجيل متدرب جديد</button>
+            <button onClick={()=>setMode("login")} style={{
+              width:"100%",padding:"14px 0",
+              background:"rgba(255,255,255,0.04)",
+              border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,cursor:"pointer",
+              color:"rgba(255,255,255,0.5)",fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",
+            }}>دخول متدرب مسجّل</button>
           </div>
         )}
 
-        {/* Register */}
-        {mode === "register" && (
-          <form onSubmit={doRegister} className="glass-card" style={{ padding: 24, border: "1px solid rgba(0,174,239,0.25)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <button type="button" onClick={() => { setMode("pick"); setError(""); }}
-                style={{ background: "none", border: "none", color: "#00AEEF", cursor: "pointer", padding: 4, fontSize: 18 }}>←</button>
-              <div className="font-orbitron" style={{ fontSize: 11, color: "#00AEEF", letterSpacing: "0.15em" }}>NEW TRAINEE</div>
+        {/* REGISTER FORM */}
+        {mode==="register" && (
+          <form onSubmit={doRegister} style={cardStyle}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:20 }}>
+              <button type="button" onClick={()=>{setMode("pick");setError("");}}
+                style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,fontSize:18 }}>←</button>
+              <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>طلب تسجيل جديد</div>
+            </div>
+
+            <div style={{ fontSize:10,color:"rgba(0,174,239,0.6)",fontFamily:"Inter",marginBottom:16,lineHeight:1.6,padding:"10px 12px",background:"rgba(0,174,239,0.06)",borderRadius:8,border:"1px solid rgba(0,174,239,0.15)" }}>
+              سيُراجَع طلبك من قبل المدرب قبل تفعيل حسابك
             </div>
 
             {[
-              { label: "FULL NAME *", value: name, set: setName, placeholder: "e.g. Mohammed Al-Qahtani", type: "text" },
-              { label: "RANK", value: rank, set: setRank, placeholder: "e.g. SSgt, TSgt, Capt", type: "text" },
-              { label: "UNIT / SECTION", value: unit, set: setUnit, placeholder: "e.g. Ground Radar, ANPC", type: "text" },
-              { label: "PIN * (4 digits)", value: pin, set: setPin, placeholder: "Enter a 4-digit PIN", type: "password" },
-            ].map(field => (
-              <div key={field.label} style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 9, fontFamily: "Inter", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>{field.label}</div>
-                <input
-                  type={field.type}
-                  value={field.value}
-                  onChange={e => field.set(e.target.value)}
-                  placeholder={field.placeholder}
-                  style={{
-                    width: "100%", padding: "10px 12px", boxSizing: "border-box",
-                    background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,174,239,0.3)",
-                    borderRadius: 8, color: "#fff", fontSize: 13,
-                    outline: "none", fontFamily: "inherit",
-                  }}
-                />
+              { label:"الاسم الكامل *", val:name, set:setName, ph:"مثال: محمد العتيبي", type:"text" },
+              { label:"الرتبة العسكرية", val:rank, set:setRank, ph:"مثال: رقيب، ملازم، نقيب", type:"text" },
+              { label:"الوحدة / القسم", val:unit, set:setUnit, ph:"مثال: Ground Radar", type:"text" },
+              { label:"القاعدة الجوية", val:airBase, set:setAirBase, ph:"مثال: قاعدة الملك عبدالعزيز", type:"text" },
+              { label:"سنوات الخدمة", val:years, set:setYears, ph:"مثال: 5", type:"number" },
+              { label:"رمز الدخول (4-8 أرقام) *", val:pin, set:setPin, ph:"أدخل رمز الدخول", type:"password" },
+              { label:"تأكيد رمز الدخول *", val:confirmPin, set:setConfirmPin, ph:"أعد إدخال رمز الدخول", type:"password" },
+            ].map(f=>(
+              <div key={f.label} style={{ marginBottom:12 }}>
+                <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:5 }}>{f.label}</div>
+                <input type={f.type} value={f.val} onChange={e=>f.set(e.target.value)} placeholder={f.ph}
+                  inputMode={f.type==="number"||f.type==="password"?"numeric":undefined}
+                  style={inputStyle} />
               </div>
             ))}
 
-            {error && <div style={{ color: "#FF4D4D", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+            {error && <div style={{ color:"#FF4D4D",fontSize:12,marginBottom:12,textAlign:"center" }}>{error}</div>}
 
             <button type="submit" disabled={loading} style={{
-              width: "100%", padding: "14px 0", marginTop: 4,
-              background: loading ? "rgba(0,174,239,0.2)" : "linear-gradient(135deg, #00AEEF, #35D4FF)",
-              border: "none", borderRadius: 10, cursor: loading ? "not-allowed" : "pointer",
-              color: "#fff", fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em",
-              fontWeight: 700,
+              width:"100%",padding:"14px 0",marginTop:4,
+              background:loading?"rgba(0,174,239,0.2)":"linear-gradient(135deg,#00AEEF,#35D4FF)",
+              border:"none",borderRadius:10,cursor:loading?"not-allowed":"pointer",
+              color:loading?"rgba(255,255,255,0.5)":"#fff",fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",fontWeight:700,
             }}>
-              {loading ? "REGISTERING..." : "BEGIN TRAINING"}
+              {loading?"جاري الإرسال...":"إرسال طلب التسجيل"}
             </button>
           </form>
         )}
 
-        {/* Login (pick existing) */}
-        {mode === "login" && (
-          <form onSubmit={doLogin} className="glass-card" style={{ padding: 24, border: "1px solid rgba(0,174,239,0.25)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <button type="button" onClick={() => { setMode("pick"); setError(""); }}
-                style={{ background: "none", border: "none", color: "#00AEEF", cursor: "pointer", padding: 4, fontSize: 18 }}>←</button>
-              <div className="font-orbitron" style={{ fontSize: 11, color: "#00AEEF", letterSpacing: "0.15em" }}>RETURNING TRAINEE</div>
+        {/* PENDING SCREEN */}
+        {mode==="pending" && (
+          <div style={{ ...cardStyle, textAlign:"center", animation:"fadeUp 0.4s ease" }}>
+            <div style={{ fontSize:52,marginBottom:16 }}>🕐</div>
+            <div className="font-orbitron" style={{ fontSize:13,color:C.cyan,letterSpacing:"0.15em",marginBottom:12 }}>
+              طلبك قيد المراجعة
+            </div>
+            <div style={{ fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.7,marginBottom:20 }}>
+              أُرسل طلب تسجيلك باسم <strong style={{ color:"#fff" }}>{pendingName}</strong><br/>
+              سيراجعه المدرب ويُفعّل حسابك قريباً.<br/>
+              بعد الموافقة يمكنك الدخول من زر <em>"دخول متدرب مسجّل"</em>
+            </div>
+            <div style={{ padding:"12px 16px",background:"rgba(0,174,239,0.06)",border:"1px solid rgba(0,174,239,0.15)",borderRadius:10,marginBottom:20 }}>
+              <div style={{ fontSize:10,color:"rgba(0,174,239,0.5)",fontFamily:"Orbitron, monospace",letterSpacing:"0.15em",marginBottom:6 }}>REGISTRATION STATUS</div>
+              <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
+                <div style={{ width:8,height:8,borderRadius:"50%",background:"#FFD166",animation:"pulse-glow 1.4s infinite" }} />
+                <span style={{ color:"#FFD166",fontSize:12,fontFamily:"Inter",fontWeight:600 }}>PENDING ADMIN APPROVAL</span>
+              </div>
+            </div>
+            <button onClick={()=>{setMode("pick");setName("");setRank("");setUnit("");setAirBase("");setYears("");setPin("");setConfirmPin("");}} style={{
+              padding:"10px 24px",background:"rgba(255,255,255,0.05)",
+              border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,
+              color:"rgba(255,255,255,0.45)",fontFamily:"Inter",fontSize:12,cursor:"pointer",
+            }}>عودة للرئيسية</button>
+          </div>
+        )}
+
+        {/* LOGIN */}
+        {mode==="login" && (
+          <form onSubmit={doLogin} style={cardStyle}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:20 }}>
+              <button type="button" onClick={()=>{setMode("pick");setError("");}}
+                style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,fontSize:18 }}>←</button>
+              <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>دخول المتدرب</div>
             </div>
 
-            <div style={{ fontSize: 9, fontFamily: "Inter", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>SELECT TRAINEE</div>
-            {trainees.length === 0 ? (
-              <div style={{ color: "var(--text-muted)", fontSize: 12, textAlign: "center", padding: "16px 0", marginBottom: 14 }}>
-                No trainees registered yet
+            <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>اختر اسمك</div>
+            {trainees.length===0 ? (
+              <div style={{ color:"rgba(255,255,255,0.3)",fontSize:12,textAlign:"center",padding:"16px 0",marginBottom:14 }}>
+                لا يوجد متدربين مسجّلين بعد
               </div>
             ) : (
-              <div style={{ marginBottom: 14, maxHeight: 200, overflowY: "auto" }}>
-                {trainees.map(t => (
-                  <div
-                    key={t.id}
-                    onClick={() => setSelectedId(t.id)}
-                    style={{
-                      padding: "10px 12px", marginBottom: 6, borderRadius: 8,
-                      border: selectedId === t.id ? "1px solid #00AEEF" : "1px solid rgba(255,255,255,0.08)",
-                      background: selectedId === t.id ? "rgba(0,174,239,0.12)" : "rgba(255,255,255,0.03)",
-                      cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
-                    }}
-                  >
+              <div style={{ marginBottom:14,maxHeight:200,overflowY:"auto" }}>
+                {trainees.map(t=>(
+                  <div key={t.id} onClick={()=>setSelectedId(t.id)} style={{
+                    padding:"10px 12px",marginBottom:6,borderRadius:8,
+                    border:selectedId===t.id?"1px solid #00AEEF":"1px solid rgba(255,255,255,0.08)",
+                    background:selectedId===t.id?"rgba(0,174,239,0.12)":"rgba(255,255,255,0.03)",
+                    cursor:"pointer",display:"flex",alignItems:"center",gap:10,
+                  }}>
                     <div style={{
-                      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                      background: "linear-gradient(135deg, #00AEEF, #35D4FF)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "Inter", fontSize: 11, fontWeight: 700, color: "#fff",
+                      width:32,height:32,borderRadius:"50%",flexShrink:0,
+                      background:"linear-gradient(135deg,#00AEEF,#35D4FF)",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontFamily:"Inter",fontSize:11,fontWeight:700,color:"#fff",
                     }}>
-                      {(t.name || "?").split(" ").map((w: string) => w[0]).slice(0,2).join("")}
+                      {(t.name||"?").split(" ").map((w:string)=>w[0]).slice(0,2).join("")}
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{t.name}</div>
-                      {(t.rank || t.unit) && (
-                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{[t.rank, t.unit].filter(Boolean).join(" · ")}</div>
-                      )}
+                      <div style={{ fontSize:13,fontWeight:600,color:"var(--text-primary)" }}>{t.name}</div>
+                      {(t.rank||t.unit)&&<div style={{ fontSize:10,color:"var(--text-muted)" }}>{[t.rank,t.unit].filter(Boolean).join(" · ")}</div>}
                     </div>
-                    {selectedId === t.id && <div style={{ marginLeft: "auto", color: "#00AEEF", fontSize: 16 }}>✓</div>}
+                    {selectedId===t.id&&<div style={{ marginLeft:"auto",color:"#00AEEF",fontSize:16 }}>✓</div>}
                   </div>
                 ))}
               </div>
             )}
 
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 9, fontFamily: "Inter", color: "#00AEEF", letterSpacing: "0.1em", marginBottom: 6 }}>PIN (if set)</div>
-              <input
-                type="password"
-                value={loginPin}
-                onChange={e => setLoginPin(e.target.value)}
-                placeholder="Leave empty if no PIN"
-                style={{
-                  width: "100%", padding: "10px 12px", boxSizing: "border-box",
-                  background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,174,239,0.3)",
-                  borderRadius: 8, color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit",
-                }}
-              />
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>رمز الدخول</div>
+              <input type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)}
+                placeholder="أدخل رمز الدخول" inputMode="numeric" style={inputStyle} />
             </div>
 
-            {error && <div style={{ color: "#FF4D4D", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{error}</div>}
+            {error && <div style={{ color:"#FF4D4D",fontSize:12,marginBottom:12,textAlign:"center",lineHeight:1.5 }}>{error}</div>}
 
-            <button type="submit" disabled={loading || !selectedId} style={{
-              width: "100%", padding: "14px 0",
-              background: !selectedId ? "rgba(0,174,239,0.1)" : loading ? "rgba(0,174,239,0.2)" : "linear-gradient(135deg, #00AEEF, #35D4FF)",
-              border: "none", borderRadius: 10, cursor: (!selectedId || loading) ? "not-allowed" : "pointer",
-              color: !selectedId ? "rgba(255,255,255,0.3)" : "#fff",
-              fontFamily: "Inter", fontSize: 12, letterSpacing: "0.1em", fontWeight: 700,
+            <button type="submit" disabled={loading||!selectedId} style={{
+              width:"100%",padding:"14px 0",
+              background:(!selectedId||loading)?"rgba(0,174,239,0.15)":"linear-gradient(135deg,#00AEEF,#35D4FF)",
+              border:"none",borderRadius:10,cursor:(!selectedId||loading)?"not-allowed":"pointer",
+              color:(!selectedId||loading)?"rgba(255,255,255,0.35)":"#fff",
+              fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",fontWeight:700,
             }}>
-              {loading ? "LOGGING IN..." : "ENTER TRAINING"}
+              {loading?"جاري الدخول...":"دخول"}
             </button>
           </form>
         )}
       </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   NOTIFICATION BELL (polls /api/trainee/notifications/:id)
-───────────────────────────────────────────────────────────────────────────── */
-function NotificationBell({ traineeId }: { traineeId: string }) {
-  const [unread, setUnread] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<Notification[]>([]);
-  const [, navigate] = useLocation();
-  const prevUnreadRef = useRef(0);
-  const prevIdsRef = useRef<Set<number>>(new Set());
-
-  const poll = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/trainee/notifications/${traineeId}`);
-      const data = await r.json() as { alerts: Notification[]; messages: Notification[] };
-      const all = [...(data.alerts ?? []), ...(data.messages ?? [])].sort((a, b) => b.ts - a.ts);
-
-      // Detect NEW unread items since last poll
-      const newUnread = all.filter(x => !x.read && !prevIdsRef.current.has(x.id));
-      if (newUnread.length > 0) {
-        for (const item of newUnread) {
-          const atype = (item.alert_type ?? "info") as "message" | "info" | "warning" | "danger" | "sound";
-          const isMessage = !item.alert_type || item.sender_role === "admin";
-
-          // Show toast popup
-          showToast(item.message ?? item.text ?? "", isMessage ? "message" : atype);
-
-          // Play sound
-          playAlertTone(isMessage ? "message" : atype);
-
-          // Vibrate based on severity
-          if (atype === "danger" || atype === "sound") vibrate("heavy");
-          else if (atype === "warning") vibrate("medium");
-          else vibrate("light");
-        }
-        // Update seen IDs
-        prevIdsRef.current = new Set(all.filter(x => !x.read).map(x => x.id));
-      } else if (all.filter(x => !x.read).length > 0) {
-        // First load - mark existing unread as "seen" so we don't spam on load
-        prevIdsRef.current = new Set(all.filter(x => !x.read).map(x => x.id));
-      }
-
-      setItems(all);
-      setUnread(all.filter(x => !x.read).length);
-      prevUnreadRef.current = all.filter(x => !x.read).length;
-    } catch { /* non-fatal */ }
-  }, [traineeId]);
-
-  useEffect(() => {
-    poll();
-    const id = setInterval(poll, 12_000); // poll every 12s for faster delivery
-    return () => clearInterval(id);
-  }, [poll]);
-
-  const toggleOpen = async () => {
-    const next = !open;
-    setOpen(next);
-    if (next && unread > 0) {
-      await fetch("/api/trainee/notifications/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ traineeId }),
-      }).catch(() => {});
-      setUnread(0);
-      setItems(prev => prev.map(x => ({ ...x, read: 1 })));
-      prevIdsRef.current = new Set();
-    }
-  };
-
-  const handleItemClick = (item: Notification) => {
-    setOpen(false);
-    // Navigate based on type
-    const atype = item.alert_type ?? "";
-    const isMessage = !atype || item.sender_role === "admin";
-    if (isMessage) {
-      navigate("/private-chat");
-    } else if (atype === "module") {
-      navigate("/modules");
-    } else {
-      navigate("/notifications");
-    }
-  };
-
-  const formatTs = (ts: number) => {
-    const diff = Date.now() - ts;
-    const m = Math.floor(diff / 60000);
-    if (m < 2) return "Just now";
-    if (m < 60) return `${m}m ago`;
-    return `${Math.floor(m / 60)}h ago`;
-  };
-
-  const alertColor: Record<string, string> = {
-    danger: "#FF4D4D", warning: "#FFD166", sound: "#FF4D4D",
-    info: "#00AEEF", module: "#35D4FF",
-  };
-
-  return (
-    <div style={{ position: "relative" }}>
-      <button onClick={toggleOpen} style={{
-        background: "none", border: "none", cursor: "pointer",
-        color: unread > 0 ? "#FFD166" : "var(--text-muted)",
-        fontSize: 20, padding: "4px 8px", position: "relative",
-      }}>
-        🔔
-        {unread > 0 && (
-          <span style={{
-            position: "absolute", top: 0, right: 2,
-            background: "#FF4D4D", color: "#fff",
-            width: 16, height: 16, borderRadius: "50%",
-            fontSize: 9, fontWeight: 700,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: "Inter",
-            animation: "pulse-glow 1.5s ease infinite",
-          }}>{unread > 9 ? "9+" : unread}</span>
-        )}
-      </button>
-
-      {open && (
-        <>
-          {/* Backdrop */}
-          <div onClick={() => setOpen(false)} style={{
-            position: "fixed", inset: 0, zIndex: 999,
-          }} />
-          <div style={{
-            position: "fixed", top: 56, right: 12, width: "min(300px, calc(100vw - 24px))", zIndex: 1000,
-            background: "#0a1628", border: "1px solid rgba(0,174,239,0.3)",
-            borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
-            maxHeight: "min(420px, 70vh)", overflowY: "auto",
-          }}>
-            <div style={{
-              padding: "12px 16px", borderBottom: "1px solid rgba(0,174,239,0.15)",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              position: "sticky", top: 0, background: "#0a1628", zIndex: 1,
-            }}>
-              <div className="font-orbitron" style={{ fontSize: 10, color: "#00AEEF", letterSpacing: "0.1em" }}>
-                NOTIFICATIONS {unread > 0 && <span style={{ color: "#FF4D4D" }}>({unread})</span>}
-              </div>
-              <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16 }}>✕</button>
-            </div>
-            {items.length === 0 ? (
-              <div style={{ padding: "20px 16px", color: "var(--text-muted)", fontSize: 12, textAlign: "center" }}>No notifications</div>
-            ) : items.map((item, i) => {
-              const atype = item.alert_type ?? "";
-              const isMessage = !atype || item.sender_role === "admin";
-              const color = isMessage ? "#00D26A" : alertColor[atype] ?? "#00AEEF";
-              const label = isMessage ? "💬 Message" : atype === "danger" ? "🚨 Danger" : atype === "warning" ? "⚠️ Warning" : atype === "sound" ? "🔊 Sound Alert" : atype === "module" ? "📡 Module" : "📢 Info";
-              return (
-                <div key={i}
-                  onClick={() => handleItemClick(item)}
-                  style={{
-                    padding: "12px 16px",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)",
-                    background: item.read ? "transparent" : `${color}08`,
-                    borderLeft: item.read ? "none" : `3px solid ${color}`,
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <span style={{ fontSize: 10, color, fontFamily: "Inter", letterSpacing: "0.05em" }}>{label}</span>
-                    {!item.read && (
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0, marginLeft: "auto" }} />
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, color: item.read ? "var(--text-muted)" : "var(--text-primary)", marginBottom: 2 }}>
-                    {item.message ?? item.text ?? ""}
-                  </div>
-                  <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                    {formatTs(item.ts)} · tap to open
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN HOME PAGE (logged-in view)
-───────────────────────────────────────────────────────────────────────────── */
-
-/* Full radar canvas with sweep + blips */
-function RadarHero() {
-  const SIZE = 340;
-  const cx = SIZE / 2;
-  const rings = [42, 80, 118, 156]; // px radii
-  return (
-    <div style={{
-      position: "absolute", top: "50%", left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: SIZE, height: SIZE,
-      pointerEvents: "none",
-    }}>
-      {/* SVG rings + crosshairs — crisp and properly centered */}
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ position: "absolute", inset: 0 }}>
-        {/* Crosshairs */}
-        <line x1={cx} y1={0} x2={cx} y2={SIZE} stroke="rgba(0,174,239,0.08)" strokeWidth="1"/>
-        <line x1={0} y1={cx} x2={SIZE} y2={cx} stroke="rgba(0,174,239,0.08)" strokeWidth="1"/>
-        {/* Diagonal guides */}
-        <line x1={0} y1={0} x2={SIZE} y2={SIZE} stroke="rgba(0,174,239,0.04)" strokeWidth="1"/>
-        <line x1={SIZE} y1={0} x2={0} y2={SIZE} stroke="rgba(0,174,239,0.04)" strokeWidth="1"/>
-        {/* Concentric rings */}
-        {rings.map((r, i) => (
-          <circle key={i} cx={cx} cy={cx} r={r}
-            fill="none"
-            stroke={`rgba(0,174,239,${0.22 - i * 0.04})`}
-            strokeWidth="1"
-          />
-        ))}
-        {/* Outer ring bolder */}
-        <circle cx={cx} cy={cx} r={cx - 2} fill="none" stroke="rgba(0,174,239,0.12)" strokeWidth="1.5"/>
-        {/* Range tick marks */}
-        {rings.map((r, i) => (
-          <text key={i} x={cx + r + 3} y={cx - 3}
-            fill="rgba(0,174,239,0.3)" fontSize="7" fontFamily="Inter, sans-serif">
-            {(i + 1) * 25}
-          </text>
-        ))}
-        {/* Center dot */}
-        <circle cx={cx} cy={cx} r={4} fill="#00AEEF" opacity="0.9"/>
-        <circle cx={cx} cy={cx} r={7} fill="none" stroke="rgba(0,174,239,0.4)" strokeWidth="1"/>
-      </svg>
-
-      {/* Sweep arm — 8s revolution, GPU-accelerated */}
-      <div style={{
-        position: "absolute",
-        top: cx, left: cx,
-        width: cx - 2, height: 2,
-        transformOrigin: "0 50%",
-        willChange: "transform",
-        animation: "radar-sweep-slow 8s linear infinite",
-      }}>
-        {/* Sweep line */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(90deg, rgba(0,174,239,0.95) 0%, rgba(53,212,255,0.5) 55%, transparent 100%)",
-        }} />
-        {/* Glow cone behind sweep */}
-        <div style={{
-          position: "absolute",
-          top: -20, left: 0, right: 0, height: 42,
-          background: "linear-gradient(90deg, rgba(0,174,239,0.12) 0%, transparent 80%)",
-          transformOrigin: "left center",
-        }} />
-      </div>
-
-      {/* Aircraft blips */}
-      {[
-        { top: "25%", left: "64%", delay: "0.8s",  size: 5 },
-        { top: "60%", left: "28%", delay: "3.2s",  size: 4 },
-        { top: "35%", left: "40%", delay: "5.1s",  size: 6 },
-        { top: "72%", left: "66%", delay: "1.7s",  size: 3 },
-        { top: "48%", left: "78%", delay: "4.4s",  size: 4 },
-      ].map((b, i) => (
-        <div key={i} style={{
-          position: "absolute",
-          top: b.top, left: b.left,
-          width: b.size, height: b.size,
-          borderRadius: "50%",
-          background: "#35D4FF",
-          boxShadow: `0 0 ${b.size * 3}px rgba(53,212,255,0.9), 0 0 ${b.size}px #fff`,
-          animation: `radar-blip 4s ease-in-out ${b.delay} infinite`,
-          willChange: "opacity",
-        }} />
-      ))}
     </div>
   );
 }
