@@ -10,7 +10,7 @@ import type { ToastItem } from "./lib/audio";
 
 // Lazy-loaded pages — split into separate chunks to reduce initial bundle size
 const Index = lazy(() => import("./pages/index"));
-const Modules = lazy(() => import("./pages/modules"));
+
 const QuizList = lazy(() => import("./pages/quiz-list"));
 const Quiz = lazy(() => import("./pages/quiz"));
 const Achievements = lazy(() => import("./pages/achievements"));
@@ -423,7 +423,7 @@ function App() {
                 <Route path="/" component={Index} />
                 <Route path="/basics" component={Basics} />
                 <Route path="/advanced" component={Advanced} />
-                <Route path="/modules" component={Modules} />
+
                 <Route path="/manuals" component={Manuals} />
                 <Route path="/quiz" component={QuizList} />
                 <Route path="/quiz/:moduleId" component={Quiz} />

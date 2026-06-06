@@ -57,7 +57,6 @@ const navItems = [
   { path: "/",             label: "Home",          icon: "⌂",  tag: "DASHBOARD" },
   { path: "/basics",       label: "TLS Basic",     icon: "📡",  tag: "LEARN" },
   { path: "/advanced",     label: "TLS Advanced",  icon: "🛰️",  tag: "ADVANCED" },
-  { path: "/modules",      label: "Modules",       icon: "⬡",   tag: "TRAINING" },
   { path: "/manuals",      label: "Manuals",       icon: "📋",  tag: "REFERENCE" },
   { path: "/quiz",         label: "Quiz",          icon: "🎯",  tag: "ASSESSMENT" },
   { path: "/achievements", label: "Achievements",  icon: "🏅",  tag: "PROFILE" },
