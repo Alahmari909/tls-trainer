@@ -4492,10 +4492,16 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 export default function Admin() {
-  const ADMIN_PW = "TLS@Admin2025";
-  // Auto-authenticate — no password prompt
-  if (!sessionStorage.getItem(SESSION_KEY)) {
-    sessionStorage.setItem(SESSION_KEY, ADMIN_PW);
+  const [verified, setVerified] = useState(() => !!sessionStorage.getItem(SESSION_KEY));
+  const adminPw = sessionStorage.getItem(SESSION_KEY) ?? "";
+
+  if (!verified) {
+    return <AdminLogin onSuccess={() => setVerified(true)} />;
   }
-  return <AdminDashboard adminPw={ADMIN_PW} onLogout={() => sessionStorage.removeItem(SESSION_KEY)} />;
+  return (
+    <AdminDashboard
+      adminPw={adminPw}
+      onLogout={() => { sessionStorage.removeItem(SESSION_KEY); setVerified(false); }}
+    />
+  );
 }
