@@ -66,8 +66,8 @@ function SettingRow({ label, desc, children, last = false }: {
       borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.05)",
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>{label}</span>
-        {desc && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</div>}
+        <span style={{ fontSize: 15, fontWeight: 600, color: "#fff", fontFamily: "Rajdhani, sans-serif" }}>{label}</span>
+        {desc && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 2, fontFamily: "Rajdhani, sans-serif" }}>{desc}</div>}
       </div>
       {children}
     </div>
