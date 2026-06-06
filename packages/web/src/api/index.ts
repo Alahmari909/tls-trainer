@@ -1436,7 +1436,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: 'claude-opus-4-5',
           max_tokens: 800,
           system: systemPrompt,
           messages: msgs,
@@ -1446,19 +1446,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         const err = await res.text();
         console.error('[AI] Anthropic error:', res.status, err);
         // Try fallback model if primary fails
-        if (res.status === 404) {
-          const res2 = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-            body: JSON.stringify({ model: 'claude-3-haiku-20240307', max_tokens: 800, system: systemPrompt, messages: msgs }),
-          });
-          if (res2.ok) {
-            const d2 = await res2.json() as any;
-            return c.json({ reply: d2?.content?.[0]?.text ?? 'لا توجد إجابة.' }, 200);
-          }
-          const err2 = await res2.text();
-          console.error('[AI] Fallback error:', res2.status, err2);
-        }
+        
         return c.json({ reply: `عذراً، خطأ من خدمة الذكاء الاصطناعي (${res.status}).\nSorry, AI service error (${res.status}).` }, 200);
       }
       const data = await res.json() as any;
