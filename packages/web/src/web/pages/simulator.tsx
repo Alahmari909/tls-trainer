@@ -1,7 +1,7 @@
 export default function Simulator() {
   return (
     <iframe
-      src="https://stable-dental-distributedcomputing.replit.app"
+      src="/simulator_tls.html"
       style={{
         position: "fixed",
         top: 0,

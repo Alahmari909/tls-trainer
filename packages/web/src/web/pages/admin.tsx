@@ -2302,7 +2302,7 @@ function QuickModBtn({ traineeId, action, label, color, adminPw, onDone }: {
 
 // ─── Simulator Admin ──────────────────────────────────────────────────────────
 function SimulatorAdmin({ adminPw }: { adminPw: string }) {
-  type SimTab = "overview" | "preview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports";
+  type SimTab = "overview" | "preview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports" | "chat";
   const [tab, setTab] = React.useState<SimTab>("overview");
   const [cfg, setCfg] = React.useState<Record<string, string>>({});
   const [live, setLive] = React.useState<any[]>([]);
@@ -2376,6 +2376,52 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
     setCfg(prev => ({ ...prev, enabled: next }));
   };
 
+  // ── Chat state ──
+  const [chatTrainees, setChatTrainees] = React.useState<any[]>([]);
+  const [selectedChatTrainee, setSelectedChatTrainee] = React.useState<string | null>(null);
+  const [chatMsgs, setChatMsgs] = React.useState<any[]>([]);
+  const [chatInput, setChatInput] = React.useState("");
+  const [chatSending, setChatSending] = React.useState(false);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
+
+  const loadChatTrainees = React.useCallback(async () => {
+    const r = await fetch('/api/admin/simulator/stats', { headers: H }).then(x => x.json()).catch(() => null);
+    if (r?.byTrainee) setChatTrainees(r.byTrainee);
+  }, [adminPw]);
+
+  const loadChatMsgs = React.useCallback(async (tid: string) => {
+    const r = await fetch(`/api/simulator/messages?trainee_id=${tid}`, { headers: H }).then(x => x.json()).catch(() => []);
+    setChatMsgs(Array.isArray(r) ? r : []);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }, [adminPw]);
+
+  React.useEffect(() => {
+    if (tab !== "chat") return;
+    loadChatTrainees();
+    const t = setInterval(loadChatTrainees, 10000);
+    return () => clearInterval(t);
+  }, [tab, loadChatTrainees]);
+
+  React.useEffect(() => {
+    if (!selectedChatTrainee) return;
+    loadChatMsgs(selectedChatTrainee);
+    const t = setInterval(() => loadChatMsgs(selectedChatTrainee), 5000);
+    return () => clearInterval(t);
+  }, [selectedChatTrainee, loadChatMsgs]);
+
+  const sendChatReply = async () => {
+    if (!chatInput.trim() || !selectedChatTrainee) return;
+    setChatSending(true);
+    await fetch('/api/admin/simulator/messages', {
+      method: 'POST',
+      headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainee_id: selectedChatTrainee, text: chatInput.trim() }),
+    });
+    setChatInput("");
+    setChatSending(false);
+    loadChatMsgs(selectedChatTrainee);
+  };
+
   const SIM_TABS: { id: SimTab; label: string; icon: string }[] = [
     { id: "overview",  label: "Overview",   icon: "⚡" },
     { id: "preview",   label: "Simulator",  icon: "🖥️" },
@@ -2383,6 +2429,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
     { id: "live",      label: "Live",       icon: "📡" },
     { id: "scenarios", label: "Scenarios",  icon: "🗂️" },
     { id: "broadcast", label: "Broadcast",  icon: "📢" },
+    { id: "chat",      label: "Chat",       icon: "💬" },
     { id: "stats",     label: "Stats",      icon: "📊" },
     { id: "reports",   label: "Reports",    icon: "📥" },
   ];
@@ -2439,7 +2486,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
         <div style={{ position: "relative", width: "100%", height: "calc(100vh - 130px)", background: "#020602" }}>
           <iframe
             key="sim-admin-preview"
-            src="https://stable-dental-distributedcomputing.replit.app"
+            src="/simulator_tls.html"
             style={{ width: "100%", height: "100%", border: "none", display: "block" }}
             title="Simulator Admin Preview"
           />
@@ -2821,6 +2868,72 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CHAT ── */}
+        {tab === "chat" && (
+          <div style={{ display: "flex", gap: 16, height: "calc(100vh - 180px)", minHeight: 400 }}>
+            {/* Trainee list */}
+            <div style={{ ...card, width: 200, flexShrink: 0, overflowY: "auto" as const, padding: 0 }}>
+              <div style={{ padding: "10px 14px", fontSize: 10, color: "rgba(0,255,136,0.6)", fontFamily: "Orbitron, monospace", letterSpacing: "0.1em", borderBottom: "1px solid rgba(0,255,136,0.1)" }}>TRAINEES</div>
+              {chatTrainees.length === 0 ? (
+                <div style={{ padding: 16, fontSize: 11, color: "rgba(255,255,255,0.25)", textAlign: "center" }}>No trainees yet</div>
+              ) : chatTrainees.map((t: any) => (
+                <div key={t.trainee_id} onClick={() => setSelectedChatTrainee(t.trainee_id)}
+                  style={{
+                    padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                    background: selectedChatTrainee === t.trainee_id ? "rgba(0,255,136,0.08)" : "none",
+                    borderLeft: selectedChatTrainee === t.trainee_id ? "2px solid #00FF88" : "2px solid transparent",
+                  }}>
+                  <div style={{ fontSize: 12, color: "#fff", fontWeight: selectedChatTrainee === t.trainee_id ? 600 : 400 }}>{t.trainee_name ?? t.trainee_id}</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{t.sessions} session{t.sessions !== 1 ? "s" : ""}</div>
+                </div>
+              ))}
+            </div>
+            {/* Chat window */}
+            <div style={{ ...card, flex: 1, display: "flex", flexDirection: "column" as const, padding: 0, overflow: "hidden" }}>
+              {!selectedChatTrainee ? (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.2)", fontSize: 13 }}>← Select a trainee to chat</div>
+              ) : (
+                <>
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(0,255,136,0.1)", fontSize: 11, color: "#00FF88", fontFamily: "Orbitron, monospace", letterSpacing: "0.08em" }}>
+                    {chatTrainees.find(t => t.trainee_id === selectedChatTrainee)?.trainee_name ?? selectedChatTrainee}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto" as const, padding: "14px 16px", display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                    {chatMsgs.length === 0 && (
+                      <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 12, marginTop: 40 }}>No messages yet</div>
+                    )}
+                    {chatMsgs.map((m: any) => (
+                      <div key={m.id} style={{ display: "flex", flexDirection: "column" as const, alignItems: m.sender_role === "admin" ? "flex-end" : "flex-start" }}>
+                        <div style={{
+                          maxWidth: "75%", padding: "8px 12px", borderRadius: 10,
+                          background: m.sender_role === "admin" ? "rgba(0,255,136,0.12)" : "rgba(255,255,255,0.07)",
+                          border: `1px solid ${m.sender_role === "admin" ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.1)"}`,
+                          fontSize: 12, color: "#fff", lineHeight: 1.5,
+                        }}>{m.text}</div>
+                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>
+                          {m.sender_role === "admin" ? "Instructor" : "Trainee"} · {new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(0,255,136,0.1)", display: "flex", gap: 8 }}>
+                    <input
+                      value={chatInput} onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatReply(); } }}
+                      placeholder="Type instructor message… (Enter to send)"
+                      style={{ flex: 1, padding: "8px 12px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "#fff", fontSize: 12, fontFamily: "Inter", outline: "none" }}
+                    />
+                    <button onClick={sendChatReply} disabled={chatSending || !chatInput.trim()}
+                      style={{ ...btn, opacity: (chatSending || !chatInput.trim()) ? 0.5 : 1, flexShrink: 0 }}>
+                      {chatSending ? "…" : "SEND"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

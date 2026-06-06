@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLS Simulator — Runway 31</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body, #root { width:100%; height:100%; overflow:hidden; background:#000; }
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:#1a1a1a; }
+::-webkit-scrollbar-thumb { background:#555; border-radius:3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useId, useCallback } = React;
+
+// ── Session & Trainee from URL/localStorage ───────────────────────────────────
+function getTraineeId() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('trainee_id') || localStorage.getItem('tls_trainee_id') || null;
+}
+function getTraineeName() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('name') || localStorage.getItem('tls_trainee_name') || 'Unknown';
+}
+
+// ── API base (same origin = Railway) ─────────────────────────────────────────
+const API = '';  // same origin — /api/...
+
+const _sentEvents = new Set();
+function sendAircraftEvent(callsign, altitude_ft, heading_deg, event_type, trainee_id, session_id) {
+  const key = `${callsign}:${event_type}`;
+  if (_sentEvents.has(key)) return;
+  _sentEvents.add(key);
+  fetch(`${API}/api/simulator/aircraft-event`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callsign, altitude_ft: Math.round(altitude_ft), heading_deg: Math.round(heading_deg), event_type, trainee_id: trainee_id ?? null, session_id: session_id ?? null, ts: Date.now() })
+  }).catch(() => {});
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const CONE_TIP_BRG = 90;
+const LOC_RANGE = 26, LOC_ANGLE = 20;
+const GS_RANGE = 15, GS_ANGLE = 7;
+const GLIDE_ANGLE = 3.0;
+const NM_PX = 9;
+const FADE_IN_T = 1.8, FADE_OUT_T = 1.8, WAIT_T = 15, APPROACH_T = 50;
+const REC_MS = 500, REC_MAX = 120;
+
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+const OPEN_X = +(LOC_RANGE * 0.97);
+const AC_PATHS = [
+  { p0:{x:38,y:-32}, p1:{x:32,y:-14}, p2:{x:OPEN_X,y:0} },
+  { p0:{x:50,y:4},   p1:{x:36,y:1},   p2:{x:OPEN_X,y:0} },
+  { p0:{x:38,y:32},  p1:{x:32,y:14},  p2:{x:OPEN_X,y:0} },
+];
+
+function bezierPt(p0,p1,p2,t){ const mt=1-t; return { x:mt*mt*p0.x+2*mt*t*p1.x+t*t*p2.x, y:mt*mt*p0.y+2*mt*t*p1.y+t*t*p2.y }; }
+function bezierTan(p0,p1,p2,t){ const mt=1-t; return { x:2*mt*(p1.x-p0.x)+2*t*(p2.x-p1.x), y:2*mt*(p1.y-p0.y)+2*t*(p2.y-p1.y) }; }
+function isNearCone(x,y){ const buf=4; if(x<-buf) return false; if(x<0) return Math.abs(y)<buf; const halfY=x*Math.tan(toRad(LOC_ANGLE+5))+buf; return Math.abs(y)<halfY && x<LOC_RANGE+buf; }
+function p2c(range,bearing){ const r=toRad(bearing-90); return { x:Math.cos(r)*range, y:Math.sin(r)*range }; }
+function c2p(x,y){ return { range:Math.sqrt(x*x+y*y), bearing:(toDeg(Math.atan2(y,x))+90+360)%360 }; }
+function bdiff(a,b){ let d=((a-b)+360)%360; if(d>180)d-=360; return Math.abs(d); }
+function inLocCone(a){ return a.range<=LOC_RANGE && bdiff(a.bearing,CONE_TIP_BRG)<=LOC_ANGLE; }
+function inGsCone(a){ return a.range<=GS_RANGE && bdiff(a.bearing,CONE_TIP_BRG)<=GS_ANGLE; }
+function gsTargetAlt(r){ return r * Math.tan(toRad(GLIDE_ANGLE)) * 6076; }
+
+const KNOWN_DEFS = [
+  { id:'KN1', sq:'7123', alt:4000, spd:80, pathIdx:0, initT:0.00 },
+  { id:'KN2', sq:'5535', alt:3500, spd:78, pathIdx:1, initT:0.38 },
+  { id:'KN3', sq:'0522', alt:3200, spd:76, pathIdx:2, initT:0.72 },
+];
+const RND_DEFS = [
+  { id:'RN1', sq:'3421', alt:12000, spd:145, x:-26, y:-22, hdg:120 },
+  { id:'RN2', sq:'8804', alt:18000, spd:160, x:-33, y:8,   hdg:58 },
+  { id:'RN3', sq:'2277', alt:15000, spd:132, x:-18, y:32,  hdg:330 },
+  { id:'RN4', sq:'6612', alt:20000, spd:168, x:10,  y:-40, hdg:155 },
+  { id:'RN5', sq:'9031', alt:22000, spd:155, x:8,   y:40,  hdg:292 },
+];
+
+function makeAC() {
+  const known = KNOWN_DEFS.map(d => {
+    const path = AC_PATHS[d.pathIdx];
+    if (d.initT === 0) {
+      const sp = bezierPt(path.p0, path.p1, path.p2, 0);
+      const { range, bearing } = c2p(sp.x, sp.y);
+      return { id:d.id, sq:d.sq, alt:d.alt, initAlt:d.alt, spd:d.spd, pathIdx:d.pathIdx, type:'known', phase:'fading_in', opacity:0, t:0, waitT:0, range, bearing, heading:180, channel:null, locDev:0, gsDev:0, trail:[] };
+    }
+    const pt = bezierPt(path.p0, path.p1, path.p2, d.initT);
+    const { range, bearing } = c2p(pt.x, pt.y);
+    const tan = bezierTan(path.p0, path.p1, path.p2, d.initT);
+    const heading = (toDeg(Math.atan2(tan.y, tan.x)) + 90 + 360) % 360;
+    return { id:d.id, sq:d.sq, alt:d.alt, initAlt:d.alt, spd:d.spd, pathIdx:d.pathIdx, type:'known', phase:'approaching', opacity:1, t:d.initT, waitT:0, range, bearing, heading, channel:null, locDev:0, gsDev:0, trail:[] };
+  });
+  const random = RND_DEFS.map(d => {
+    const { range, bearing } = c2p(d.x, d.y);
+    return { id:d.id, sq:d.sq, alt:d.alt, initAlt:d.alt, spd:d.spd, type:'random', phase:'random', opacity:1, t:0, waitT:0, range, bearing, heading:d.hdg, x:d.x, y:d.y, channel:null, locDev:0, gsDev:0, trail:[], hdgTimer:12+Math.random()*18 };
+  });
+  return [...known, ...random];
+}
+
+// ── Trail ─────────────────────────────────────────────────────────────────────
+function Trail({ trail, sc }) {
+  if (!trail || trail.length < 2) return null;
+  const pts = trail.slice(-12);
+  return React.createElement('g', null, pts.map((pt,i) => {
+    if (i === 0) return null;
+    const prev = pts[i-1];
+    const p1 = p2c(prev.range, prev.bearing), p2x = p2c(pt.range, pt.bearing);
+    return React.createElement('line', { key:i, x1:p1.x*sc, y1:p1.y*sc, x2:p2x.x*sc, y2:p2x.y*sc, stroke:'#f5a623', strokeWidth:1.1*(i/pts.length), opacity:0.45*(i/pts.length) });
+  }));
+}
+
+// ── Radar ─────────────────────────────────────────────────────────────────────
+function Radar({ aircraft, selId, onSel, zoom, flash }) {
+  const sc = NM_PX * zoom, S = 680, cx = S/2, cy = S/2, maxR = 70;
+  const locA1 = toRad(CONE_TIP_BRG-LOC_ANGLE-90), locA2 = toRad(CONE_TIP_BRG+LOC_ANGLE-90), locR = LOC_RANGE*sc;
+  const locP = `M0,0 L${Math.cos(locA1)*locR},${Math.sin(locA1)*locR} A${locR},${locR} 0 0,1 ${Math.cos(locA2)*locR},${Math.sin(locA2)*locR} Z`;
+  const gsA1 = toRad(CONE_TIP_BRG-GS_ANGLE-90), gsA2 = toRad(CONE_TIP_BRG+GS_ANGLE-90), gsR = GS_RANGE*sc;
+  const gsP = `M0,0 L${Math.cos(gsA1)*gsR},${Math.sin(gsA1)*gsR} A${gsR},${gsR} 0 0,1 ${Math.cos(gsA2)*gsR},${Math.sin(gsA2)*gsR} Z`;
+  const axR = toRad(CONE_TIP_BRG-90), axX = Math.cos(axR)*locR, axY = Math.sin(axR)*locR;
+
+  return (
+    <svg width={S} height={S} style={{background:'#000',display:'block',flexShrink:0}}>
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g transform={`translate(${cx},${cy})`}>
+        {[-60,-40,-20,0,20,40,60].map(v=>(
+          <g key={v}>
+            <line x1={v*sc} y1={-cy} x2={v*sc} y2={cy} stroke="#0c150c" strokeWidth={0.4}/>
+            <line x1={-cx} y1={v*sc} x2={cx} y2={v*sc} stroke="#0c150c" strokeWidth={0.4}/>
+          </g>
+        ))}
+        {[10,20,30,40,50,60,70].map(r=>(
+          <g key={r}>
+            <circle r={r*sc} fill="none" stroke={r===10?'#1e3a1e':r===20?'#162816':'#0f1a0f'} strokeWidth={r===20||r===40?1.1:0.6}/>
+            <text x={4} y={-r*sc+11} fill="#2a5a2a" fontSize="9" fontFamily="monospace">{r}</text>
+          </g>
+        ))}
+        <circle r={maxR*sc} fill="none" stroke="#2a5a2a" strokeWidth={1}/>
+        {[0,30,60,90,120,150,180,210,240,270,300,330].map(d=>{
+          const r=toRad(d-90), r2=maxR*sc+14;
+          return (
+            <g key={d}>
+              <line x1={Math.cos(r)*maxR*sc} y1={Math.sin(r)*maxR*sc} x2={Math.cos(r)*(maxR*sc+6)} y2={Math.sin(r)*(maxR*sc+6)} stroke="#2a5a2a" strokeWidth={1.2}/>
+              <text x={Math.cos(r)*r2} y={Math.sin(r)*r2+3} fill="#3a7a3a" fontSize="9" fontFamily="monospace" textAnchor="middle">{String(d).padStart(3,'0')}</text>
+            </g>
+          );
+        })}
+        <path d={locP} fill="#1c6600" fillOpacity={0.88} stroke="#28cc00" strokeWidth={1.5}/>
+        <path d={gsP} fill="#38e800" fillOpacity={0.92} stroke="#66ff22" strokeWidth={1.5}/>
+        <line x1={0} y1={0} x2={axX} y2={axY} stroke="#fff" strokeWidth={2} opacity={0.65} strokeDasharray="6,4"/>
+        {aircraft.map(ac=>{
+          if(ac.phase==='idle') return null;
+          const opa=ac.opacity??1; if(opa<=0||ac.range>maxR) return null;
+          const pt=p2c(ac.range,ac.bearing), ax=pt.x*sc, ay=pt.y*sc;
+          const hr=toRad(ac.heading-90), sel=ac.id===selId;
+          const inGS=inGsCone(ac), inLOC=inLocCone(ac), ch1=ac.channel===1;
+          const col=inGS?(ch1?'#ff8800':'#ff69ff'):inLOC?(ch1?'#ffdd00':'#00ffff'):'#00ff41';
+          return (
+            <g key={ac.id} onClick={()=>onSel(ac)} style={{cursor:'pointer',opacity:opa}}>
+              <Trail trail={ac.trail} sc={sc}/>
+              <line x1={ax} y1={ay} x2={ax+Math.cos(hr)*15} y2={ay+Math.sin(hr)*15} stroke={col} strokeWidth={1.5} opacity={0.85}/>
+              <polygon points={`${ax},${ay-6} ${ax+5},${ay} ${ax},${ay+6} ${ax-5},${ay}`} fill="none" stroke={col} strokeWidth={1.8}/>
+              {sel && <circle cx={ax} cy={ay} r={14} fill="none" stroke="#ffdd00" strokeWidth={2.2} strokeDasharray="5,3" opacity={flash?1:0.1}/>}
+              <text x={ax+8} y={ay-7} fill={col} fontSize="10" fontFamily="monospace" fontWeight="bold">{ac.sq}</text>
+              <text x={ax+8} y={ay+5} fill={col} fontSize="9" fontFamily="monospace">{String(Math.round(ac.bearing)).padStart(3,'0')}° {Math.round(ac.alt/100)*100}</text>
+              {inGS && <text x={ax+8} y={ay+16} fill="#ff69ff" fontSize="9" fontFamily="monospace">ILS</text>}
+              {inLOC && !inGS && <text x={ax+8} y={ay+16} fill="#00ffff" fontSize="9" fontFamily="monospace">LOC</text>}
+            </g>
+          );
+        })}
+        <circle r={3} fill="#00ff41" filter="url(#glow)"/>
+        <text x={0} y={-maxR*sc-6} fill="#3a7a3a" fontSize="10" fontFamily="monospace" textAnchor="middle">RCUx 3 — TLS27_RSAF — RWY 31</text>
+      </g>
+    </svg>
+  );
+}
+
+// ── StatusPanel ───────────────────────────────────────────────────────────────
+function StatusPanel() {
+  const lrus = [
+    {n:'UPS-R',s:'1032 Min'},{n:'Network',s:''},{n:'CPU1',s:'24.9 C'},{n:'CPU2',s:'21.0 C'},
+    {n:'Interrog',s:''},{n:'GTU1',s:'25.0 C'},{n:'GTU2',s:'25.0 C'},{n:'Pressure',s:'29.91 In Hg'},
+    {n:'ESA',s:''},{n:'ASA',s:''},{n:'ATA',s:''},{n:'RCU',s:'458.9 GB'},{n:'MIU',s:'458.9 GB'},
+  ];
+  return (
+    <div style={{background:'#000',padding:'4px 3px',display:'flex',flexDirection:'column',gap:2,width:90,flexShrink:0,fontFamily:'Arial,sans-serif',borderRight:'2px solid #555'}}>
+      {lrus.map(({n,s})=>(
+        <div key={n} style={{background:'#00c800',border:'1px solid #009000',padding:'2px 5px',cursor:'default'}}>
+          <div style={{color:'#000',fontSize:10,fontWeight:'bold',lineHeight:1.1}}>{n}</div>
+          {s && <div style={{color:'#000',fontSize:9,lineHeight:1.1}}>{s}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── W3D buttons / fields ──────────────────────────────────────────────────────
+const W3D = {
+  btn: { background:'#d4d0c8',border:'none',borderTop:'2px solid #ffffff',borderLeft:'2px solid #ffffff',borderRight:'2px solid #808080',borderBottom:'2px solid #808080',color:'#000',fontFamily:'Arial,sans-serif',fontSize:11,padding:'3px 8px',cursor:'pointer',outline:'none',whiteSpace:'nowrap' },
+  field: { background:'#ffffff',borderTop:'2px solid #808080',borderLeft:'2px solid #808080',borderRight:'2px solid #dfdfdf',borderBottom:'2px solid #dfdfdf',color:'#000',fontFamily:'Arial,sans-serif',fontSize:11,padding:'2px 4px',outline:'none' },
+};
+
+// ── IlsChannel ────────────────────────────────────────────────────────────────
+function IlsChannel({ aircraft, ch, onInp, onAcq, onRst }) {
+  const acq = aircraft.find(a => a.channel === 0);
+  const hasAc = !!acq;
+  const searching = hasAc && ch.timeoutT !== null;
+  const st = hasAc ? (searching ? 'SEARCHING' : inGsCone(acq) ? 'TRACKING' : inLocCone(acq) ? 'LOC ONLY' : 'ACQUIRED') : 'READY';
+  const stBg = st==='TRACKING'?'#ffff00':st==='LOC ONLY'?'#00ffff':st==='SEARCHING'?'#ff8800':'#c0c0c0';
+  const groupStyle = { border:'1px solid #808080',borderTop:'1px solid #dfdfdf',borderLeft:'1px solid #dfdfdf',marginBottom:6,background:'#d4d0c8',padding:'4px 6px' };
+  return (
+    <div style={groupStyle}>
+      <div style={{background:'#c000c0',color:'#fff',fontWeight:'bold',fontSize:11,padding:'1px 6px',marginBottom:5,fontFamily:'Arial,sans-serif',letterSpacing:0.3}}>
+        TLS XXXXX 1 A 00
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4,fontFamily:'Arial,sans-serif',fontSize:11}}>
+        <input type="radio" name="disp0" defaultChecked style={{margin:0}}/>
+        <span style={{color:'#000'}}>Display</span>
+        <span style={{color:'#000',marginLeft:4}}>Status:</span>
+        <div style={{flex:1,background:stBg,color:'#000',fontSize:11,fontWeight:'bold',padding:'1px 6px',textAlign:'center',border:'1px inset #808080',fontFamily:'Arial,sans-serif'}}>
+          {st}{searching&&ch.timeoutT!==null?` ${ch.timeoutT}s`:''}
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:3,marginBottom:5,fontFamily:'Arial,sans-serif'}}>
+        <div>
+          <div style={{fontSize:9,color:'#000',marginBottom:1}}>ILS Frequency</div>
+          <div style={{...W3D.field,fontSize:10,padding:'1px 3px',boxSizing:'border-box',width:'100%'}}>108.15 MHz</div>
+        </div>
+        <div>
+          <div style={{fontSize:9,color:'#000',marginBottom:1}}>Morse Code ID</div>
+          <div style={{...W3D.field,fontSize:10,padding:'1px 3px',boxSizing:'border-box',width:'100%'}}>IDLS1</div>
+        </div>
+        <div>
+          <div style={{fontSize:9,color:'#000',marginBottom:1}}>GTU Status</div>
+          <div style={{background:'#00c000',color:'#000',fontSize:10,fontWeight:'bold',textAlign:'center',padding:'1px 6px',border:'1px solid #006000'}}>OK</div>
+        </div>
+      </div>
+      <div style={{fontFamily:'Arial,sans-serif',fontSize:11,color:'#000',marginBottom:2}}>Transponder ID:</div>
+      <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
+        <input value={hasAc?acq.sq:ch.inp} onChange={e=>{if(!hasAc)onInp(e.target.value);}} readOnly={hasAc} maxLength={4} placeholder=""
+          style={{...W3D.field,width:64,fontSize:22,fontWeight:'bold',textAlign:'center',padding:'2px 4px',letterSpacing:3,flexShrink:0}}/>
+        <button onClick={()=>{if(!hasAc)onAcq();}} style={{...W3D.btn,opacity:hasAc?0.45:1,cursor:hasAc?'default':'pointer'}}>ACQUIRE</button>
+        <button onClick={onRst} style={{...W3D.btn}}>RESET</button>
+      </div>
+      {hasAc && <div style={{fontSize:9,color:'#333',fontFamily:'Arial,sans-serif',marginTop:2}}>Range: <b>{acq.range.toFixed(1)} NM</b> &nbsp; Alt: <b>{Math.round(acq.alt).toLocaleString()} ft</b></div>}
+    </div>
+  );
+}
+
+// ── PAR View ──────────────────────────────────────────────────────────────────
+const PC = { ink:'#02100a',grid:'#0a2114',grid5:'#123a22',edge:'#1c4a2c',dim:'#2f7a4a',label:'#3f9a5a',axis:'#5fce86',path:'#00ff8c',corridor:'#00ff8c',center:'#00ff8c',on:'#00ff8c',off:'#ff6a3d',amber:'#ffc24a',sq:'#ffe66b',om:'#3a7dff',mm:'#ffb02e',im:'#e9eef0',limit:'#33c8ff' };
+
+function PARView({ aircraft }) {
+  const wrapRef = useRef(null);
+  const [cw, setCw] = useState(820);
+  useEffect(() => {
+    const el = wrapRef.current; if(!el) return;
+    const ro = new ResizeObserver(es => { for(const e of es) setCw(e.contentRect.width); });
+    ro.observe(el); setCw(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  const PAD=18, W=Math.max(580,Math.round(cw-PAD*2)), HT=270, HB=240, ML=58, MR=26, PADT=24, PADB=24, IW=W-ML-MR;
+  const ilsAc = aircraft.filter(a => a.channel !== null && inLocCone(a));
+  const rx = r => ML + ((LOC_RANGE-r)/LOC_RANGE)*IW;
+  const maxAlt = gsTargetAlt(LOC_RANGE)*1.35;
+  const gy = (alt,h) => h-PADB-(alt/maxAlt)*(h-PADT-PADB);
+  const pts = arr => arr.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const gsLine = Array.from({length:90},(_,i)=>{ const r=(i/89)*GS_RANGE; return {x:rx(r),y:gy(gsTargetAlt(r),HT)}; });
+  const gsUpper = gsLine.map(p=>({x:p.x,y:p.y-15}));
+  const gsLower = gsLine.map(p=>({x:p.x,y:p.y+15}));
+  const gsBand = pts(gsUpper)+' '+gsLower.slice().reverse().map(p=>`L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+' Z';
+  const altGrid = [0,1000,2000,3000,4000,5000,6000,8000,10000].filter(a=>a<=maxAlt);
+  const rangeTicks = [0,5,10,15,20,25].filter(r=>r<=LOC_RANGE);
+  const panel = {background:'linear-gradient(180deg,#04150c 0%,#020d07 100%)',border:'1px solid #1c4029',borderRadius:4,overflow:'hidden',boxShadow:'inset 0 0 18px rgba(0,40,18,0.55)'};
+  const hdr = {display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 10px',fontFamily:'monospace',fontSize:10,letterSpacing:0.5,color:'#5fce86',background:'linear-gradient(180deg,#0a2415,#061509)',borderBottom:'1px solid #12331f'};
+  return (
+    <div ref={wrapRef} style={{display:'flex',flexDirection:'column',gap:10,padding:PAD}}>
+      <svg width="0" height="0" style={{position:'absolute'}} aria-hidden="true">
+        <defs>
+          <filter id="parGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="1.4" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <pattern id="parScan" width="4" height="3" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0.5" x2="4" y2="0.5" stroke="#aaffcc" strokeWidth="0.5" opacity="0.045"/>
+          </pattern>
+          <radialGradient id="parVig" cx="50%" cy="44%" r="78%">
+            <stop offset="52%" stopColor="#000" stopOpacity="0"/>
+            <stop offset="100%" stopColor="#000" stopOpacity="0.5"/>
+          </radialGradient>
+        </defs>
+      </svg>
+      {/* GS Panel */}
+      <div style={panel}>
+        <div style={hdr}><span>◢ GLIDE SLOPE · {GLIDE_ANGLE.toFixed(1)}° | {GS_RANGE} NM / ±{GS_ANGLE}°</span><span style={{color:'#2f7a4a',fontSize:9}}>329.00 MHz</span></div>
+        <svg width={W} height={HT} style={{display:'block'}}>
+          <rect x={0} y={0} width={W} height={HT} fill={PC.ink}/>
+          {Array.from({length:LOC_RANGE},(_,i)=>i+1).map(r=>(
+            <line key={r} x1={rx(r)} y1={PADT-6} x2={rx(r)} y2={HT-PADB} stroke={r%5===0?PC.grid5:PC.grid} strokeWidth={r%5===0?0.8:0.5}/>
+          ))}
+          {altGrid.map(a=>(
+            <g key={a}>
+              <line x1={ML} y1={gy(a,HT)} x2={W-MR} y2={gy(a,HT)} stroke={PC.grid} strokeWidth={0.5} strokeDasharray="1,4"/>
+              <text x={ML-6} y={gy(a,HT)+3} fill={PC.dim} fontSize="8" fontFamily="monospace" textAnchor="end">{a/1000?(a/1000)+'k':'0'}</text>
+            </g>
+          ))}
+          <line x1={ML} y1={gy(0,HT)} x2={W-MR} y2={gy(0,HT)} stroke={PC.edge} strokeWidth={1.2}/>
+          <line x1={rx(GS_RANGE)} y1={PADT-8} x2={rx(GS_RANGE)} y2={HT-PADB} stroke={PC.limit} strokeWidth={0.9} strokeDasharray="5,4"/>
+          <path d={gsBand} fill={PC.corridor} fillOpacity={0.07}/>
+          <path d={pts(gsLine)} fill="none" stroke={PC.path} strokeWidth={2} filter="url(#parGlow)"/>
+          <polygon points={`${rx(0)},${gy(0,HT)} ${rx(0)-7},${gy(0,HT)+8} ${rx(0)+7},${gy(0,HT)+8}`} fill={PC.path} opacity={0.85}/>
+          {rangeTicks.map(r=>(<text key={r} x={rx(r)} y={HT-6} fill={PC.dim} fontSize="8" fontFamily="monospace" textAnchor="middle">{r}</text>))}
+          {ilsAc.length===0 && <text x={(ML+W-MR)/2} y={HT/2} fill={PC.dim} fillOpacity={0.6} fontSize="12" fontFamily="monospace" textAnchor="middle" letterSpacing="1">NO ILS TRAFFIC IN PAR RANGE</text>}
+          {ilsAc.map(ac=>{
+            const r=ac.range; if(r>LOC_RANGE+1) return null;
+            const rGs=Math.min(r,GS_RANGE), x=rx(r), y=gy(ac.alt,HT), gsY=gy(gsTargetAlt(rGs),HT);
+            const onGs=inGsCone(ac)&&Math.abs(y-gsY)<18, col=onGs?PC.on:PC.off;
+            const tx=x>W-120?x-72:x+9;
+            return (
+              <g key={ac.id} filter="url(#parGlow)">
+                <line x1={x-7} y1={y} x2={x+7} y2={y} stroke={col} strokeWidth={2}/>
+                <line x1={x} y1={y-7} x2={x} y2={y+7} stroke={col} strokeWidth={2}/>
+                <circle cx={x} cy={y} r={2.4} fill={col}/>
+                <rect x={tx-2} y={y-15} width={70} height={34} rx={2} fill="#01140a" fillOpacity={0.82} stroke="#0c3a1f" strokeWidth={0.5}/>
+                <text x={tx+2} y={y-5} fill={PC.sq} fontSize="9" fontFamily="monospace">{ac.sq}</text>
+                <text x={tx+2} y={y+5} fill="#bfeacb" fontSize="9" fontFamily="monospace">{Math.round(ac.alt)} ft</text>
+                <text x={tx+2} y={y+15} fill={onGs?PC.on:PC.amber} fontSize="9" fontFamily="monospace">{inGsCone(ac)?(onGs?'ON G/S':`${((y-gsY)/10).toFixed(1)}° ${y>gsY?'LOW':'HIGH'}`):'LOC ONLY'}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      {/* LOC Panel */}
+      <div style={panel}>
+        <div style={hdr}><span>◢ LOCALIZER · COURSE | {LOC_RANGE} NM / ±{LOC_ANGLE}°</span><span style={{color:'#2f7a4a',fontSize:9}}>108.70 MHz</span></div>
+        <svg width={W} height={HB} style={{display:'block'}}>
+          <rect x={0} y={0} width={W} height={HB} fill={PC.ink}/>
+          {Array.from({length:LOC_RANGE},(_,i)=>i+1).map(r=>(
+            <line key={r} x1={rx(r)} y1={6} x2={rx(r)} y2={HB-16} stroke={r%5===0?PC.grid5:PC.grid} strokeWidth={r%5===0?0.8:0.5}/>
+          ))}
+          <rect x={ML} y={HB/2-12} width={IW} height={24} fill={PC.center} fillOpacity={0.06}/>
+          <line x1={ML} y1={HB/2} x2={W-MR} y2={HB/2} stroke={PC.center} strokeWidth={1.6} filter="url(#parGlow)"/>
+          {ilsAc.length===0 && <text x={(ML+W-MR)/2} y={HB/2} fill={PC.dim} fillOpacity={0.6} fontSize="12" fontFamily="monospace" textAnchor="middle" letterSpacing="1">NO ILS TRAFFIC</text>}
+          {ilsAc.map(ac=>{
+            const r=ac.range; if(r>LOC_RANGE+1) return null;
+            const x=rx(Math.min(r,LOC_RANGE)), lat=ac.locDev||0, y=HB/2-lat*24;
+            const onLoc=Math.abs(lat)<0.5, col=onLoc?PC.on:PC.off;
+            const tx=x>W-120?x-72:x+9;
+            return (
+              <g key={ac.id} filter="url(#parGlow)">
+                <line x1={x-7} y1={y} x2={x+7} y2={y} stroke={col} strokeWidth={2}/>
+                <line x1={x} y1={y-7} x2={x} y2={y+7} stroke={col} strokeWidth={2}/>
+                <circle cx={x} cy={y} r={2.4} fill={col}/>
+                <rect x={tx-2} y={y-13} width={70} height={24} rx={2} fill="#01140a" fillOpacity={0.82} stroke="#0c3a1f" strokeWidth={0.5}/>
+                <text x={tx+2} y={y-3} fill={PC.sq} fontSize="9" fontFamily="monospace">{ac.sq}</text>
+                <text x={tx+2} y={y+7} fill={onLoc?PC.on:PC.amber} fontSize="9" fontFamily="monospace">{onLoc?'ON LOC':`${Math.abs(lat).toFixed(2)} ${lat>0?'L':'R'}`}</text>
+              </g>
+            );
+          })}
+          {rangeTicks.map(r=>(<text key={r} x={rx(r)} y={HB-4} fill={PC.dim} fontSize="8" fontFamily="monospace" textAnchor="middle">{r}</text>))}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ── RecordingBar ──────────────────────────────────────────────────────────────
+function RecordingBar({ recLen, playback, onPlay, onPause, onStop, onScrub }) {
+  const total=recLen, maxF=REC_MAX, pIdx=playback?playback.idx:0, inPb=!!playback, isPlay=inPb&&playback.playing;
+  const fmt = f => { const s=Math.round(f*REC_MS/1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+  return (
+    <div style={{background:'#020c02',borderTop:'1px solid #0d1a0d',borderBottom:'1px solid #0d1a0d',padding:'4px 10px',display:'flex',alignItems:'center',gap:10,flexShrink:0,fontFamily:'monospace'}}>
+      <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+        <div style={{width:7,height:7,borderRadius:'50%',background:inPb?'#555':'#ff2200',boxShadow:inPb?'none':'0 0 6px #ff2200'}}/>
+        <span style={{color:inPb?'#444':'#ff4444',fontSize:9,fontWeight:'bold'}}>{inPb?'PLAYBACK':'REC'}</span>
+      </div>
+      <div style={{display:'flex',gap:4,flexShrink:0}}>
+        {!inPb ? (
+          <button onClick={()=>total>0&&onPlay()} style={{background:'#003300',color:total>0?'#00ff41':'#2a4a2a',border:'1px solid #004400',padding:'2px 8px',fontFamily:'monospace',fontSize:10,cursor:total>0?'pointer':'default'}}>▶ PLAY</button>
+        ) : (
+          <>
+            <button onClick={isPlay?onPause:()=>onPlay(true)} style={{background:'#002244',color:'#4488ff',border:'1px solid #003366',padding:'2px 8px',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>{isPlay?'⏸':'▶'}</button>
+            <button onClick={onStop} style={{background:'#1a0000',color:'#ff4444',border:'1px solid #330000',padding:'2px 8px',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>■ LIVE</button>
+          </>
+        )}
+      </div>
+      <div style={{flex:1,display:'flex',alignItems:'center',gap:6}}>
+        <span style={{color:'#2a5a2a',fontSize:9,flexShrink:0}}>{inPb?fmt(pIdx):fmt(total)}</span>
+        <input type="range" min={0} max={Math.max(0,total-1)} value={inPb?pIdx:total-1} onChange={e=>inPb&&onScrub(+e.target.value)} style={{flex:1,accentColor:'#00ff41',height:3,cursor:inPb?'pointer':'default',opacity:inPb?1:0.4}}/>
+        <span style={{color:'#2a5a2a',fontSize:9,flexShrink:0}}>{fmt(maxF)}</span>
+      </div>
+      <div style={{color:'#2a4a2a',fontSize:9,flexShrink:0}}>{total}/{maxF}</div>
+    </div>
+  );
+}
+
+// ── Instructor Messages Panel (floating) ──────────────────────────────────────
+function InstructorMsg({ traineeId, sessionId }) {
+  const [msgs, setMsgs] = useState([]);
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!traineeId) return;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${API}/api/simulator/messages?trainee_id=${traineeId}`);
+        if (!r.ok) return;
+        const data = await r.json();
+        setMsgs(data);
+        const u = data.filter(m => m.sender_role === 'admin' && !m.read).length;
+        setUnread(u);
+        if (u > 0 && !open) setOpen(true);
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+  }, [traineeId, open]);
+
+  const send = async () => {
+    if (!text.trim() || !traineeId) return;
+    const msg = text.trim();
+    setText('');
+    try {
+      await fetch(`${API}/api/simulator/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: traineeId, session_id: sessionId, text: msg, sender_role: 'trainee' })
+      });
+      setMsgs(prev => [...prev, { id: Date.now(), sender_role:'trainee', text:msg, read:1, ts:Date.now() }]);
+    } catch {}
+  };
+
+  if (!traineeId) return null;
+
+  return (
+    <div style={{position:'fixed',bottom:80,right:280,zIndex:999}}>
+      {/* Toggle button */}
+      <button onClick={()=>setOpen(o=>!o)} style={{
+        background:'#000080',color:'#fff',border:'2px solid #0000aa',
+        padding:'4px 10px',fontFamily:'Arial,sans-serif',fontSize:11,
+        cursor:'pointer',display:'flex',alignItems:'center',gap:5,
+        borderTop:'2px solid #6666ff',borderLeft:'2px solid #6666ff',
+        borderRight:'2px solid #000044',borderBottom:'2px solid #000044',
+      }}>
+        💬 Instructor
+        {unread>0 && <span style={{background:'#ff2200',color:'#fff',borderRadius:'50%',width:16,height:16,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:'bold'}}>{unread}</span>}
+      </button>
+      {open && (
+        <div style={{
+          position:'absolute',bottom:'100%',right:0,width:280,
+          background:'#d4d0c8',
+          border:'none',borderTop:'2px solid #fff',borderLeft:'2px solid #fff',
+          borderRight:'2px solid #808080',borderBottom:'2px solid #808080',
+          fontFamily:'Arial,sans-serif',marginBottom:4,
+        }}>
+          {/* Title bar */}
+          <div style={{background:'#000080',color:'#fff',padding:'2px 6px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11,fontWeight:'bold'}}>
+            <span>💬 Instructor Chat</span>
+            <button onClick={()=>setOpen(false)} style={{background:'#d4d0c8',color:'#000',border:'none',borderTop:'1px solid #fff',borderLeft:'1px solid #fff',borderRight:'1px solid #808080',borderBottom:'1px solid #808080',width:16,height:14,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',lineHeight:1}}>✕</button>
+          </div>
+          {/* Messages */}
+          <div style={{height:180,overflowY:'auto',padding:6,display:'flex',flexDirection:'column',gap:4,background:'#fff',borderTop:'1px solid #808080',borderBottom:'1px solid #dfdfdf'}}>
+            {msgs.length === 0 && <div style={{color:'#888',fontSize:11,textAlign:'center',marginTop:60}}>No messages yet</div>}
+            {msgs.map(m=>(
+              <div key={m.id} style={{alignSelf:m.sender_role==='admin'?'flex-start':'flex-end',maxWidth:'85%'}}>
+                <div style={{
+                  background:m.sender_role==='admin'?'#ddeeff':'#eeffdd',
+                  border:`1px solid ${m.sender_role==='admin'?'#aaccff':'#aaddaa'}`,
+                  borderRadius:4,padding:'3px 7px',fontSize:11,color:'#000',
+                }}>
+                  {m.text}
+                </div>
+                <div style={{fontSize:9,color:'#888',textAlign:m.sender_role==='admin'?'left':'right',marginTop:1}}>
+                  {m.sender_role==='admin'?'Instructor':'You'} · {new Date(m.ts).toLocaleTimeString()}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Input */}
+          <div style={{padding:5,display:'flex',gap:4}}>
+            <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Type question..." style={{...W3D.field,flex:1,fontSize:11}}/>
+            <button onClick={send} style={{...W3D.btn,padding:'3px 10px'}}>Send</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── RightPanel ────────────────────────────────────────────────────────────────
+function RightPanel({ aircraft, selAc, channel, onInp, onAcq, onRst, view, onView }) {
+  const ilsActive = aircraft.filter(a=>a.channel!==null).length;
+  const panelBg = '#d4d0c8';
+  const groupBorder = { border:'1px solid #808080',borderTop:'1px solid #dfdfdf',borderLeft:'1px solid #dfdfdf',background:panelBg,padding:'5px 6px',marginBottom:6 };
+  return (
+    <div style={{background:panelBg,padding:'6px 8px',width:260,flexShrink:0,fontFamily:'Arial,sans-serif',color:'#000',overflowY:'auto',borderLeft:'2px solid #fff',borderTop:'2px solid #fff',borderRight:'2px solid #808080',borderBottom:'2px solid #808080'}}>
+      {/* RUNWAY + TRACK */}
+      <div style={{textAlign:'center',marginBottom:8}}>
+        <div style={{fontSize:20,fontWeight:'bold',letterSpacing:2,color:'#000'}}>RUNWAY 31</div>
+        <div style={{fontSize:11,color:'#000',marginTop:2}}>System Mode:</div>
+        <div style={{background:'#00c000',color:'#000',fontWeight:'bold',fontSize:16,padding:'3px 0',textAlign:'center',marginTop:2,border:'2px inset #006000',letterSpacing:3}}>TRACK</div>
+      </div>
+      {/* Integrity */}
+      <div style={groupBorder}>
+        <div style={{fontSize:11,fontWeight:'bold',marginBottom:4}}>Integrity Monitor:</div>
+        <div style={{background:'#00c000',color:'#000',textAlign:'center',fontSize:11,fontWeight:'bold',padding:'2px',marginBottom:4,border:'1px solid #006000'}}>OK</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+          {['Surveillance','Guidance'].map(n=>(
+            <div key={n}>
+              <div style={{fontSize:10,textAlign:'center',marginBottom:2}}>{n}</div>
+              <div style={{background:'#00c000',color:'#000',textAlign:'center',fontSize:11,fontWeight:'bold',padding:'2px',border:'1px solid #006000'}}>OK</div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:6,marginTop:5}}>
+          <button style={{...W3D.btn,flex:1,fontSize:10,padding:'2px 6px'}}>Hide LRUs</button>
+          <button style={{...W3D.btn,flex:1,fontSize:10,padding:'2px 6px',opacity:0.5,cursor:'default'}}>Silence</button>
+        </div>
+      </div>
+      {/* View */}
+      <div style={groupBorder}>
+        <div style={{fontSize:11,fontWeight:'bold',marginBottom:5}}>View</div>
+        <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          {[['plan','Plan'],['par','PAR']].map(([v,lbl])=>(
+            <label key={v} style={{display:'flex',alignItems:'center',gap:3,cursor:'pointer',fontSize:11}}>
+              <input type="radio" name="viewMode" checked={view===v} onChange={()=>onView(v)} style={{margin:0}}/><span>{lbl}</span>
+            </label>
+          ))}
+          <label style={{display:'flex',alignItems:'center',gap:3,cursor:'pointer',fontSize:11}}>
+            <input type="checkbox" style={{margin:0}}/><span>Center touchdown</span>
+          </label>
+        </div>
+      </div>
+      {/* ILS Channel A */}
+      <IlsChannel aircraft={aircraft} ch={channel} onInp={onInp} onAcq={onAcq} onRst={onRst}/>
+      {/* GCA */}
+      <div style={groupBorder}>
+        <div style={{fontSize:11,fontWeight:'bold',marginBottom:4}}>GCA</div>
+        <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+          <span style={{fontSize:11}}>Status:</span>
+          <div style={{...W3D.field,flex:1,fontSize:11,padding:'1px 6px',textAlign:'center'}}>{ilsActive>0?'ILS IN USE':''}</div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <span style={{fontSize:11}}>Transponder ID:</span>
+          <input style={{...W3D.field,width:60,fontSize:13,textAlign:'center'}} readOnly placeholder=""/>
+        </div>
+        <div style={{display:'flex',gap:5,marginTop:5}}>
+          <button style={{...W3D.btn,flex:1,opacity:0.45,cursor:'default'}}>ACQUIRE</button>
+          <button style={{...W3D.btn,flex:1}}>RESET</button>
+        </div>
+      </div>
+      {/* Selected AC */}
+      {selAc && (
+        <div style={{...groupBorder,background:'#eae8e0'}}>
+          <div style={{fontSize:11,fontWeight:'bold',marginBottom:3}}>▶ {selAc.sq}</div>
+          <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:'2px 8px',fontSize:10}}>
+            <span>Range:</span><span>{selAc.range.toFixed(1)} NM</span>
+            <span>Bearing:</span><span>{Math.round(selAc.bearing)}°</span>
+            <span>Alt:</span><span>{Math.round(selAc.alt).toLocaleString()} ft</span>
+            <span>Channel:</span><span>{selAc.channel===null?'—':'CH A'}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function TLSSimulator() {
+  const [ac, setAc] = useState(() => makeAC());
+  const [selId, setSelId] = useState(null);
+  const [flash, setFlash] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState('plan');
+  const [channel, setChannel] = useState({ inp:'', timeoutT:null });
+  const [itrg, setItrg] = useState(105145);
+  const [recLen, setRecLen] = useState(0);
+  const [playback, setPlayback] = useState(null);
+  const [clock, setClock] = useState(() => new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}));
+  const [sessionId, setSessionId] = useState(null);
+  const [broadcast, setBroadcast] = useState(null);
+
+  const lastT = useRef(0);
+  const recBuf = useRef([]);
+  const lastRecT = useRef(0);
+  const traineeId = useRef(getTraineeId());
+  const traineeName = useRef(getTraineeName());
+
+  // Start session on mount
+  useEffect(() => {
+    const tid = traineeId.current;
+    if (!tid) return;
+    fetch(`${API}/api/simulator/session`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ traineeId: tid, traineeName: traineeName.current, mode:'PAR', action:'start' })
+    }).then(r=>r.json()).then(d=>{ if(d.sessionId) setSessionId(d.sessionId); }).catch(()=>{});
+    // End session on unload
+    const end = () => {
+      fetch(`${API}/api/simulator/session`,{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({traineeId:tid,action:'end',sessionId:null}) }).catch(()=>{});
+    };
+    window.addEventListener('beforeunload', end);
+    return () => window.removeEventListener('beforeunload', end);
+  }, []);
+
+  // Poll broadcast
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const r = await fetch(`${API}/api/simulator/broadcast`);
+        if(r.ok) { const d = await r.json(); setBroadcast(d); }
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, 8000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Flash
+  useEffect(() => { const id=setInterval(()=>setFlash(f=>!f),500); return ()=>clearInterval(id); }, []);
+
+  // Clock
+  useEffect(() => { const id=setInterval(()=>setClock(new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})),1000); return ()=>clearInterval(id); }, []);
+
+  // Timeout + auto-clear
+  useEffect(() => {
+    const id = setInterval(() => {
+      setChannel(ch => {
+        const acq = ac.find(a => a.channel === 0);
+        if (acq && !inLocCone(acq) && ch.timeoutT === null) {
+          setAc(p => p.map(a => a.channel===0?{...a,channel:null}:a));
+          return {inp:'',timeoutT:null};
+        }
+        if (ch.timeoutT !== null) {
+          const newT = ch.timeoutT - 1;
+          if (newT <= 0) {
+            setAc(p => p.map(a => a.channel===0?{...a,channel:null}:a));
+            return {inp:'',timeoutT:null};
+          }
+          return {...ch, timeoutT:newT};
+        }
+        return ch;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [ac]);
+
+  // Main loop
+  useEffect(() => {
+    let fid;
+    const tick = time => {
+      const dt = Math.min((time - lastT.current)/1000, 0.1);
+      lastT.current = time;
+      setItrg(i => i + Math.floor(Math.random()*3+1));
+      setAc(prev => {
+        if (time - lastRecT.current >= REC_MS) {
+          lastRecT.current = time;
+          const snap = prev.map(a=>({id:a.id,sq:a.sq,range:a.range,bearing:a.bearing,heading:a.heading,alt:a.alt,phase:a.phase,channel:a.channel,trail:[...a.trail],opacity:a.opacity??1}));
+          recBuf.current = [...recBuf.current,snap].slice(-REC_MAX);
+          setRecLen(recBuf.current.length);
+        }
+        return prev.map(a => {
+          // Random aircraft
+          if (a.type==='random') {
+            const spdNM=a.spd/3600*6*dt;
+            const hr=toRad(a.heading-90);
+            let nx=a.x+Math.cos(hr)*spdNM, ny=a.y+Math.sin(hr)*spdNM;
+            let newHdg=a.heading, newTimer=a.hdgTimer-dt;
+            if(isNearCone(nx,ny)){ newHdg=ny<0?310:230; nx=a.x; ny=a.y; newTimer=8; }
+            else if(nx*nx+ny*ny>46*46){ newHdg=(toDeg(Math.atan2(-ny,-nx))+90+360)%360; nx=a.x; ny=a.y; newTimer=6; }
+            else if(newTimer<=0){ newHdg=(newHdg+(Math.random()-0.5)*60+360)%360; newTimer=12+Math.random()*18; }
+            const {range,bearing}=c2p(nx,ny);
+            const trail=[...a.trail,{range:a.range,bearing:a.bearing}].slice(-12);
+            return {...a,x:nx,y:ny,range,bearing,heading:newHdg,hdgTimer:newTimer,trail};
+          }
+          // Known aircraft
+          if(a.phase==='fading_in'){
+            const newOpa=Math.min(1,a.opacity+dt/FADE_IN_T);
+            return {...a,opacity:newOpa,phase:newOpa>=1?'approaching':'fading_in'};
+          }
+          if(a.phase==='approaching'||a.phase==='tracking'){
+            const newT=Math.min(1,a.t+dt/APPROACH_T);
+            const path=AC_PATHS[a.pathIdx];
+            const pt=bezierPt(path.p0,path.p1,path.p2,newT);
+            const {range,bearing}=c2p(pt.x,pt.y);
+            const tan=bezierTan(path.p0,path.p1,path.p2,newT);
+            const heading=(toDeg(Math.atan2(tan.y,tan.x))+90+360)%360;
+            const frac=newT;
+            const alt=a.initAlt*(1-frac)*(range>GS_RANGE?1:range/GS_RANGE)+gsTargetAlt(Math.max(range,0.1))*(1-Math.max(0,range-GS_RANGE)/GS_RANGE);
+            const latDev=(bearing-CONE_TIP_BRG+360)%360; const locDev=latDev>180?latDev-360:latDev;
+            const gsIdeal=gsTargetAlt(range); const gsDev=gsIdeal>0?(alt-gsIdeal)/(gsIdeal*0.15):0;
+            const newPhase=inGsCone({range,bearing})?'tracking':'approaching';
+            // Send events
+            if(a.channel!==null){
+              if(newPhase==='approaching'&&a.phase!=='approaching') sendAircraftEvent(a.sq,alt,heading,'localizer_entry',traineeId.current,sessionId);
+              if(newPhase==='tracking'&&a.phase!=='tracking') sendAircraftEvent(a.sq,alt,heading,'gs_entry',traineeId.current,sessionId);
+              if(range<0.5&&a.phase==='tracking') sendAircraftEvent(a.sq,alt,heading,'touchdown',traineeId.current,sessionId);
+            }
+            const trail=[...a.trail,{range:a.range,bearing:a.bearing}].slice(-12);
+            if(newT>=1){
+              return {...a,t:newT,phase:'fading_out',range,bearing,heading,alt,locDev,gsDev,trail,opacity:1};
+            }
+            return {...a,t:newT,phase:newPhase,range,bearing,heading,alt,locDev,gsDev,trail};
+          }
+          if(a.phase==='fading_out'){
+            const newOpa=Math.max(0,a.opacity-dt/FADE_OUT_T);
+            return {...a,opacity:newOpa,phase:newOpa<=0?'waiting':'fading_out'};
+          }
+          if(a.phase==='waiting'){
+            const newWait=a.waitT+dt;
+            if(newWait>=WAIT_T){
+              const path=AC_PATHS[a.pathIdx];
+              const sp=bezierPt(path.p0,path.p1,path.p2,0);
+              const {range,bearing}=c2p(sp.x,sp.y);
+              return {...a,t:0,phase:'fading_in',range,bearing,heading:180,opacity:0,waitT:0,channel:null,locDev:0,gsDev:0,trail:[]};
+            }
+            return {...a,waitT:newWait};
+          }
+          return a;
+        });
+      });
+      fid = requestAnimationFrame(tick);
+    };
+    fid = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(fid);
+  }, [sessionId]);
+
+  // Playback
+  useEffect(() => {
+    if (!playback?.playing) return;
+    const id = setInterval(() => {
+      setPlayback(p => {
+        if(!p?.playing) return p;
+        const next=p.idx+1;
+        if(next>=recBuf.current.length) return {...p,playing:false};
+        return {...p,idx:next};
+      });
+    }, REC_MS);
+    return () => clearInterval(id);
+  }, [playback?.playing]);
+
+  const onPlay   = (resume) => setPlayback(p=>resume&&p?{...p,playing:true}:{idx:0,playing:true});
+  const onPause  = () => setPlayback(p=>p?{...p,playing:false}:p);
+  const onStop   = () => setPlayback(null);
+  const onScrub  = idx => setPlayback(p=>p?{...p,idx,playing:false}:null);
+  const displayAc = playback ? (recBuf.current[playback.idx]||ac) : ac;
+  const onSel = a => {
+    setSelId(a.id);
+    if (!ac.some(x=>x.channel===0)) setChannel(prev=>({...prev,inp:a.sq}));
+  };
+  const onInp = val => setChannel(prev=>({...prev,inp:val}));
+  const onAcq = () => {
+    const sq=channel.inp.trim(); if(!sq) return;
+    if(ac.some(a=>a.channel===0)) return;
+    const matched = ac.some(a=>a.sq===sq&&a.channel===null&&inLocCone(a));
+    setAc(prev=>prev.map(a=>a.sq===sq&&a.channel===null?{...a,channel:0}:a));
+    setChannel(prev=>({...prev,timeoutT:matched?null:120}));
+  };
+  const onRst = () => {
+    setAc(prev=>prev.map(a=>a.channel===0?{...a,channel:null}:a));
+    setChannel({inp:'',timeoutT:null});
+  };
+
+  const selAc = displayAc.find(a=>a.id===selId)||null;
+  const ilsN = displayAc.filter(a=>a.channel!==null).length;
+
+  return (
+    <div style={{background:'#020702',height:'100vh',overflow:'hidden',display:'flex',flexDirection:'column',userSelect:'none'}}>
+      {/* Title bar */}
+      <div style={{background:'#000080',color:'#fff',padding:'2px 6px',display:'flex',alignItems:'center',gap:6,fontSize:12,flexShrink:0,fontFamily:'Arial,sans-serif'}}>
+        <span style={{fontSize:12}}>📡</span>
+        <span style={{fontWeight:'bold'}}>RCUx 3 - RSAF TLS — Runway 31</span>
+        {traineeId.current && <span style={{fontSize:10,opacity:0.8,marginLeft:8}}>| {traineeName.current}</span>}
+        <div style={{marginLeft:'auto',display:'flex',gap:2}}>
+          {['─','□','✕'].map(s=>(
+            <div key={s} style={{background:'#d4d0c8',color:'#000',width:16,height:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,cursor:'pointer',fontFamily:'Arial,sans-serif',borderTop:'1px solid #fff',borderLeft:'1px solid #fff',borderRight:'1px solid #808080',borderBottom:'1px solid #808080'}}>{s}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* Menu bar */}
+      <div style={{background:'#d4d0c8',borderBottom:'1px solid #808080',padding:'2px 4px',display:'flex',alignItems:'center',gap:0,fontSize:12,flexShrink:0,fontFamily:'Arial,sans-serif',color:'#000'}}>
+        {['Control','View','Options','Help'].map(m=>(
+          <span key={m} style={{padding:'2px 8px',cursor:'pointer'}}
+            onMouseEnter={e=>{e.target.style.background='#000080';e.target.style.color='#fff';}}
+            onMouseLeave={e=>{e.target.style.background='transparent';e.target.style.color='#000';}}>{m}</span>
+        ))}
+        <div style={{marginLeft:16,display:'flex',gap:4,fontSize:11}}>
+          {displayAc.filter(a=>(a.opacity??1)>0).map(a=>(
+            <span key={a.id} onClick={()=>onSel(a)} style={{color:a.type==='random'?'#555':a.phase==='tracking'?'#c000c0':a.phase==='approaching'?'#006000':'#000',background:'#d4d0c8',padding:'0 5px',border:'1px solid #808080',cursor:'pointer',opacity:a.opacity??1,borderTop:'1px solid #dfdfdf',borderLeft:'1px solid #dfdfdf'}}>{a.sq}</span>
+          ))}
+        </div>
+        <div style={{marginLeft:'auto',fontSize:11,color:'#000',paddingRight:4}}>{clock}</div>
+      </div>
+
+      {/* Zoom toolbar */}
+      <div style={{background:'#d4d0c8',borderBottom:'2px solid #808080',padding:'2px 8px',display:'flex',gap:5,alignItems:'center',fontSize:11,flexShrink:0,fontFamily:'Arial,sans-serif',color:'#000'}}>
+        <span>Zoom:</span>
+        {[0.7,1,1.5,2].map(z=>(
+          <button key={z} onClick={()=>setZoom(z)} style={{background:zoom===z?'#000080':'#d4d0c8',color:zoom===z?'#fff':'#000',borderTop:`2px solid ${zoom===z?'#000060':'#ffffff'}`,borderLeft:`2px solid ${zoom===z?'#000060':'#ffffff'}`,borderRight:`2px solid ${zoom===z?'#0000a0':'#808080'}`,borderBottom:`2px solid ${zoom===z?'#0000a0':'#808080'}`,padding:'1px 8px',cursor:'pointer',fontFamily:'Arial,sans-serif',fontSize:11}}>{z}x</button>
+        ))}
+        <span style={{marginLeft:'auto',color:'#555',fontSize:10}}>TRACKS:{ac.filter(a=>(a.opacity??1)>0).length} | ILS:{ilsN} | INTERROG:{itrg.toLocaleString()}</span>
+      </div>
+
+      {/* Broadcast banner */}
+      {broadcast && (
+        <div style={{background:broadcast.type==='warning'?'#ffaa00':broadcast.type==='alert'?'#ff3300':'#000080',color:'#fff',padding:'3px 12px',fontSize:11,fontFamily:'Arial,sans-serif',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+          <span style={{fontWeight:'bold'}}>📢 INSTRUCTOR:</span>
+          <span>{broadcast.message}</span>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+          <div style={{flex:1,overflow:'auto'}}>
+            {view==='par' ? <PARView aircraft={displayAc}/> : <Radar aircraft={displayAc} selId={selId} onSel={onSel} zoom={zoom} flash={flash}/>}
+          </div>
+          <RecordingBar recLen={recLen} playback={playback} onPlay={onPlay} onPause={onPause} onStop={onStop} onScrub={onScrub}/>
+          {/* Status bar */}
+          <div style={{background:'#000',borderTop:'2px solid #808080',display:'grid',gridTemplateColumns:'repeat(8,1fr)',fontSize:10,fontFamily:'Arial,sans-serif',flexShrink:0}}>
+            {[['ALTIMETER','29.91 In Hg'],['ILS TRACKS',ilsN],['DISPLAY TRACKS',displayAc.filter(a=>(a.opacity??1)>0).length],['INTERROGATION',itrg.toLocaleString()],['AGL',selAc?`${Math.round(selAc.alt)} feet`:'—'],['SPEED',selAc?`${selAc.spd??120} knots`:'—'],['RECORDING',playback?'PLAYBACK':'ON'],['RATE','5.8 Hz']].map(([l,v],i)=>(
+              <div key={i} style={{padding:'2px 5px',borderRight:'1px solid #333',color:'#fff'}}>
+                <div style={{color:'#888',fontSize:9}}>{l}</div>
+                <div style={{color:'#0f0',fontWeight:'bold'}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Right panels */}
+        <div style={{display:'flex',flexShrink:0}}>
+          <StatusPanel/>
+          <RightPanel aircraft={ac} selAc={selAc} channel={channel} onInp={onInp} onAcq={onAcq} onRst={onRst} view={view} onView={setView}/>
+        </div>
+      </div>
+
+      {/* Instructor chat */}
+      <InstructorMsg traineeId={traineeId.current} sessionId={sessionId}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TLSSimulator));
+</script>
+</body>
+</html>

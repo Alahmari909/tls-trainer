@@ -2781,5 +2781,50 @@ app.get('/admin/simulator/export', async (c) => {
   });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// SIMULATOR MESSAGES — trainee ↔ instructor chat
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/simulator/messages?trainee_id=X — returns messages for a trainee (marks admin msgs read)
+app.get('/simulator/messages', async (c) => {
+  const traineeId = c.req.query('trainee_id');
+  if (!traineeId) return c.json({ error: 'trainee_id required' }, 400);
+  const rows = await sql(
+    `SELECT id, sender_role, text, read, ts FROM trainee_messages WHERE trainee_id=? ORDER BY ts ASC LIMIT 100`,
+    [traineeId]
+  );
+  // mark admin messages as read (trainee has seen them)
+  await sqlRun(`UPDATE trainee_messages SET read=1 WHERE trainee_id=? AND sender_role='admin' AND read=0`, [traineeId]);
+  return c.json(rows, 200);
+});
+
+// POST /api/simulator/messages — trainee sends a message to instructor
+app.post('/simulator/messages', async (c) => {
+  const { trainee_id, text, session_id } = await c.req.json().catch(() => ({})) as {
+    trainee_id?: string; text?: string; session_id?: string;
+  };
+  if (!trainee_id || !text?.trim()) return c.json({ error: 'trainee_id + text required' }, 400);
+  await sqlRun(
+    `INSERT INTO trainee_messages (trainee_id, sender_role, text, read, ts) VALUES (?, 'trainee', ?, 0, ?)`,
+    [trainee_id, text.trim(), Date.now()]
+  );
+  const [tr] = await sql(`SELECT name FROM trainees WHERE id=?`, [trainee_id]);
+  const tName = (tr?.name as string) ?? trainee_id;
+  sendTelegram({ type: 'chat_message', traineeId: trainee_id, traineeName: tName, preview: `[SIM] ${text.trim().slice(0, 80)}` });
+  return c.json({ ok: true }, 200);
+});
+
+// POST /api/admin/simulator/messages — instructor replies to a trainee
+app.post('/admin/simulator/messages', async (c) => {
+  if (!simAuth(c)) return c.json({ error: 'Unauthorized' }, 401);
+  const { trainee_id, text } = await c.req.json().catch(() => ({})) as { trainee_id?: string; text?: string };
+  if (!trainee_id || !text?.trim()) return c.json({ error: 'trainee_id + text required' }, 400);
+  await sqlRun(
+    `INSERT INTO trainee_messages (trainee_id, sender_role, text, read, ts) VALUES (?, 'admin', ?, 0, ?)`,
+    [trainee_id, text.trim(), Date.now()]
+  );
+  return c.json({ ok: true }, 200);
+});
+
 export type AppType = typeof app;
 export default app;
