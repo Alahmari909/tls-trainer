@@ -785,6 +785,19 @@ const app = new Hono()
   .basePath('api')
   .use(cors({ origin: (origin) => origin ?? "*", credentials: true, exposeHeaders: ["set-auth-token"] }))
   .get('/ping', (c) => c.json({ message: `Pong! ${Date.now()}` }, 200))
+  
+  // TEMP: debug admin password
+  .get('/admin/pw-debug', async (c) => {
+    const pw = process.env.ADMIN_PASSWORD ?? 'NOT_SET';
+    return c.json({
+      length: pw.length,
+      first2: pw.slice(0,2),
+      last2: pw.slice(-2),
+      isSet: !!process.env.ADMIN_PASSWORD,
+      hash: Array.from(pw).reduce((a,c)=>a+c.charCodeAt(0),0)
+    }, 200);
+  })
+  
   .get('/health', (c) => c.json({ status: 'ok' }, 200))
   .get("/health/db", async (c) => {
     try {
