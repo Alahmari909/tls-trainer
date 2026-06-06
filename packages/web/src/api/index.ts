@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { createRequire } from 'module';
 import { cors } from "hono/cors";
 import * as XLSX from 'xlsx';
 import { eq, and, desc } from "drizzle-orm";
@@ -2074,12 +2075,13 @@ ${qaContext ? `\n--- أسئلة وأجوبة المنهج ---\n${qaContext.slice
     const body = await c.req.json().catch(() => ({})) as { reindex?: boolean };
     const reindex = !!body.reindex;
 
-    // Try to get a PDF parser (pdf-parse or system pdftotext)
+    // Try to get a PDF parser (pdf-parse via createRequire, then pdftotext fallback)
     type PdfParser = (buf: Buffer) => Promise<{ text: string }>;
     let pdfParser: PdfParser | null = null;
     try {
-      const mod = await import('pdf-parse' as any);
-      pdfParser = ((mod as any).default ?? mod) as PdfParser;
+      const _req = createRequire(import.meta.url);
+      const mod: any = _req('pdf-parse');
+      pdfParser = (mod.default ?? mod) as PdfParser;
     } catch {}
 
     const indexed: string[] = [], skipped: string[] = [], errors: { file: string; err: string }[] = [];
