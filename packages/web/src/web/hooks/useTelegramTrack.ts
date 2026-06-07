@@ -2,6 +2,7 @@
 // Reads trainee identity from localStorage session. Falls back gracefully if not logged in.
 
 export const SESSION_KEY = "tls_trainee_session";
+const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export interface TraineeSession {
   id: string;
@@ -14,14 +15,20 @@ export function getSession(): TraineeSession | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as TraineeSession;
+    const obj = JSON.parse(raw) as TraineeSession & { _exp?: number };
+    if (obj._exp && Date.now() > obj._exp) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    const { _exp: _ignored, ...session } = obj as any;
+    return session as TraineeSession;
   } catch {
     return null;
   }
 }
 
 export function setSession(s: TraineeSession) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, _exp: Date.now() + SESSION_TTL }));
 }
 
 export function clearSession() {
