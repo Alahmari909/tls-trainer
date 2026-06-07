@@ -27,7 +27,24 @@ const C = {
   gold:    "#FFD700",      // remapped: gold → accent gold
 };
 
-const SESSION_KEY = "tls_admin_verified";
+const SESSION_KEY = "tls_admin_pw";
+const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function getAdminSession(): string | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (Date.now() > obj.exp) { localStorage.removeItem(SESSION_KEY); return null; }
+    return obj.pw as string;
+  } catch { return null; }
+}
+function setAdminSession(pw: string) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ pw, exp: Date.now() + SESSION_TTL }));
+}
+function clearAdminSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Trainee = {
@@ -168,7 +185,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         body: JSON.stringify({ password: pw }),
       });
       const data = await res.json() as { ok: boolean };
-      if (data.ok) { sessionStorage.setItem(SESSION_KEY, pw); onSuccess(); }
+      if (data.ok) { setAdminSession(pw); onSuccess(); }
       else { setError("⛔ ACCESS DENIED — Invalid credentials"); setPw(""); }
     } catch { setError("CONNECTION ERROR"); }
     finally { setLoading(false); }
@@ -3788,7 +3805,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             </div>
 
             <button
-              onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
+              onClick={() => { clearAdminSession(); onLogout(); }}
               style={{
                 padding: "5px 12px", background: "rgba(255,68,68,0.08)",
                 border: "1px solid rgba(255,68,68,0.3)",
@@ -3977,7 +3994,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           <div style={{ marginTop: 16, padding: "16px", background: "rgba(255,68,68,0.05)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 12 }}>
             <div style={{ fontFamily: "Orbitron, monospace", fontSize: 10, color: "#FF4444", marginBottom: 8 }}>DANGER ZONE</div>
             <button
-              onClick={() => { sessionStorage.removeItem(SESSION_KEY); onLogout(); }}
+              onClick={() => { clearAdminSession(); onLogout(); }}
               style={{
                 width: "100%", padding: "12px", background: "rgba(255,68,68,0.1)",
                 border: "1px solid rgba(255,68,68,0.4)", borderRadius: 8,
@@ -4492,8 +4509,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 export default function Admin() {
-  const [verified, setVerified] = useState(() => !!sessionStorage.getItem(SESSION_KEY));
-  const adminPw = sessionStorage.getItem(SESSION_KEY) ?? "";
+  const [verified, setVerified] = useState(() => getAdminSession() !== null);
+  const adminPw = getAdminSession() ?? "";
 
   if (!verified) {
     return <AdminLogin onSuccess={() => setVerified(true)} />;
@@ -4501,7 +4518,7 @@ export default function Admin() {
   return (
     <AdminDashboard
       adminPw={adminPw}
-      onLogout={() => { sessionStorage.removeItem(SESSION_KEY); setVerified(false); }}
+      onLogout={() => { clearAdminSession(); setVerified(false); }}
     />
   );
 }
