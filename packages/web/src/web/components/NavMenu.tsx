@@ -229,8 +229,26 @@ export default function NavMenu() {
           </div>
         )}
 
-        {/* Right: Hamburger */}
+        {/* Right: About + Hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {/* About shortcut */}
+          <Link
+            href="/about"
+            aria-label="About"
+            title="About"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34,
+              background: location === "/about" ? "rgba(0,174,239,0.15)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${location === "/about" ? "rgba(0,174,239,0.45)" : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 9, textDecoration: "none",
+              color: location === "/about" ? "#00AEEF" : "rgba(255,255,255,0.55)",
+              fontSize: 16, lineHeight: 1,
+              transition: "all 0.22s", flexShrink: 0,
+            }}
+          >
+            ℹ️
+          </Link>
           {/* Hamburger */}
           <button
             onClick={() => setOpen(o => !o)}
