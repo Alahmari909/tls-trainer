@@ -75,7 +75,8 @@ const FALLBACK_NAV: DynNavItem[] = [
   { id:9,  label:"Achievements",  href:"/achievements", icon:"Trophy",        order:9,  isVisible:true },
   { id:10, label:"Leaderboard",   href:"/leaderboard",  icon:"BarChart",      order:10, isVisible:true },
   { id:11, label:"Notifications", href:"/notifications",icon:"Bell",          order:11, isVisible:true },
-  { id:12, label:"Settings",      href:"/settings",     icon:"Settings",      order:12, isVisible:true },
+  { id:12, label:"About",          href:"/about",        icon:"Info",          order:12, isVisible:true },
+  { id:13, label:"Settings",      href:"/settings",     icon:"Settings",      order:13, isVisible:true },
 ];
 
 function useDynamicNav() {
