@@ -117,35 +117,12 @@ function formatDateTime(d: Date): string {
   return `${day} ${month} ${year} · ${hh}:${mm} ${ampm}`;
 }
 
-// ── Theme: toggle class on <html>, CSS vars live in styles.css ───────────────
-function applyTheme(t: "dark" | "light") {
-  if (t === "light") {
-    document.documentElement.classList.add("light-mode");
-  } else {
-    document.documentElement.classList.remove("light-mode");
-  }
-  // Remove any stale inline overrides from old approach
-  const root = document.documentElement;
-  ["--bg-primary","--bg-secondary","--bg-card","--bg-elevated",
-   "--text-primary","--text-secondary","--text-muted","--border-color","--card-bg"]
-    .forEach(v => root.style.removeProperty(v));
-}
-
 export default function NavMenu() {
   const [open, setOpen] = useState(false);
   const [location, navigate] = useLocation();
   const [session, setSession] = useState(() => getSession());
   const now = useLiveClock();
   const { items: dynNavItems } = useDynamicNav();
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    return (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark";
-  });
-
-  useEffect(() => {
-    applyTheme(theme);
-    localStorage.setItem("tls_theme", theme);
-  }, [theme]);
-
   // Sync session state
   useEffect(() => {
     const check = () => setSession(getSession());
@@ -252,23 +229,8 @@ export default function NavMenu() {
           </div>
         )}
 
-        {/* Right: Theme toggle + Hamburger */}
+        {/* Right: Hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          {/* Theme toggle */}
-          <button
-            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-            aria-label="Toggle theme"
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 9, padding: "5px 8px", cursor: "pointer",
-              fontSize: 16, lineHeight: 1,
-              transition: "all 0.2s", flexShrink: 0,
-            }}
-          >
-            {theme === "dark" ? "🌞" : "🌙"}
-          </button>
           {/* Hamburger */}
           <button
             onClick={() => setOpen(o => !o)}
