@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import BackButton from "../components/BackButton";
 import { telegramTrack, getSession } from "../hooks/useTelegramTrack";
-import { useLanguage } from "../hooks/useLanguage";
 
 type Module = {
   id: number;
@@ -73,7 +72,6 @@ function renderMarkdown(md: string, accentColor: string): string {
 }
 
 export default function Modules() {
-  const { t } = useLanguage();
   const [modules, setModules] = useState<Module[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
