@@ -49,8 +49,10 @@ function clearAdminSession() {
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Trainee = {
   id: string; name: string; email: string; role: string;
+  rank?: string | null; unit?: string | null;
   xp: number; currentStreak: number; longestStreak: number;
   completedModules: number; totalModules: number; earnedBadges: number;
+  avgScore?: number; loginCount?: number; lastLoginAt?: number;
   lastActive: number; lastActiveAt?: number; lastPage?: string | null;
   online: boolean; createdAt: number;
   status?: string; trainingLevel?: string;
