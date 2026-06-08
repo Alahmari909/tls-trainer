@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
 import { useSettings } from "../hooks/useSettings";
+import { useLanguage, setLang } from "../hooks/useLanguage";
 import { playAlertTone } from "../lib/audio";
 
 const C = {
@@ -117,6 +118,7 @@ export default function Settings() {
     air_base: "",
   });
   const [editingProfile, setEditingProfile] = useState(false);
+  const { t, lang } = useLanguage();
   const [profileSaving, setProfileSaving] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [avatarPending, setAvatarPending] = useState<string | null>(null);
