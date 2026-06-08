@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import BackButton from "../components/BackButton";
 import { telegramTrack, getSession } from "../hooks/useTelegramTrack";
+import { useLanguage } from "../hooks/useLanguage";
 
 type Module = {
   id: number;
@@ -72,6 +73,7 @@ function renderMarkdown(md: string, accentColor: string): string {
 }
 
 export default function Modules() {
+  const { t } = useLanguage();
   const [modules, setModules] = useState<Module[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -246,7 +248,7 @@ export default function Modules() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                BACK TO MODULE
+                {t("back_to_module")}
               </button>
               <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 12 }}>|</span>
               <button
@@ -261,7 +263,7 @@ export default function Modules() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                MODULES LIST
+                {t("modules_list")}
               </button>
             </div>
             <div className="font-orbitron" style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>
