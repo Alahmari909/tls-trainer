@@ -525,6 +525,20 @@ export default function Settings() {
                 <StatCard value={stats.quizzesPassed} label="PASSED" color={C.green} />
                 <StatCard value={`${stats.avgScore}%`} label="AVG" color={C.blue} />
               </div>
+              <button
+                onClick={() => window.location.href = '/quiz-history'}
+                style={{
+                  width: "100%", marginTop: 12, padding: "10px 16px",
+                  background: "rgba(0,174,239,0.07)",
+                  border: "1px solid rgba(0,174,239,0.25)", borderRadius: 10,
+                  color: "#00AEEF", fontFamily: "Inter", fontSize: 11,
+                  letterSpacing: "0.08em", cursor: "pointer", textAlign: "left",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                }}
+              >
+                <span>📋 View Full Quiz History</span>
+                <span style={{ opacity: 0.6 }}>→</span>
+              </button>
             )}
           </div>
         </Section>
