@@ -3985,35 +3985,116 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── REPORTS VIEW ── */}
       {activeView === "reports" && (
-        <div className="admin-view" style={{ padding: "16px" }}>
+        <div className="admin-view" style={{ padding: "16px", paddingBottom: 40 }}>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>REPORTS</div>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>ANALYTICS</div>
-          {!loading && trainees.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[...trainees].sort((a, b) => b.xp - a.xp).map((t, i) => (
-                <div key={t.id} style={{
-                  background: "rgba(0,255,136,0.03)", border: "1px solid rgba(0,255,136,0.1)",
-                  borderRadius: 10, padding: "12px 14px",
-                  display: "flex", alignItems: "center", gap: 12,
-                }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Orbitron, monospace", fontSize: 11, color: "#00FF88" }}>
-                    {i + 1}
+
+          {/* ── Summary stats ── */}
+          {!loading && trainees.length > 0 && (() => {
+            const online   = trainees.filter(t => t.online).length;
+            const avgXp    = Math.round(trainees.reduce((s,t) => s + t.xp, 0) / trainees.length);
+            const avgMods  = (trainees.reduce((s,t) => s + t.completedModules, 0) / trainees.length).toFixed(1);
+            const avgScore = Math.round(trainees.filter(t => t.avgScore > 0).reduce((s,t) => s + t.avgScore, 0) / (trainees.filter(t=>t.avgScore>0).length||1));
+            return (
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                {[
+                  { label: "TRAINEES",  value: String(trainees.length), color: "#00FF88" },
+                  { label: "ONLINE",    value: String(online),          color: "#00D26A" },
+                  { label: "AVG XP",    value: String(avgXp),           color: "#FFD700" },
+                  { label: "AVG MODS",  value: avgMods,                 color: "#00AEEF" },
+                  { label: "AVG SCORE", value: `${avgScore}%`,          color: "#FF9F1C" },
+                ].map(s => (
+                  <div key={s.label} style={{
+                    flex: "1 1 auto", minWidth: 60, textAlign: "center",
+                    background: `${s.color}10`, border: `1px solid ${s.color}25`,
+                    borderRadius: 10, padding: "10px 6px",
+                  }}>
+                    <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
+                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.08em" }}>{s.label}</div>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", fontFamily: "Inter" }}>{t.name}</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>{t.email}</div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#FFD700", fontFamily: "Orbitron, monospace" }}>{t.xp}</div>
-                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>XP</div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#00FF88", fontFamily: "Orbitron, monospace" }}>{t.completedModules}/{t.totalModules}</div>
-                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>MODS</div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* ── Export button ── */}
+          <div style={{
+            marginBottom: 16, padding: "14px 16px",
+            background: "rgba(0,210,106,0.06)", border: "1px solid rgba(0,210,106,0.25)",
+            borderRadius: 12,
+          }}>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, color: "rgba(0,210,106,0.7)", letterSpacing: "0.15em", marginBottom: 8 }}>
+              📥 EXPORT REPORT
             </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 12, lineHeight: 1.5 }}>
+              Download a full Excel report with two sheets:<br />
+              <strong style={{ color: "rgba(255,255,255,0.6)" }}>Trainee Summary</strong> (XP, modules, scores, streaks) ·
+              <strong style={{ color: "rgba(255,255,255,0.6)" }}> Quiz History</strong> (all attempts with results)
+            </div>
+            <button
+              onClick={() => {
+                const url = `/api/admin/export/trainees?pw=${encodeURIComponent(adminPw)}`;
+                const a = document.createElement('a');
+                a.href = url; a.download = ''; a.click();
+              }}
+              style={{
+                padding: "10px 20px",
+                background: "rgba(0,210,106,0.15)",
+                border: "1px solid rgba(0,210,106,0.5)",
+                borderRadius: 10, cursor: "pointer",
+                color: "#00D26A", fontFamily: "Orbitron, monospace",
+                fontSize: 11, letterSpacing: "0.1em",
+              }}
+            >
+              ⬇ DOWNLOAD EXCEL (.xlsx)
+            </button>
+          </div>
+
+          {/* ── Trainee ranking ── */}
+          {!loading && trainees.length > 0 && (
+            <>
+              <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, color: "rgba(0,255,136,0.5)", letterSpacing: "0.2em", marginBottom: 10 }}>
+                XP RANKING
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[...trainees].sort((a, b) => b.xp - a.xp).map((t, i) => (
+                  <div key={t.id} style={{
+                    background: "rgba(0,255,136,0.03)", border: "1px solid rgba(0,255,136,0.1)",
+                    borderRadius: 10, padding: "12px 14px",
+                    display: "flex", alignItems: "center", gap: 12,
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: i < 3 ? ["rgba(255,215,0,0.15)","rgba(192,192,192,0.15)","rgba(205,127,50,0.15)"][i] : "rgba(0,255,136,0.08)",
+                      border: `1px solid ${i < 3 ? ["#FFD700","#C0C0C0","#CD7F32"][i] : "rgba(0,255,136,0.2)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: "Orbitron, monospace", fontSize: 11,
+                      color: i < 3 ? ["#FFD700","#C0C0C0","#CD7F32"][i] : "#00FF88",
+                    }}>
+                      {i + 1}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", fontFamily: "Inter" }}>{t.name}</div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>
+                        {[t.rank, t.unit].filter(Boolean).join(" · ") || "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#FFD700", fontFamily: "Orbitron, monospace" }}>{t.xp}</div>
+                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>XP</div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#00FF88", fontFamily: "Orbitron, monospace" }}>{t.completedModules}/{t.totalModules}</div>
+                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>MODS</div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#00AEEF", fontFamily: "Inter" }}>{t.avgScore > 0 ? t.avgScore + "%" : "—"}</div>
+                      <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>AVG</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           {!loading && trainees.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.2)" }}>
