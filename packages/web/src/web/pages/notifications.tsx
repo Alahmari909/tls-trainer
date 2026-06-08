@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
 import { playAlertTone, vibrate } from "../lib/audio";
+import { useLanguage } from "../hooks/useLanguage";
 
 const C = {
   navy: "#071426",
@@ -28,14 +29,7 @@ interface RealNotif {
 
 type FilterKey = "all" | "message" | "warning" | "danger" | "info" | "sound" | "module";
 
-const filters: { key: FilterKey; label: string }[] = [
-  { key: "all",     label: "All" },
-  { key: "message", label: "Messages" },
-  { key: "warning", label: "Warnings" },
-  { key: "danger",  label: "Danger" },
-  { key: "info",    label: "Info" },
-  { key: "sound",   label: "Sound" },
-];
+// filters defined inside component for i18n — see below
 
 function alertColor(atype: string, isMsg: boolean): string {
   if (isMsg) return C.green;
@@ -145,7 +139,7 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
                 <div className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.3em", color: C.red, marginBottom: 5 }}>ALERTS & MESSAGES</div>
-                <div className="font-orbitron" style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>NOTIFICATIONS</div>
+                <div className="font-orbitron" style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>{t("notifications_title")}</div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
                   {unreadCount > 0 ? `${unreadCount} unread` : loading ? "Loading..." : "All acknowledged"}
                 </div>
@@ -157,7 +151,7 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
                   borderRadius: 8, padding: "8px 14px",
                   color: C.cyan, fontSize: 11, cursor: "pointer",
                   fontFamily: "Inter", letterSpacing: "0.06em",
-                }}>MARK ALL READ</button>
+                }}>{t("mark_all_read")}</button>
               )}
             </div>
           </div>
@@ -194,10 +188,10 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
             <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.25)" }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
               <p style={{ fontFamily: "Inter", fontSize: 13, letterSpacing: "0.1em" }}>
-                {filter === "all" ? "NO NOTIFICATIONS" : `NO ${filter.toUpperCase()} ALERTS`}
+                {filter === "all" ? t("no_notifications") : `NO ${filter.toUpperCase()} ALERTS`}
               </p>
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
-                Instructor alerts will appear here
+                {t("no_notif_generic")}
               </p>
             </div>
           ) : (
