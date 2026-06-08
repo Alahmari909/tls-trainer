@@ -12,6 +12,7 @@ import type { ToastItem } from "./lib/audio";
 const Index = lazy(() => import("./pages/index"));
 
 const QuizList = lazy(() => import("./pages/quiz-list"));
+const QuizHistory = lazy(() => import("./pages/quiz-history"));
 const Quiz = lazy(() => import("./pages/quiz"));
 const Achievements = lazy(() => import("./pages/achievements"));
 const Chat = lazy(() => import("./pages/chat"));
@@ -427,6 +428,7 @@ function App() {
                 <Route path="/manuals" component={Manuals} />
                 <Route path="/quiz" component={QuizList} />
                 <Route path="/quiz/:moduleId" component={Quiz} />
+                <Route path="/quiz-history" component={QuizHistory} />
                 <Route path="/achievements" component={Achievements} />
                 <Route path="/chat" component={Chat} />
                 <Route path="/private-chat" component={PrivateChat} />
