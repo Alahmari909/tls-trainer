@@ -126,6 +126,27 @@ export default function NavMenu() {
   const { items: dynNavItems } = useDynamicNav();
   const { lang } = useLanguage();
   const isAr = lang === 'ar';
+
+  // Translate nav labels when Arabic
+  const translateNavLabel = (label: string): string => {
+    if (!isAr) return label;
+    const map: Record<string, string> = {
+      "TLS Basic":      "TLS الأساسي",
+      "TLS Advanced":   "TLS المتقدم",
+      "Quiz":           "الاختبار",
+      "Manuals":        "الأدلة",
+      "AI Instructor":  "المدرب الذكي",
+      "Comms":          "المراسلات",
+      "RCU Simulator":  "محاكي RCU",
+      "Common Faults":  "الأعطال الشائعة",
+      "Achievements":   "الإنجازات",
+      "Leaderboard":    "المتصدرين",
+      "Notifications":  "الإشعارات",
+      "About":          "حول",
+      "Settings":       "الإعدادات",
+    };
+    return map[label] ?? label;
+  };
   // RTL support
   useEffect(() => {
     document.documentElement.dir = isAr ? 'rtl' : 'ltr';
@@ -376,7 +397,7 @@ export default function NavMenu() {
                 onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 <span style={{ fontSize: 16, flexShrink: 0, width: 22, textAlign: "center" }}>{emoji}</span>
-                <span style={{ flex: 1 }}>{item.label}</span>
+                <span style={{ flex: 1 }}>{translateNavLabel(item.label)}</span>
                 {isActive && (
                   <div style={{
                     width: 6, height: 6, borderRadius: "50%",
