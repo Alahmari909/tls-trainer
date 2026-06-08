@@ -1786,6 +1786,119 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
     return c.json(result, 200);
   })
 
+  // GET /admin/export/trainees — Excel report: trainee summary + quiz history sheets
+  .get('/admin/export/trainees', async (c) => {
+    const pw = c.req.header('x-admin-password') ?? c.req.query('pw');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+
+    const date = new Date().toISOString().slice(0, 10);
+
+    // ── Fetch all data ──────────────────────────────────────────────────────
+    const [allTrainees, allProgress, allAttempts, allModulesRows, allStreaks, allBadges] =
+      await Promise.all([
+        sql(`SELECT id, name, rank, unit, air_base, status, xp, level, login_count,
+                     last_login_at, last_active_at, created_at FROM trainees ORDER BY name`),
+        sql(`SELECT trainee_id, completed FROM trainee_module_progress`),
+        sql(`SELECT trainee_id, module_name, score, total, pct, passed, ts FROM quiz_attempts ORDER BY ts DESC`),
+        db.select().from(modules),
+        sql(`SELECT user_id, current_streak, longest_streak FROM streaks`).catch(() => []),
+        sql(`SELECT user_id, COUNT(*) as cnt FROM user_achievements GROUP BY user_id`).catch(() => []),
+      ]);
+
+    const totalMods = allModulesRows.length;
+
+    function fmtDate(ts: unknown) {
+      if (!ts || ts === 0) return '—';
+      return new Date(ts as number).toLocaleDateString('en-US',
+        { year: 'numeric', month: 'short', day: '2-digit' });
+    }
+    function timeAgoStr(ts: unknown) {
+      if (!ts || ts === 0) return 'Never';
+      const diff = Date.now() - (ts as number);
+      const min = Math.floor(diff / 60000);
+      if (min < 60) return `${min}m ago`;
+      const hr = Math.floor(diff / 3600000);
+      if (hr < 24) return `${hr}h ago`;
+      const d = Math.floor(diff / 86400000);
+      return `${d}d ago`;
+    }
+
+    // ── Sheet 1: Trainee Summary ────────────────────────────────────────────
+    const summaryRows = allTrainees.map((t, i) => {
+      const id = t.id as string;
+      const progress   = allProgress.filter(p => p.trainee_id === id);
+      const completed  = progress.filter(p => p.completed === 1).length;
+      const attempts   = allAttempts.filter(a => a.trainee_id === id);
+      const passed     = attempts.filter(a => a.passed === 1).length;
+      const avgScore   = attempts.length > 0
+        ? Math.round(attempts.reduce((s, a) => s + (a.pct as number), 0) / attempts.length) : 0;
+      const bestScore  = attempts.length > 0
+        ? Math.max(...attempts.map(a => a.pct as number)) : 0;
+      const streak     = allStreaks.find((s: any) => s.user_id === id);
+      const badges     = allBadges.find((b: any) => b.user_id === id);
+
+      return {
+        '#':               i + 1,
+        'Name':            t.name,
+        'Rank':            t.rank ?? '—',
+        'Unit':            t.unit ?? '—',
+        'Air Base':        t.air_base ?? '—',
+        'Status':          (t.status as string ?? 'active').toUpperCase(),
+        'XP':              t.xp,
+        'Level':           t.level,
+        'Modules Done':    `${completed}/${totalMods}`,
+        'Quiz Attempts':   attempts.length,
+        'Quizzes Passed':  passed,
+        'Avg Score (%)':   avgScore,
+        'Best Score (%)':  bestScore,
+        'Current Streak':  (streak as any)?.current_streak ?? 0,
+        'Badges Earned':   (badges as any)?.cnt ?? 0,
+        'Logins':          t.login_count,
+        'Last Active':     timeAgoStr(t.last_active_at),
+        'Joined':          fmtDate(t.created_at),
+      };
+    });
+
+    // ── Sheet 2: Quiz History ───────────────────────────────────────────────
+    const traineeMap = Object.fromEntries(allTrainees.map(t => [t.id, t.name]));
+    const quizRows = allAttempts.map((a, i) => ({
+      '#':             i + 1,
+      'Trainee':       traineeMap[a.trainee_id as string] ?? a.trainee_id,
+      'Module':        a.module_name,
+      'Score':         `${a.score}/${a.total}`,
+      'Percentage (%)': Math.round(a.pct as number),
+      'Result':        a.passed === 1 ? 'PASSED' : 'FAILED',
+      'Date':          new Date(a.ts as number).toLocaleDateString('en-US',
+                         { year: 'numeric', month: 'short', day: '2-digit' }),
+    }));
+
+    // ── Build workbook ──────────────────────────────────────────────────────
+    const wb = XLSX.utils.book_new();
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    // Column widths for readability
+    wsSummary['!cols'] = [
+      {wch:4},{wch:22},{wch:14},{wch:16},{wch:16},{wch:10},
+      {wch:8},{wch:7},{wch:13},{wch:13},{wch:14},{wch:13},
+      {wch:13},{wch:13},{wch:13},{wch:8},{wch:14},{wch:14},
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Trainee Summary');
+
+    const wsQuiz = XLSX.utils.json_to_sheet(quizRows);
+    wsQuiz['!cols'] = [{wch:4},{wch:22},{wch:20},{wch:8},{wch:14},{wch:8},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, wsQuiz, 'Quiz History');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `TLS-Trainees-Report-${date}.xlsx`;
+
+    return new Response(buf, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    });
+  })
+
   // GET /admin/trainee/:id — full detail
   .get('/admin/trainee/:id', async (c) => {
     const pw = c.req.header('x-admin-password');
