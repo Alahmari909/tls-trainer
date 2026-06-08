@@ -325,38 +325,223 @@ export default function Quiz() {
 
   // ─── RESULTS SCREEN ───────────────────────────────────────────
   if (finished) {
+    const totalQ   = results.length;
+    const correct  = results.filter(r => r.correct).length;
+    const wrong    = totalQ - correct;
+    const finalPct = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+    const passed   = finalPct >= 70;
+    const passColor = passed ? "#00D26A" : "#FF4D4D";
 
     return (
-      <div className="page" style={{ background: "var(--bg-primary)" }}>
-        <div style={{ padding: "52px 20px 16px" }}>
+      <div className="page" style={{ background: "var(--bg-primary)", paddingBottom: 40 }}>
+
+        {/* Top nav */}
+        <div style={{ padding: "52px 20px 12px" }}>
           <BackButton to="/quiz" label="QUIZ LIST" />
         </div>
-        <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
-          <div style={{ fontSize: 64 }}>📋</div>
-          <div className="font-orbitron" style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.1em" }}>
-            {t("quiz_submitted")}
+
+        {/* ── SCORE HERO ─────────────────────────────────────── */}
+        <div style={{
+          margin: "0 16px 16px",
+          background: `linear-gradient(135deg, ${passColor}0a 0%, rgba(7,20,38,0.98) 100%)`,
+          border: `1px solid ${passColor}30`,
+          borderRadius: 20, padding: "28px 20px",
+          textAlign: "center", position: "relative", overflow: "hidden",
+        }}>
+          {/* Module label */}
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 10 }}>
+            {mod.icon} {mod.title}
           </div>
-          <div className="glass-card" style={{ padding: "20px", border: `1px solid ${color}30`, maxWidth: 320 }}>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-              {mod.icon} <strong style={{ color: "var(--text-primary)" }}>{mod.title}</strong>
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.7 }}>
-              Your answers have been recorded.{"\n"}
-              Your instructor will review your results and share them with you.
-            </div>
+
+          {/* Big percent */}
+          <div style={{
+            fontSize: 80, fontWeight: 900, fontFamily: "Inter",
+            color: passColor, lineHeight: 1,
+            textShadow: `0 0 40px ${passColor}60`,
+            marginBottom: 6,
+          }}>
+            {finalPct}%
           </div>
-          {submitError && (
-            <div style={{ padding: "12px 16px", background: "rgba(255,77,77,0.1)", border: "1px solid rgba(255,77,77,0.35)", borderRadius: 10, color: "#FF4D4D", fontSize: 12, maxWidth: 300 }}>
-              ⚠️ {submitError}
-            </div>
-          )}
+
+          {/* Pass / Fail badge */}
+          <div className="font-orbitron" style={{
+            display: "inline-block", padding: "4px 18px",
+            background: `${passColor}18`, border: `1px solid ${passColor}50`,
+            borderRadius: 20, fontSize: 13, letterSpacing: "0.18em",
+            color: passColor, marginBottom: 18,
+          }}>
+            {passed ? "✓ PASSED" : "✗ NOT PASSED"}
+          </div>
+
+          {/* Score bar */}
+          <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, height: 8, overflow: "hidden", marginBottom: 18 }}>
+            <div style={{
+              width: `${finalPct}%`, height: "100%", borderRadius: 8,
+              background: passed
+                ? "linear-gradient(90deg,#00D26A,#35D4FF)"
+                : "linear-gradient(90deg,#FF4D4D,#FFD166)",
+            }} />
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {[
+              { label: "CORRECT", value: String(correct),   color: "#00D26A" },
+              { label: "WRONG",   value: String(wrong),     color: "#FF4D4D" },
+              { label: "PASS MARK", value: "70%",            color: "#FFD166" },
+            ].map(s => (
+              <div key={s.label} style={{
+                flex: 1, padding: "10px 6px", textAlign: "center",
+                background: `${s.color}10`, border: `1px solid ${s.color}25`, borderRadius: 10,
+              }}>
+                <div style={{ fontFamily: "Inter", fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.07em" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── XP + BADGES ────────────────────────────────────── */}
+        {(xpEarned > 0 || newBadges.length > 0) && (
+          <div style={{ margin: "0 16px 16px", display: "flex", gap: 10 }}>
+            {xpEarned > 0 && (
+              <div style={{
+                flex: 1, background: "rgba(0,174,239,0.08)",
+                border: "1px solid rgba(0,174,239,0.25)",
+                borderRadius: 12, padding: "14px", textAlign: "center",
+              }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "#35D4FF", fontFamily: "Inter" }}>+{xpEarned}</div>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", marginTop: 2 }}>XP EARNED</div>
+              </div>
+            )}
+            {newBadges.map(b => (
+              <div key={b.name} style={{
+                flex: 1, background: "rgba(255,209,102,0.08)",
+                border: "1px solid rgba(255,209,102,0.3)",
+                borderRadius: 12, padding: "14px", textAlign: "center",
+              }}>
+                <div style={{ fontSize: 24 }}>{b.icon}</div>
+                <div style={{ fontSize: 9, color: "#FFD166", marginTop: 2, letterSpacing: "0.08em" }}>NEW BADGE</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {submitError && (
+          <div style={{ margin: "0 16px 14px", padding: "12px 16px", background: "rgba(255,77,77,0.1)", border: "1px solid rgba(255,77,77,0.35)", borderRadius: 10, color: "#FF4D4D", fontSize: 12 }}>
+            ⚠️ {submitError}
+          </div>
+        )}
+
+        {/* ── QUESTION REVIEW ────────────────────────────────── */}
+        <div style={{ padding: "0 16px" }}>
+          <div className="font-orbitron" style={{
+            fontSize: 9, color: "rgba(0,174,239,0.55)",
+            letterSpacing: "0.22em", marginBottom: 12,
+          }}>
+            QUESTION REVIEW · {totalQ} QUESTIONS
+          </div>
+
+          {results.map((r, idx) => {
+            const q2 = r.question;
+            const correctKey  = (q2.correctOption ?? q2.correct_option ?? '').toUpperCase();
+            const selectedKey = r.selected.toUpperCase();
+            const getOpt = (key: string) =>
+              (q2[`option${key}` as keyof Question] ?? q2[`option_${key.toLowerCase()}` as keyof Question]) as string | undefined;
+            const correctText  = getOpt(correctKey)  ?? correctKey;
+            const selectedText = r.selected ? getOpt(selectedKey) ?? selectedKey : null;
+
+            return (
+              <div key={idx} style={{
+                background: "rgba(255,255,255,0.02)",
+                border: `1px solid ${r.correct ? "rgba(0,210,106,0.18)" : "rgba(255,77,77,0.18)"}`,
+                borderLeft: `3px solid ${r.correct ? "#00D26A" : "#FF4D4D"}`,
+                borderRadius: 14, padding: "16px", marginBottom: 12,
+              }}>
+
+                {/* Question header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                    background: r.correct ? "rgba(0,210,106,0.14)" : "rgba(255,77,77,0.14)",
+                    border: `1px solid ${r.correct ? "#00D26A35" : "#FF4D4D35"}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, color: r.correct ? "#00D26A" : "#FF4D4D",
+                  }}>
+                    {r.correct ? "✓" : "✗"}
+                  </div>
+                  <div className="font-orbitron" style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", letterSpacing: "0.1em" }}>
+                    Q{idx + 1}
+                  </div>
+                </div>
+
+                {/* Question text */}
+                <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.55, marginBottom: 14, fontWeight: 500 }}>
+                  {q2.question}
+                </div>
+
+                {/* Your answer */}
+                <div style={{ fontSize: 11, marginBottom: r.correct ? 0 : 8, display: "flex", alignItems: "flex-start", gap: 6 }}>
+                  <span style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }}>Your answer:</span>
+                  <span style={{ color: r.correct ? "#00D26A" : "#FF6B6B", fontWeight: 600, lineHeight: 1.4 }}>
+                    {selectedText ? `${selectedKey}. ${selectedText}` : "— No answer (time expired)"}
+                  </span>
+                </div>
+
+                {/* Correct answer — only shown when wrong */}
+                {!r.correct && (
+                  <div style={{ fontSize: 11, marginBottom: q2.explanation ? 10 : 0, display: "flex", alignItems: "flex-start", gap: 6 }}>
+                    <span style={{ color: "rgba(255,255,255,0.28)", flexShrink: 0 }}>Correct answer:</span>
+                    <span style={{ color: "#00D26A", fontWeight: 600, lineHeight: 1.4 }}>
+                      {correctKey}. {correctText}
+                    </span>
+                  </div>
+                )}
+
+                {/* Explanation — only shown when wrong and explanation exists */}
+                {!r.correct && q2.explanation && (
+                  <div style={{
+                    marginTop: 10, padding: "10px 12px",
+                    background: "rgba(53,212,255,0.05)",
+                    border: "1px solid rgba(53,212,255,0.15)",
+                    borderRadius: 8,
+                    fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.6,
+                  }}>
+                    <span style={{ color: "#35D4FF", marginRight: 6, fontWeight: 600 }}>💡</span>
+                    {q2.explanation}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── ACTION BUTTONS ─────────────────────────────────── */}
+        <div style={{ padding: "16px 16px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
           <button onClick={() => navigate("/quiz")} style={{
-            padding: "14px 28px", background: `${color}15`, border: `1px solid ${color}50`,
-            borderRadius: 10, color: color, fontFamily: "Inter", fontSize: 12,
-            letterSpacing: "0.08em", cursor: "pointer",
+            width: "100%", padding: "14px",
+            background: `${color}15`, border: `1px solid ${color}50`,
+            borderRadius: 12, color: color,
+            fontFamily: "Inter", fontSize: 12, letterSpacing: "0.08em", cursor: "pointer",
           }}>
             ← ALL QUIZZES
           </button>
+          {retakeStatus === 'none' && (
+            <button
+              onClick={handleRetakeRequest}
+              disabled={retakeRequesting || retakeRequested}
+              style={{
+                width: "100%", padding: "12px",
+                background: retakeRequested ? "rgba(0,210,106,0.1)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${retakeRequested ? "#00D26A40" : "rgba(255,255,255,0.1)"}`,
+                borderRadius: 12,
+                color: retakeRequested ? "#00D26A" : "var(--text-muted)",
+                fontFamily: "Inter", fontSize: 11, cursor: retakeRequesting ? "not-allowed" : "pointer",
+              }}
+            >
+              {retakeRequested ? "✓ Retake Requested" : retakeRequesting ? "Sending..." : "Request Retake"}
+            </button>
+          )}
         </div>
       </div>
     );
