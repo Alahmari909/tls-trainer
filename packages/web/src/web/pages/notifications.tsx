@@ -63,6 +63,15 @@ function formatTs(ts: number): string {
 }
 
 export default function Notifications({ adminMode = false }: { adminMode?: boolean }) {
+  const { t } = useLanguage();
+  const filters: { key: FilterKey; label: string }[] = [
+    { key: "all",     label: t("filter_all") },
+    { key: "message", label: t("filter_messages") },
+    { key: "warning", label: t("filter_warnings") },
+    { key: "danger",  label: t("filter_danger") },
+    { key: "info",    label: t("filter_info") },
+    { key: "sound",   label: t("filter_sound") },
+  ];
   const [notifs, setNotifs] = useState<RealNotif[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [loading, setLoading] = useState(true);
