@@ -324,7 +324,7 @@ export default function Settings() {
           <div style={{ marginBottom: 12 }}><BackButton to="/" /></div>
           <div style={{ fontSize: 9, fontFamily: "Orbitron", letterSpacing: "0.25em", color: "rgba(0,174,239,0.4)", marginBottom: 4 }}>TRAINEE PORTAL</div>
           <h1 style={{ fontFamily: "Orbitron", fontSize: 20, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: "0.06em" }}>
-            SETTINGS
+            {t("settings_title")}
           </h1>
         </div>
 
@@ -343,6 +343,31 @@ export default function Settings() {
             تم الحفظ
           </div>
         )}
+
+        {/* ── LANGUAGE ──────────────────────────────────────────────── */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 9, fontFamily: "Orbitron", letterSpacing: "0.2em", color: "rgba(0,174,239,0.4)", marginBottom: 10 }}>
+            {t("language_section")}
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            {(["en","ar"] as const).map(l => (
+              <button key={l} onClick={() => setLang(l)} style={{
+                flex: 1, padding: "13px 8px", borderRadius: 12,
+                border: lang === l ? "1.5px solid #00AEEF" : "1px solid rgba(255,255,255,0.1)",
+                background: lang === l ? "rgba(0,174,239,0.12)" : "rgba(7,20,38,0.8)",
+                color: lang === l ? "#00AEEF" : "rgba(255,255,255,0.45)",
+                fontFamily: l === "ar" ? "Tahoma, Arial, sans-serif" : "Orbitron, sans-serif",
+                fontSize: l === "ar" ? 17 : 12,
+                fontWeight: 700, cursor: "pointer",
+                transition: "all 0.2s",
+                letterSpacing: l === "en" ? "0.05em" : 0,
+                boxShadow: lang === l ? "0 0 14px rgba(0,174,239,0.2)" : "none",
+              }}>
+                {l === "en" ? "English" : "العربية"}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* ── PROFILE CARD ─────────────────────────────────────────── */}
         <div style={{
@@ -519,7 +544,7 @@ export default function Settings() {
         </div>
 
         {/* ── MY STATISTICS ────────────────────────────────────────── */}
-        <Section title="إحصائياتي">
+        <Section title={t("profile_section")}>
           <div style={{ padding: "16px 14px" }}>
             {!stats.loaded ? (
               <div style={{ textAlign: "center", color: C.dim, fontSize: 13, padding: "8px 0" }}>جاري التحميل...</div>
@@ -535,7 +560,7 @@ export default function Settings() {
         </Section>
 
         {/* ── NOTIFICATIONS ────────────────────────────────────────── */}
-        <Section title="تفضيلات الإشعارات">
+        <Section title={t("notification_sound")}>
           <SettingRow label="نتائج الاختبار" desc="إشعار عند تقييم الاختبار">
             <Toggle on={notifyQuiz} onChange={() => setNotify("quiz", !notifyQuiz)} />
           </SettingRow>
@@ -548,7 +573,7 @@ export default function Settings() {
         </Section>
 
         {/* ── SOUND ────────────────────────────────────────────────── */}
-        <Section title="الصوت والتنبيهات">
+        <Section title={t("sound_section")}>
           <SettingRow label="أصوات التطبيق" desc="أصوات إجابات الاختبار والإنجازات">
             <Toggle on={settings.soundEffects} onChange={() => toggle("soundEffects")} />
           </SettingRow>
@@ -598,7 +623,7 @@ export default function Settings() {
         </Section>
 
         {/* ── THEME ────────────────────────────────────────────────── */}
-        <Section title="المظهر">
+        <Section title={t("appearance_section")}>
           <SettingRow label={isDark ? "الوضع الليلي" : "الوضع النهاري"} desc="تبديل بين المظهر الداكن والفاتح" last>
             <Toggle on={isDark} onChange={() => setIsDark(d => !d)} />
           </SettingRow>
