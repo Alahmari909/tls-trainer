@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import { getSession, clearSession } from "../hooks/useTelegramTrack";
-import { useLanguage } from "../hooks/useLanguage";
 
 // ── Same nav config as NavMenu so both orientations are always in sync ────────
 interface DynNavItem { id: number; label: string; href: string; icon: string; order: number; isVisible: boolean; }
@@ -58,27 +57,6 @@ function useDynamicNav() {
 }
 
 export default function Sidebar() {
-  const { lang } = useLanguage();
-  const isAr = lang === 'ar';
-  const translateNavLabel = (label: string): string => {
-    if (!isAr) return label;
-    const map: Record<string, string> = {
-      "TLS Basic":      "TLS الأساسي",
-      "TLS Advanced":   "TLS المتقدم",
-      "Quiz":           "الاختبار",
-      "Manuals":        "الأدلة",
-      "AI Instructor":  "المدرب الذكي",
-      "Comms":          "المراسلات",
-      "RCU Simulator":  "محاكي RCU",
-      "Common Faults":  "الأعطال الشائعة",
-      "Achievements":   "الإنجازات",
-      "Leaderboard":    "المتصدرين",
-      "Notifications":  "الإشعارات",
-      "About":          "حول",
-      "Settings":       "الإعدادات",
-    };
-    return map[label] ?? label;
-  };
   const [location, setLocation] = useLocation();
   const session = getSession();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -166,7 +144,7 @@ export default function Sidebar() {
                     }}
                   >
                     <NavIcon name={item.icon} active={active || hoveredItem === item.href} />
-                    <span>{translateNavLabel(item.label)}</span>
+                    <span>{item.label}</span>
                     {active && <div className="topbar-dropdown-active-dot" />}
                   </Link>
                 );
