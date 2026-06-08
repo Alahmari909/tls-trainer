@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
 import { useSettings } from "../hooks/useSettings";
-import { useLanguage, setLang } from "../hooks/useLanguage";
+import { useLanguage } from "../hooks/useLanguage";
 import { playAlertTone } from "../lib/audio";
 
 const C = {
