@@ -1926,6 +1926,24 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
     return c.json({ ok: true }, 200);
   })
 
+  // POST /admin/alert-all — broadcast to every active trainee at once
+  .post('/admin/alert-all', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const { message, alertType = 'info' } = await c.req.json().catch(() => ({})) as {
+      message?: string; alertType?: string;
+    };
+    if (!message?.trim()) return c.json({ error: 'message required' }, 400);
+    const now = Date.now();
+    const trainees = await sql(`SELECT id FROM trainees WHERE status='active'`);
+    for (const tr of trainees) {
+      await sqlRun(`INSERT INTO trainee_alerts (trainee_id, message, alert_type, read, ts) VALUES (?, ?, ?, 0, ?)`,
+        [tr.id, message.trim(), alertType, now]);
+    }
+    sendTelegram({ type: "admin_alert", message: `📢 Broadcast [${(alertType).toUpperCase()}] to ${trainees.length} trainees: "${message.trim().slice(0, 60)}"` });
+    return c.json({ ok: true, count: trainees.length }, 200);
+  })
+
   // POST /admin/note
   .post('/admin/note', async (c) => {
     const pw = c.req.header('x-admin-password');
