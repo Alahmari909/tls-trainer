@@ -118,7 +118,7 @@ export default function Settings() {
     air_base: "",
   });
   const [editingProfile, setEditingProfile] = useState(false);
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [profileSaving, setProfileSaving] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [avatarPending, setAvatarPending] = useState<string | null>(null);
@@ -338,30 +338,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* ── LANGUAGE ──────────────────────────────────────────────── */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 9, fontFamily: "Orbitron", letterSpacing: "0.2em", color: "rgba(0,174,239,0.4)", marginBottom: 10 }}>
-            {t("language_section")}
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            {(["en","ar"] as const).map(l => (
-              <button key={l} onClick={() => setLang(l)} style={{
-                flex: 1, padding: "13px 8px", borderRadius: 12,
-                border: lang === l ? "1.5px solid #00AEEF" : "1px solid rgba(255,255,255,0.1)",
-                background: lang === l ? "rgba(0,174,239,0.12)" : "rgba(7,20,38,0.8)",
-                color: lang === l ? "#00AEEF" : "rgba(255,255,255,0.45)",
-                fontFamily: l === "ar" ? "Tahoma, Arial, sans-serif" : "Orbitron, sans-serif",
-                fontSize: l === "ar" ? 17 : 12,
-                fontWeight: 700, cursor: "pointer",
-                transition: "all 0.2s",
-                letterSpacing: l === "en" ? "0.05em" : 0,
-                boxShadow: lang === l ? "0 0 14px rgba(0,174,239,0.2)" : "none",
-              }}>
-                {l === "en" ? "English" : "العربية"}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* ── PROFILE CARD ─────────────────────────────────────────── */}
         <div style={{
