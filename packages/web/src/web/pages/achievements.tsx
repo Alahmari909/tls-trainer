@@ -283,7 +283,7 @@ export default function Achievements() {
             {rankLabel}
           </div>
           <div className="font-orbitron" style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>
-            ACHIEVEMENTS
+            {t("achievements_title")}
           </div>
 
           {/* Streak row */}
@@ -351,24 +351,24 @@ export default function Achievements() {
 
       {/* Tabs */}
       <div style={{ padding: "14px 16px 0", display: "flex", gap: 8 }}>
-        {(["earned", "locked"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+        {(["earned", "locked"] as const).map(tabKey => (
+          <button key={tabKey} onClick={() => setTab(tabKey)} style={{
             flex: 1, padding: "9px 0", borderRadius: 8,
-            border: tab === t
+            border: tab === tabKey
               ? `1px solid ${t === "earned" ? "#FFD166" : "#FF4D4D"}50`
               : "1px solid rgba(255,255,255,0.08)",
             background: tab === t
-              ? t === "earned" ? "rgba(255,209,102,0.08)" : "rgba(255,77,77,0.08)"
+              ? tabKey === "earned" ? "rgba(255,209,102,0.08)" : "rgba(255,77,77,0.08)"
               : "rgba(255,255,255,0.02)",
             cursor: "pointer", transition: "all 0.15s",
           }}>
             <span className="font-orbitron" style={{
               fontSize: 10, letterSpacing: "0.12em",
-              color: tab === t
-                ? t === "earned" ? "#FFD166" : "#FF4D4D"
+              color: tab === tabKey
+                ? tabKey === "earned" ? "#FFD166" : "#FF4D4D"
                 : "var(--text-muted)",
             }}>
-              {tab === "earned" ? `✓ ${t("earned")} (${earned.length})` : `🔒 ${t("locked")} (${locked.length})`}
+              {tabKey === "earned" ? `✓ ${t("earned")} (${earned.length})` : `🔒 ${t("locked")} (${locked.length})`}
             </span>
           </button>
         ))}
