@@ -707,6 +707,46 @@ function TraineeDetailModal({
                   </div>
                 </div>
 
+                {/* Broadcast to ALL Trainees */}
+                <div className="glass-card" style={{ padding: "12px 14px", marginBottom: 10, border: `1px solid rgba(255,77,77,0.28)`, background: "rgba(255,77,77,0.03)" }}>
+                  <div className="font-orbitron" style={{ fontSize: 9, color: C.red, letterSpacing: "0.1em", marginBottom: 6 }}>📢 BROADCAST TO ALL TRAINEES</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 8, lineHeight: 1.5 }}>
+                    Uses the alert text above — sends to <strong style={{ color: C.red }}>every active trainee</strong> simultaneously.
+                  </div>
+                  <button
+                    disabled={acting || !alertText.trim()}
+                    onClick={async () => {
+                      if (!alertText.trim()) return;
+                      if (!window.confirm(`Send this alert to ALL trainees?\n\n"${alertText.slice(0, 80)}"`)) return;
+                      setActing(true);
+                      try {
+                        const res = await fetch('/api/admin/alert-all', {
+                          method: 'POST',
+                          headers,
+                          body: JSON.stringify({ message: alertText, alertType }),
+                        });
+                        const d = await res.json() as { ok: boolean; count?: number; error?: string };
+                        if (d.ok) {
+                          setActionResult({ ok: true, text: `Sent to ${d.count ?? 'all'} trainees` });
+                          setAlertText("");
+                        } else {
+                          setActionResult({ ok: false, text: d.error ?? "Failed" });
+                        }
+                      } catch { setActionResult({ ok: false, text: "Network error" }); }
+                      setActing(false);
+                      setTimeout(() => setActionResult(null), 3000);
+                    }}
+                    style={{
+                      padding: "8px 18px",
+                      background: alertText.trim() ? "rgba(255,77,77,0.15)" : "transparent",
+                      border: "1px solid rgba(255,77,77,0.4)", borderRadius: 8,
+                      cursor: alertText.trim() ? "pointer" : "default",
+                      color: alertText.trim() ? C.red : "var(--text-muted)",
+                      fontFamily: "Inter", fontSize: 10, letterSpacing: "0.08em",
+                    }}
+                  >{acting ? "SENDING..." : "📢 SEND TO ALL TRAINEES"}</button>
+                </div>
+
                 {/* Add Note */}
                 <div className="glass-card" style={{ padding: "12px 14px", marginBottom: 10, border: `1px solid ${C.gold}20` }}>
                   <div className="font-orbitron" style={{ fontSize: 9, color: C.gold, letterSpacing: "0.1em", marginBottom: 8 }}>📝 INSTRUCTOR NOTE</div>
