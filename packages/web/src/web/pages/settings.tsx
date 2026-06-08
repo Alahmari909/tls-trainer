@@ -142,13 +142,7 @@ export default function Settings() {
   const [pinSuccess, setPinSuccess] = useState(false);
   const [pinSaving, setPinSaving] = useState(false);
 
-  // Theme
-  const [isDark, setIsDark] = useState(() => localStorage.getItem("tls_theme") !== "light");
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("light-mode", !isDark);
-    localStorage.setItem("tls_theme", isDark ? "dark" : "light");
-  }, [isDark]);
+  // Theme always dark
 
   // Load profile data (avatar + extra fields)
   useEffect(() => {
@@ -622,12 +616,7 @@ export default function Settings() {
           </div>
         </Section>
 
-        {/* ── THEME ────────────────────────────────────────────────── */}
-        <Section title={t("appearance_section")}>
-          <SettingRow label={isDark ? "الوضع الليلي" : "الوضع النهاري"} desc="تبديل بين المظهر الداكن والفاتح" last>
-            <Toggle on={isDark} onChange={() => setIsDark(d => !d)} />
-          </SettingRow>
-        </Section>
+
 
         <div style={{ textAlign: "center", color: "rgba(255,255,255,0.1)", fontSize: 10, fontFamily: "Orbitron", letterSpacing: "0.12em", marginTop: 8 }}>
           TLS TRAINER · v2.1.0
