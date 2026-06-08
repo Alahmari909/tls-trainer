@@ -238,13 +238,13 @@ export default function Settings() {
       });
       if (res.ok) {
         setAvatarPending(compressed);
-        setAvatarMsg({ ok: true, text: "تم الرفع — في انتظار موافقة المدرب" });
+        setAvatarMsg({ ok: true, text: "Uploaded — pending trainer approval" });
       } else {
         const err = await res.json().catch(() => ({})) as any;
-        setAvatarMsg({ ok: false, text: err.error ?? "فشل الرفع" });
+        setAvatarMsg({ ok: false, text: err.error ?? "Upload failed" });
       }
     } catch {
-      setAvatarMsg({ ok: false, text: "خطأ في الشبكة" });
+      setAvatarMsg({ ok: false, text: "Network error" });
     }
     setAvatarUploading(false);
   }
@@ -252,9 +252,9 @@ export default function Settings() {
   async function changePin() {
     if (!session) return;
     setPinError(""); setPinSuccess(false);
-    if (!pin.current || !pin.next || !pin.confirm) { setPinError("جميع الحقول مطلوبة"); return; }
-    if (pin.next !== pin.confirm) { setPinError("رمز الدخول الجديد لا يتطابق مع التأكيد"); return; }
-    if (pin.next.length < 4) { setPinError("رمز الدخول لا يقل عن 4 أرقام"); return; }
+    if (!pin.current || !pin.next || !pin.confirm) { setPinError("All fields are required"); return; }
+    if (pin.next !== pin.confirm) { setPinError("New PIN does not match confirmation"); return; }
+    if (pin.next.length < 4) { setPinError("PIN must be at least 4 digits"); return; }
     setPinSaving(true);
     try {
       const verifyRes = await fetch("/api/trainee/login", {
@@ -262,17 +262,17 @@ export default function Settings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: session.id, pin: pin.current }),
       });
-      if (!verifyRes.ok) { setPinError("رمز الدخول الحالي غير صحيح"); setPinSaving(false); return; }
+      if (!verifyRes.ok) { setPinError("Current PIN is incorrect"); setPinSaving(false); return; }
       const updateRes = await fetch("/api/trainee/change-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: session.id, pin: pin.next }),
       });
-      if (!updateRes.ok) { setPinError("فشل التحديث، حاول مجدداً"); setPinSaving(false); return; }
+      if (!updateRes.ok) { setPinError("Update failed, please try again"); setPinSaving(false); return; }
       setPin({ current: "", next: "", confirm: "" });
       setPinSuccess(true);
       setTimeout(() => setPinSuccess(false), 3000);
-    } catch { setPinError("خطأ في الشبكة، حاول مجدداً"); }
+    } catch { setPinError("Network error, please try again"); }
     setPinSaving(false);
   }
 
@@ -334,7 +334,7 @@ export default function Settings() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            تم الحفظ
+            Saved
           </div>
         )}
 
@@ -435,7 +435,7 @@ export default function Settings() {
                 borderRadius: 8, padding: "8px 12px",
               }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, animation: "pulse 1.4s infinite" }} />
-                <span style={{ fontSize: 12, color: C.gold }}>صورتك الشخصية في انتظار موافقة المدرب</span>
+                <span style={{ fontSize: 12, color: C.gold }}>Profile picture pending trainer approval</span>
               </div>
             )}
             {avatarMsg && (
@@ -454,10 +454,10 @@ export default function Settings() {
                 {/* Info grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
                   {[
-                    { label: "الرتبة", value: profile.rank || "—" },
-                    { label: "القاعدة الجوية", value: profile.air_base || "—" },
-                    { label: "الوحدة", value: profile.unit || "—" },
-                    { label: "سنوات الخدمة", value: profile.years_of_service ? `${profile.years_of_service} سنة` : "—" },
+                    { label: "Rank", value: profile.rank || "—" },
+                    { label: "Air Base", value: profile.air_base || "—" },
+                    { label: "Unit", value: profile.unit || "—" },
+                    { label: "Years of Service", value: profile.years_of_service ? `${profile.years_of_service} yr` : "—" },
                   ].map(item => (
                     <div key={item.label} style={{ background: "rgba(0,174,239,0.04)", border: "1px solid rgba(0,174,239,0.1)", borderRadius: 8, padding: "10px 12px" }}>
                       <div style={{ fontSize: 9, color: "rgba(0,174,239,0.5)", fontFamily: "Orbitron", letterSpacing: "0.12em", marginBottom: 4 }}>{item.label.toUpperCase()}</div>
@@ -470,16 +470,16 @@ export default function Settings() {
                   background: "rgba(0,174,239,0.08)", border: "1px solid rgba(0,174,239,0.3)",
                   borderRadius: 9, color: C.cyan, fontSize: 13, fontWeight: 600,
                   cursor: "pointer", fontFamily: "Rajdhani", letterSpacing: "0.05em",
-                }}>تعديل البيانات الشخصية</button>
+                }}>Edit Profile</button>
               </div>
             ) : (
               <div>
                 {([
-                  { label: "الاسم الكامل", key: "name" as const, type: "text" },
-                  { label: "الرتبة", key: "rank" as const, type: "text" },
-                  { label: "الوحدة", key: "unit" as const, type: "text" },
-                  { label: "القاعدة الجوية", key: "air_base" as const, type: "text" },
-                  { label: "سنوات الخدمة", key: "years_of_service" as const, type: "number" },
+                  { label: "Full Name", key: "name" as const, type: "text" },
+                  { label: "Rank", key: "rank" as const, type: "text" },
+                  { label: "Unit", key: "unit" as const, type: "text" },
+                  { label: "Air Base", key: "air_base" as const, type: "text" },
+                  { label: "Years of Service", key: "years_of_service" as const, type: "number" },
                 ] as const).map(f => (
                   <div key={f.key} style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 9, color: "rgba(0,174,239,0.5)", marginBottom: 5, letterSpacing: "0.12em", fontFamily: "Orbitron" }}>
@@ -500,13 +500,13 @@ export default function Settings() {
                     background: "rgba(0,210,106,0.12)", border: "1px solid rgba(0,210,106,0.35)",
                     borderRadius: 9, color: C.green, fontSize: 13, fontWeight: 600,
                     cursor: "pointer", fontFamily: "Rajdhani", opacity: profileSaving ? 0.6 : 1,
-                  }}>{profileSaving ? "جاري الحفظ..." : "حفظ البيانات"}</button>
+                  }}>{profileSaving ? "Saving..." : "Save Profile"}</button>
                   <button onClick={() => setEditingProfile(false)} style={{
                     padding: "10px 16px",
                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: 9, color: C.dim, fontSize: 13,
                     cursor: "pointer", fontFamily: "Rajdhani",
-                  }}>إلغاء</button>
+                  }}>Cancel</button>
                 </div>
               </div>
             )}
@@ -517,7 +517,7 @@ export default function Settings() {
         <Section title={t("profile_section")}>
           <div style={{ padding: "16px 14px" }}>
             {!stats.loaded ? (
-              <div style={{ textAlign: "center", color: C.dim, fontSize: 13, padding: "8px 0" }}>جاري التحميل...</div>
+              <div style={{ textAlign: "center", color: C.dim, fontSize: 13, padding: "8px 0" }}>Loading...</div>
             ) : (
               <div style={{ display: "flex", gap: 8 }}>
                 <StatCard value={stats.totalXp >= 1000 ? `${(stats.totalXp/1000).toFixed(1)}k` : stats.totalXp} label="TOTAL XP" color={C.gold} />
@@ -531,29 +531,29 @@ export default function Settings() {
 
         {/* ── NOTIFICATIONS ────────────────────────────────────────── */}
         <Section title={t("notification_sound")}>
-          <SettingRow label="نتائج الاختبار" desc="إشعار عند تقييم الاختبار">
+          <SettingRow label="Quiz Results" desc="Notify when quiz is graded">
             <Toggle on={notifyQuiz} onChange={() => setNotify("quiz", !notifyQuiz)} />
           </SettingRow>
-          <SettingRow label="الرسائل" desc="إشعار عند وصول رسالة من المدرب">
+          <SettingRow label="Messages" desc="Notify when trainer sends a message">
             <Toggle on={notifyMsg} onChange={() => setNotify("msg", !notifyMsg)} />
           </SettingRow>
-          <SettingRow label="الإنجازات" desc="إشعار عند كسب شارة أو الارتقاء لمستوى" last>
+          <SettingRow label="Achievements" desc="Notify when a badge is earned or level up" last>
             <Toggle on={notifyAchiev} onChange={() => setNotify("achiev", !notifyAchiev)} />
           </SettingRow>
         </Section>
 
         {/* ── SOUND ────────────────────────────────────────────────── */}
         <Section title={t("sound_section")}>
-          <SettingRow label="أصوات التطبيق" desc="أصوات إجابات الاختبار والإنجازات">
+          <SettingRow label="App Sounds" desc="Sound effects for quiz answers and achievements">
             <Toggle on={settings.soundEffects} onChange={() => toggle("soundEffects")} />
           </SettingRow>
-          <SettingRow label="صوت الإشعارات" desc="تنبيه صوتي عند إرسال المدرب تنبيهاً" last>
+          <SettingRow label="Notification Sound" desc="Alert sound when trainer sends a notification" last>
             <Toggle on={settings.notificationSound} onChange={() => toggle("notificationSound")} />
           </SettingRow>
         </Section>
 
         {/* ── CHANGE PIN ───────────────────────────────────────────── */}
-        <Section title="تغيير رمز الدخول">
+        <Section title="Change PIN">
           <div style={{ padding: "16px 18px" }}>
             {pinError && (
               <div style={{ background: "rgba(255,77,77,0.08)", border: "1px solid rgba(255,77,77,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, color: C.red, fontSize: 13 }}>
@@ -562,13 +562,13 @@ export default function Settings() {
             )}
             {pinSuccess && (
               <div style={{ background: "rgba(0,210,106,0.08)", border: "1px solid rgba(0,210,106,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, color: C.green, fontSize: 13 }}>
-                تم تحديث رمز الدخول بنجاح
+                PIN updated successfully
               </div>
             )}
             {([
-              { label: "رمز الدخول الحالي", key: "current" as const, placeholder: "أدخل رمز الدخول الحالي" },
-              { label: "رمز الدخول الجديد",  key: "next"    as const, placeholder: "أدخل رمز الدخول الجديد" },
-              { label: "تأكيد الرمز الجديد", key: "confirm" as const, placeholder: "كرر رمز الدخول الجديد" },
+              { label: "Current PIN", key: "current" as const, placeholder: "Enter current PIN" },
+              { label: "New PIN", key: "next" as const, placeholder: "Enter new PIN" },
+              { label: "Confirm New PIN", key: "confirm" as const, placeholder: "Re-enter new PIN" },
             ] as const).map(f => (
               <div key={f.key} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 9, color: "rgba(0,174,239,0.5)", marginBottom: 5, letterSpacing: "0.12em", fontFamily: "Orbitron" }}>
@@ -588,7 +588,7 @@ export default function Settings() {
               borderRadius: 9, color: C.cyan, fontSize: 14, fontWeight: 600,
               cursor: pinSaving ? "not-allowed" : "pointer", fontFamily: "Rajdhani",
               opacity: pinSaving ? 0.6 : 1, marginTop: 4,
-            }}>{pinSaving ? "جاري التحديث..." : "تحديث رمز الدخول"}</button>
+            }}>{pinSaving ? "Updating..." : "Update PIN"}</button>
           </div>
         </Section>
 
