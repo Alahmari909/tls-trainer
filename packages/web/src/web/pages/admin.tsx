@@ -481,7 +481,17 @@ function TraineeDetailModal({
           display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
         }}>
           {loading ? (
-            <div style={{ flex: 1, height: 40, background: "rgba(0,174,239,0.08)", borderRadius: 8 }} />
+            <>
+              <div style={{ flex: 1, height: 40, background: "rgba(0,174,239,0.08)", borderRadius: 8 }} />
+              <button onClick={onClose} style={{
+                display: "flex", alignItems: "center", gap: 5, flexShrink: 0,
+                background: "rgba(0,174,239,0.10)", border: "1px solid rgba(0,174,239,0.35)",
+                borderRadius: 10, cursor: "pointer", padding: "8px 14px", color: "#00AEEF",
+                fontFamily: "Inter", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
+              }}>
+                <span style={{ fontSize: 14 }}>←</span><span>BACK</span>
+              </button>
+            </>
           ) : t ? (
             <>
               <div style={{
@@ -539,14 +549,27 @@ function TraineeDetailModal({
                   )}
                 </div>
               </div>
-              <button onClick={onClose} style={{
-                background: "none", border: "none", color: "var(--text-muted)",
-                cursor: "pointer", fontSize: 22, padding: "4px 8px", flexShrink: 0,
-              }}>✕</button>
             </>
           ) : (
             <div style={{ flex: 1, color: C.red, fontFamily: "Inter", fontSize: 12 }}>Failed to load trainee</div>
           )}
+
+          {/* ← BACK button — always visible regardless of loading state */}
+          <button
+            onClick={onClose}
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              background: "rgba(0,174,239,0.10)",
+              border: "1px solid rgba(0,174,239,0.35)",
+              borderRadius: 10, cursor: "pointer", flexShrink: 0,
+              padding: "8px 14px", color: "#00AEEF",
+              fontFamily: "Inter", fontSize: 12, fontWeight: 600,
+              letterSpacing: "0.06em",
+            }}
+          >
+            <span style={{ fontSize: 14 }}>←</span>
+            <span>BACK</span>
+          </button>
         </div>
 
         {/* Tabs */}
