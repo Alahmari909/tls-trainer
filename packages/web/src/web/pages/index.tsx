@@ -552,7 +552,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                 <div style={{
                   fontFamily: "Inter", fontSize: 9, color,
                   letterSpacing: "0.14em", marginBottom: 4,
-                }}>CONTINUE TRAINING</div>
+                }}>{t("continue_training")}</div>
                 <div style={{
                   fontFamily: "Inter, sans-serif",
                   fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
@@ -582,7 +582,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         <div style={{
           fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
           color: "var(--text-muted)", marginBottom: 10,
-        }}>SYSTEM INTRODUCTION</div>
+        }}>{t("system_intro")}</div>
         <div style={{
           borderRadius: 12,
           overflow: "hidden",
