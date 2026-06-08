@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { getSession, clearSession } from "../hooks/useTelegramTrack";
+import { useLanguage, setLang } from "../hooks/useLanguage";
 import { telegramTrack } from "../hooks/useTelegramTrack";
 
 // ── Mini Bell Icon for NavMenu ────────────────────────────────────────────────
@@ -123,6 +124,14 @@ export default function NavMenu() {
   const [session, setSession] = useState(() => getSession());
   const now = useLiveClock();
   const { items: dynNavItems } = useDynamicNav();
+  const { lang } = useLanguage();
+  const isAr = lang === 'ar';
+  // RTL support
+  useEffect(() => {
+    document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+    document.documentElement.lang = isAr ? 'ar' : 'en';
+  }, [isAr]);
+
   // Sync session state
   useEffect(() => {
     const check = () => setSession(getSession());
@@ -231,6 +240,24 @@ export default function NavMenu() {
 
         {/* Right: About + Hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {/* Language toggle */}
+          <button
+            onClick={() => setLang(isAr ? 'en' : 'ar')}
+            aria-label="Toggle language"
+            title={isAr ? 'Switch to English' : 'التبديل للعربية'}
+            style={{
+              background: "rgba(0,174,239,0.08)",
+              border: "1px solid rgba(0,174,239,0.25)",
+              borderRadius: 9, padding: "5px 9px", cursor: "pointer",
+              color: "#00AEEF", fontSize: 11, fontWeight: 700,
+              fontFamily: "Inter, sans-serif",
+              letterSpacing: "0.05em", lineHeight: 1,
+              transition: "all 0.22s", flexShrink: 0,
+              minWidth: 38,
+            }}
+          >
+            {isAr ? 'EN' : 'ع'}
+          </button>
           {/* About shortcut */}
           <Link
             href="/about"
