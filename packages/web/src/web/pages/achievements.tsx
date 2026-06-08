@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
+import { useLanguage } from "../hooks/useLanguage";
 
 type Achievement = {
   id: number;
@@ -180,7 +181,7 @@ function BadgeCard({ badge, earned, index }: { badge: Achievement; earned: boole
             fontSize: 8, color: badge.color,
             background: `${badge.color}18`,
             padding: "2px 8px", borderRadius: 4,
-          }}>✓ EARNED</span>
+          }}>✓ {t("earned")}</span>
         ) : (
           <span className="font-orbitron" style={{
             fontSize: 8, color: "rgba(255,255,255,0.25)",
@@ -196,6 +197,7 @@ export default function Achievements() {
   const session = getSession();
   const userId = session?.id;
 
+  const { t } = useLanguage();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [streak, setStreak] = useState<Streak>({ currentStreak: 0, longestStreak: 0, totalXp: 0 });
   const [progressCount, setProgressCount] = useState(0);
@@ -308,10 +310,10 @@ export default function Achievements() {
       {/* Stat strip */}
       <div style={{ padding: "12px 16px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
         {[
-          { label: "EARNED", value: String(earned.length), sub: `/${achievements.length}`, color: "#FFD166" },
-          { label: "TOTAL XP", value: totalXp > 999 ? `${(totalXp/1000).toFixed(1)}k` : String(totalXp), color: "#C9A66B" },
-          { label: "LEVEL", value: String(level), color: "#00AEEF" },
-          { label: "LOCKED", value: String(locked.length), color: "#FF4D4D" },
+          { label: t("earned"), value: String(earned.length), sub: `/${achievements.length}`, color: "#FFD166" },
+          { label: "XP", value: totalXp > 999 ? `${(totalXp/1000).toFixed(1)}k` : String(totalXp), color: "#C9A66B" },
+          { label: t("level"), value: String(level), color: "#00AEEF" },
+          { label: t("locked"), value: String(locked.length), color: "#FF4D4D" },
         ].map(s => (
           <div key={s.label} className="glass-card" style={{
             padding: "10px 6px", textAlign: "center",
@@ -366,7 +368,7 @@ export default function Achievements() {
                 ? t === "earned" ? "#FFD166" : "#FF4D4D"
                 : "var(--text-muted)",
             }}>
-              {t === "earned" ? `✓ EARNED (${earned.length})` : `🔒 LOCKED (${locked.length})`}
+              {tab === "earned" ? `✓ ${t("earned")} (${earned.length})` : `🔒 ${t("locked")} (${locked.length})`}
             </span>
           </button>
         ))}
