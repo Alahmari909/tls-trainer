@@ -1796,7 +1796,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
     // ── Fetch all data ──────────────────────────────────────────────────────
     const [allTrainees, allProgress, allAttempts, allModulesRows, allStreaks, allBadges] =
       await Promise.all([
-        sql(`SELECT id, name, rank, unit, air_base, status, xp, level, login_count,
+        sql(`SELECT id, name, rank, unit, status, xp, level, login_count,
                      last_login_at, last_active_at, created_at FROM trainees ORDER BY name`),
         sql(`SELECT trainee_id, completed FROM trainee_module_progress`),
         sql(`SELECT trainee_id, module_name, score, total, pct, passed, ts FROM quiz_attempts ORDER BY ts DESC`),
@@ -1842,7 +1842,6 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         'Name':            t.name,
         'Rank':            t.rank ?? '—',
         'Unit':            t.unit ?? '—',
-        'Air Base':        t.air_base ?? '—',
         'Status':          (t.status as string ?? 'active').toUpperCase(),
         'XP':              t.xp,
         'Level':           t.level,
