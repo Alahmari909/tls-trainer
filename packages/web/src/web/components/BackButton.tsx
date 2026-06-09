@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { useAdminNav } from "../lib/admin-context";
 
 interface BackButtonProps {
   label?: string;
@@ -8,14 +9,14 @@ interface BackButtonProps {
 
 export default function BackButton({ label, to, style }: BackButtonProps) {
   const [, navigate] = useLocation();
+  const { goBack } = useAdminNav();
 
   const handleBack = () => {
-    // When a shared page (Basics, Advanced, Quiz, etc.) is rendered inside the
-    // admin panel, the URL stays at /admin (state-based navigation, no URL push).
-    // Calling navigate("/") would render the trainee login screen via wouter.
-    // Fix: detect admin context by URL and do a clean reload of /admin instead.
-    if (window.location.pathname.startsWith('/admin')) {
-      window.location.replace('/admin');
+    // When rendered inside admin panel, AdminNavContext provides goBack()
+    // which resets activeView to "dashboard" — avoids wouter navigate("/")
+    // accidentally rendering the trainee login screen.
+    if (goBack) {
+      goBack();
       return;
     }
 
