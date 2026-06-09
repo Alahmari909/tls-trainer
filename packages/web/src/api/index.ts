@@ -1842,7 +1842,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         'Name':            t.name,
         'Rank':            t.rank ?? '—',
         'Unit':            t.unit ?? '—',
-        'Status':          (t.status as string ?? 'active').toUpperCase(),
+        'Status':          String(t.status || 'active').toUpperCase(),
         'XP':              t.xp,
         'Level':           t.level,
         'Modules Done':    `${completed}/${totalMods}`,
@@ -1859,7 +1859,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
     });
 
     // ── Sheet 2: Quiz History ───────────────────────────────────────────────
-    const traineeMap = Object.fromEntries(allTrainees.map(t => [t.id, t.name]));
+    const traineeMap = Object.fromEntries(allTrainees.map(t => [t.id as string, t.name]));
     const quizRows = allAttempts.map((a, i) => ({
       '#':             i + 1,
       'Trainee':       traineeMap[a.trainee_id as string] ?? a.trainee_id,
@@ -1876,7 +1876,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
 
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
     // Column widths for readability
-    wsSummary['!cols'] = [
+    (wsSummary as any)['!cols'] = [
       {wch:4},{wch:22},{wch:14},{wch:16},{wch:16},{wch:10},
       {wch:8},{wch:7},{wch:13},{wch:13},{wch:14},{wch:13},
       {wch:13},{wch:13},{wch:13},{wch:8},{wch:14},{wch:14},
@@ -1884,10 +1884,10 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Trainee Summary');
 
     const wsQuiz = XLSX.utils.json_to_sheet(quizRows);
-    wsQuiz['!cols'] = [{wch:4},{wch:22},{wch:20},{wch:8},{wch:14},{wch:8},{wch:16}];
+    (wsQuiz as any)['!cols'] = [{wch:4},{wch:22},{wch:20},{wch:8},{wch:14},{wch:8},{wch:16}];
     XLSX.utils.book_append_sheet(wb, wsQuiz, 'Quiz History');
 
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
     const filename = `TLS-Trainees-Report-${date}.xlsx`;
 
     return new Response(buf, {
