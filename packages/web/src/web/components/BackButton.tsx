@@ -10,10 +10,18 @@ export default function BackButton({ label, to, style }: BackButtonProps) {
   const [, navigate] = useLocation();
 
   const handleBack = () => {
+    // If browser has history, always go back to the actual previous page.
+    // This correctly handles: admin → shared page (back = admin)
+    //                         trainee nav → shared page (back = previous trainee page)
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    // No history (direct URL access) — fall back to explicit destination or home
     if (to) {
       navigate(to);
     } else {
-      window.history.back();
+      navigate('/');
     }
   };
 
