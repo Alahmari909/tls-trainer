@@ -2456,6 +2456,35 @@ function NavManagerAdmin({ adminPw }: { adminPw: string }) {
   );
 }
 
+// ─── Report Stats (small helper to avoid IIFE in JSX) ───────────────────────
+function ReportStats({ trainees }: { trainees: Trainee[] }) {
+  const online   = trainees.filter(t => t.online).length;
+  const avgXp    = Math.round(trainees.reduce((s,t) => s + t.xp, 0) / trainees.length);
+  const avgMods  = (trainees.reduce((s,t) => s + t.completedModules, 0) / trainees.length).toFixed(1);
+  const avgScore = Math.round(trainees.filter(t => (t.avgScore ?? 0) > 0).reduce((s,t) => s + (t.avgScore ?? 0), 0) / (trainees.filter(t=>(t.avgScore??0)>0).length||1));
+  const stats = [
+    { label: "TRAINEES",  value: String(trainees.length), color: "#00FF88" },
+    { label: "ONLINE",    value: String(online),          color: "#00D26A" },
+    { label: "AVG XP",    value: String(avgXp),           color: "#FFD700" },
+    { label: "AVG MODS",  value: avgMods,                 color: "#00AEEF" },
+    { label: "AVG SCORE", value: `${avgScore}%`,          color: "#FF9F1C" },
+  ];
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      {stats.map(s => (
+        <div key={s.label} style={{
+          flex: "1 1 auto", minWidth: 60, textAlign: "center",
+          background: `${s.color}10`, border: `1px solid ${s.color}25`,
+          borderRadius: 10, padding: "10px 6px",
+        }}>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
+          <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.08em" }}>{s.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Simulator Admin ──────────────────────────────────────────────────────────
 function SimulatorAdmin({ adminPw }: { adminPw: string }) {
   type SimTab = "overview" | "preview" | "config" | "live" | "scenarios" | "broadcast" | "stats" | "reports" | "chat";
@@ -3992,32 +4021,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>ANALYTICS</div>
 
           {/* ── Summary stats ── */}
-          {!loading && trainees.length > 0 && (() => {
-            const online   = trainees.filter(t => t.online).length;
-            const avgXp    = Math.round(trainees.reduce((s,t) => s + t.xp, 0) / trainees.length);
-            const avgMods  = (trainees.reduce((s,t) => s + t.completedModules, 0) / trainees.length).toFixed(1);
-            const avgScore = Math.round(trainees.filter(t => (t.avgScore ?? 0) > 0).reduce((s,t) => s + (t.avgScore ?? 0), 0) / (trainees.filter(t=>(t.avgScore??0)>0).length||1));
-            return (
-              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                {[
-                  { label: "TRAINEES",  value: String(trainees.length), color: "#00FF88" },
-                  { label: "ONLINE",    value: String(online),          color: "#00D26A" },
-                  { label: "AVG XP",    value: String(avgXp),           color: "#FFD700" },
-                  { label: "AVG MODS",  value: avgMods,                 color: "#00AEEF" },
-                  { label: "AVG SCORE", value: `${avgScore}%`,          color: "#FF9F1C" },
-                ].map(s => (
-                  <div key={s.label} style={{
-                    flex: "1 1 auto", minWidth: 60, textAlign: "center",
-                    background: `${s.color}10`, border: `1px solid ${s.color}25`,
-                    borderRadius: 10, padding: "10px 6px",
-                  }}>
-                    <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
-                    <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.08em" }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+          {!loading && trainees.length > 0 && <ReportStats trainees={trainees} />}
 
           {/* ── Export button ── */}
           <div style={{
