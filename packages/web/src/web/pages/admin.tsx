@@ -3,6 +3,7 @@ import BackButton from "../components/BackButton";
 
 import Basics from "./basics";
 import Advanced from "./advanced";
+import { AdminNavContext } from "../lib/admin-context";
 import QuizList from "./quiz-list";
 import Chat from "./chat";
 import PrivateChat from "./private-chat";
@@ -4157,12 +4158,17 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       )}
 
       {/* ── IMPORTED TRAINEE PAGES ── dark wrapper keeps admin shell consistent */}
-      {activeView === "basics"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Basics /></div>}
-      {activeView === "advanced"      && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Advanced /></div>}
-      {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList adminMode={true} /></div>}
-      {activeView === "status"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
-      {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications adminMode={true} /></div>}
-      {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
+      {/* AdminNavContext.Provider ensures BackButton inside these pages calls     */}
+      {/* setActiveView("dashboard") instead of wouter navigate("/") which would  */}
+      {/* render the trainee login screen.                                         */}
+      <AdminNavContext.Provider value={{ goBack: () => setActiveView("dashboard") }}>
+        {activeView === "basics"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Basics /></div>}
+        {activeView === "advanced"      && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Advanced /></div>}
+        {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList adminMode={true} /></div>}
+        {activeView === "status"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
+        {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications adminMode={true} /></div>}
+        {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
+      </AdminNavContext.Provider>
       {activeView === "documents"     && <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh", padding: "24px 32px" }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: "#00FF88", fontFamily: "Inter", marginBottom: 4 }}>📄 DOCUMENTS</div>
