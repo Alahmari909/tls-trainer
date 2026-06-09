@@ -3996,7 +3996,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             const online   = trainees.filter(t => t.online).length;
             const avgXp    = Math.round(trainees.reduce((s,t) => s + t.xp, 0) / trainees.length);
             const avgMods  = (trainees.reduce((s,t) => s + t.completedModules, 0) / trainees.length).toFixed(1);
-            const avgScore = Math.round(trainees.filter(t => t.avgScore > 0).reduce((s,t) => s + t.avgScore, 0) / (trainees.filter(t=>t.avgScore>0).length||1));
+            const avgScore = Math.round(trainees.filter(t => (t.avgScore ?? 0) > 0).reduce((s,t) => s + (t.avgScore ?? 0), 0) / (trainees.filter(t=>(t.avgScore??0)>0).length||1));
             return (
               <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                 {[
@@ -4090,7 +4090,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                       <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>MODS</div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#00AEEF", fontFamily: "Inter" }}>{t.avgScore > 0 ? t.avgScore + "%" : "—"}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#00AEEF", fontFamily: "Inter" }}>{(t.avgScore ?? 0) > 0 ? (t.avgScore ?? 0) + "%" : "—"}</div>
                       <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>AVG</div>
                     </div>
                   </div>
