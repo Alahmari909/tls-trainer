@@ -10,19 +10,23 @@ export default function BackButton({ label, to, style }: BackButtonProps) {
   const [, navigate] = useLocation();
 
   const handleBack = () => {
-    // If browser has history, always go back to the actual previous page.
-    // This correctly handles: admin → shared page (back = admin)
-    //                         trainee nav → shared page (back = previous trainee page)
+    // When a shared page (Basics, Advanced, Quiz, etc.) is rendered inside the
+    // admin panel, the URL stays at /admin (state-based navigation, no URL push).
+    // Calling navigate("/") would render the trainee login screen via wouter.
+    // Fix: detect admin context by URL and do a clean reload of /admin instead.
+    if (window.location.pathname.startsWith('/admin')) {
+      window.location.replace('/admin');
+      return;
+    }
+
+    // Normal trainee context — go to actual previous page if available
     if (window.history.length > 1) {
       window.history.back();
       return;
     }
+
     // No history (direct URL access) — fall back to explicit destination or home
-    if (to) {
-      navigate(to);
-    } else {
-      navigate('/');
-    }
+    navigate(to ?? '/');
   };
 
   return (
