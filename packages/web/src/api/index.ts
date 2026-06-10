@@ -440,6 +440,14 @@ async function ensureTables() {
           [label, href, icon, order, Date.now()]);
       }
     }
+    // Ensure Error Codes nav item exists (added post-seed)
+    const ecNavRow = await sql(`SELECT id FROM nav_items WHERE href='/error-codes' LIMIT 1`);
+    if (ecNavRow.length === 0) {
+      const maxOrd = await sql(`SELECT MAX(sort_order) as m FROM nav_items`);
+      const nextOrd = ((maxOrd[0] as any)?.m ?? 12) + 1;
+      await sqlRun(`INSERT INTO nav_items (label, href, icon, sort_order, is_visible, created_at) VALUES (?,?,?,?,1,?)`,
+        ['Error Codes', '/error-codes', 'Search', nextOrd, Date.now()]);
+    }
     // Default simulator config if not exists
     const cfgRows = await sql(`SELECT key FROM simulator_config WHERE key='enabled'`);
     if (cfgRows.length === 0) {
