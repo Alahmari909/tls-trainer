@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import V2Layout from "./layout";
 import { MODULES_DATA } from "./_data";
@@ -22,8 +22,6 @@ export default function V2Trainee() {
   const [activeTab, setActiveTab] = useState<TabKey>("basics");
   const [, setLocation] = useLocation();
   const [quizScores, setQuizScores] = useState<Record<number, number>>({});
-  const [visible, setVisible] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVisible(true), 50); return () => clearTimeout(t); }, []);
 
   // Load progress from localStorage
   const getProgress = (moduleId: number): number => {
@@ -45,11 +43,7 @@ export default function V2Trainee() {
   return (
     <V2Layout role="trainee">
       {/* Stats bar */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem",
-        opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(12px)",
-        transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
         {[
           { label: "STREAK", value: "0", suffix: "d", icon: "🔥" },
           { label: "MODULES", value: `${completedCount}`, suffix: "/9", icon: "📚" },
