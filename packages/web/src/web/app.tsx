@@ -29,6 +29,7 @@ const Admin = lazy(() => import("./pages/admin"));
 const Leaderboard = lazy(() => import("./pages/leaderboard"));
 const Faults = lazy(() => import("./pages/faults"));
 const Simulator = lazy(() => import("./pages/simulator"));
+const ErrorCodes = lazy(() => import("./pages/error-codes"));
 const TLSAnimation = lazy(() => import("./pages/tls-animation"));
 
 // ── V2 Pages (new kimi-style UI) ──────────────────────────────────────────────
@@ -271,7 +272,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   // Guest mode — allow read-only pages without a real session
-  const GUEST_PAGES = ["/basics", "/advanced", "/manuals", "/about"];
+  const GUEST_PAGES = ["/basics", "/advanced", "/manuals", "/about", "/error-codes"];
   if (sessionStorage.getItem("tls_guest_mode") === "1") {
     if (GUEST_PAGES.some(p => location === p || location.startsWith(p + "/"))) {
       return <>{children}</>;
@@ -449,6 +450,7 @@ function App() {
                 <Route path="/about" component={About} />
                 <Route path="/leaderboard" component={Leaderboard} />
                 <Route path="/faults" component={Faults} />
+                <Route path="/error-codes" component={ErrorCodes} />
                 <Route path="/simulator" component={Simulator} />
                 <Route path="/tls-animation" component={TLSAnimation} />
               </Switch>
