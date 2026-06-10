@@ -95,9 +95,9 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
   const doRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     unlockAudio();
-    if (!name.trim())  { setError("الاسم مطلوب"); return; }
-    if (!pin.trim() || !/^\d{4,8}$/.test(pin.trim())) { setError("رمز الدخول لازم يكون 4-8 أرقام"); return; }
-    if (pin !== confirmPin) { setError("رمز الدخول وتأكيده غير متطابقين"); return; }
+    if (!name.trim())  { setError("Full name is required"); return; }
+    if (!pin.trim() || !/^\d{4,8}$/.test(pin.trim())) { setError("PIN must be 4-8 digits"); return; }
+    if (pin !== confirmPin) { setError("PIN confirmation does not match"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/register", {
@@ -110,17 +110,17 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
         }),
       });
       const data = await res.json() as { ok:boolean; pending?:boolean; requestId?:string; error?:string };
-      if (!data.ok) { setError(data.error ?? "فشل التسجيل"); return; }
+      if (!data.ok) { setError(data.error ?? "Registration failed"); return; }
       // Show pending screen
       setPendingName(name.trim());
       setMode("pending");
-    } catch { setError("خطأ في الاتصال"); } finally { setLoading(false); }
+    } catch { setError("Connection error"); } finally { setLoading(false); }
   };
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     unlockAudio();
-    if (!selectedId) { setError("اختر اسمك من القائمة"); return; }
+    if (!selectedId) { setError("Please select your name from the list"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/login", {
@@ -128,14 +128,14 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
         body: JSON.stringify({ id:selectedId, pin:loginPin.trim()||undefined }),
       });
       const data = await res.json() as { ok:boolean; id?:string; name?:string; rank?:string|null; unit?:string|null; error?:string; message?:string };
-      if (res.status===403 && data.error==='blocked')    { setError(data.message ?? 'حسابك موقوف. تواصل مع المدرب.'); return; }
-      if (res.status===403 && data.error==='suspended')  { setError(data.message ?? 'حسابك معلّق مؤقتاً.'); return; }
-      if (!data.ok || !data.id) { setError(data.error ?? "بيانات الدخول غير صحيحة"); return; }
+      if (res.status===403 && data.error==='blocked')    { setError(data.message ?? 'Your account is blocked. Contact your instructor.'); return; }
+      if (res.status===403 && data.error==='suspended')  { setError(data.message ?? 'Your account is temporarily suspended.'); return; }
+      if (!data.ok || !data.id) { setError(data.error ?? "Invalid credentials"); return; }
       const session: TraineeSession = { id:data.id, name:data.name!, rank:data.rank, unit:data.unit };
       setSession(session);
       fetch("/api/track",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"login", userId:data.id, traineeName:data.name }) }).catch(()=>{});
       onLogin(session);
-    } catch { setError("خطأ في الاتصال"); } finally { setLoading(false); }
+    } catch { setError("Connection error"); } finally { setLoading(false); }
   };
 
   const C = { cyan:"#00AEEF", navy:"#071426" };
@@ -198,13 +198,27 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               background:"linear-gradient(135deg,#00AEEF20,#35D4FF15)",
               border:"1px solid #00AEEF60",borderRadius:10,cursor:"pointer",
               color:"#00AEEF",fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",
-            }}>+ تسجيل متدرب جديد</button>
+            }}>+ NEW TRAINEE REGISTRATION</button>
             <button onClick={()=>setMode("login")} style={{
               width:"100%",padding:"14px 0",
               background:"rgba(255,255,255,0.04)",
               border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,cursor:"pointer",
               color:"rgba(255,255,255,0.5)",fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",
-            }}>دخول متدرب مسجّل</button>
+            }}>REGISTERED TRAINEE LOGIN</button>
+            <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:16 }}>
+              <div style={{ flex:1,height:1,background:"rgba(255,255,255,0.07)" }} />
+              <div style={{ fontSize:9,color:"rgba(255,255,255,0.2)",fontFamily:"Inter",letterSpacing:"0.12em" }}>OR</div>
+              <div style={{ flex:1,height:1,background:"rgba(255,255,255,0.07)" }} />
+            </div>
+            <button onClick={()=>onLogin({ id:'guest', name:'GUEST', rank:null, unit:null })} style={{
+              width:"100%",padding:"12px 0",marginTop:12,
+              background:"transparent",
+              border:"1px solid rgba(255,215,0,0.18)",borderRadius:10,cursor:"pointer",
+              color:"rgba(255,215,0,0.55)",fontFamily:"Inter",fontSize:11,letterSpacing:"0.12em",
+              display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+            }}>
+              <span style={{fontSize:14}}>👁</span> BROWSE AS GUEST <span style={{fontSize:9,color:"rgba(255,215,0,0.3)"}}>(LIMITED)</span>
+            </button>
           </div>
         )}
 
@@ -214,21 +228,21 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
             <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:20 }}>
               <button type="button" onClick={()=>{setMode("pick");setError("");}}
                 style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,fontSize:18 }}>←</button>
-              <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>طلب تسجيل جديد</div>
+              <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>NEW REGISTRATION REQUEST</div>
             </div>
 
             <div style={{ fontSize:10,color:"rgba(0,174,239,0.6)",fontFamily:"Inter",marginBottom:16,lineHeight:1.6,padding:"10px 12px",background:"rgba(0,174,239,0.06)",borderRadius:8,border:"1px solid rgba(0,174,239,0.15)" }}>
-              سيُراجَع طلبك من قبل المدرب قبل تفعيل حسابك
+              Your request will be reviewed by the admin before your account is activated
             </div>
 
             {[
-              { label:"الاسم الكامل *", val:name, set:setName, ph:"مثال: محمد العتيبي", type:"text" },
-              { label:"الرتبة العسكرية", val:rank, set:setRank, ph:"مثال: رقيب، ملازم، نقيب", type:"text" },
-              { label:"الوحدة / القسم", val:unit, set:setUnit, ph:"مثال: Ground Radar", type:"text" },
-              { label:"القاعدة الجوية", val:airBase, set:setAirBase, ph:"مثال: قاعدة الملك عبدالعزيز", type:"text" },
-              { label:"سنوات الخدمة", val:years, set:setYears, ph:"مثال: 5", type:"number" },
-              { label:"رمز الدخول (4-8 أرقام) *", val:pin, set:setPin, ph:"أدخل رمز الدخول", type:"password" },
-              { label:"تأكيد رمز الدخول *", val:confirmPin, set:setConfirmPin, ph:"أعد إدخال رمز الدخول", type:"password" },
+              { label:"FULL NAME *", val:name, set:setName, ph:"e.g. Mohammed Al-Otaibi", type:"text" },
+              { label:"MILITARY RANK", val:rank, set:setRank, ph:"e.g. Sergeant, Lieutenant, Captain", type:"text" },
+              { label:"UNIT / SECTION", val:unit, set:setUnit, ph:"e.g. Ground Radar", type:"text" },
+              { label:"AIR BASE", val:airBase, set:setAirBase, ph:"e.g. King Abdulaziz Air Base", type:"text" },
+              { label:"YEARS OF SERVICE", val:years, set:setYears, ph:"e.g. 5", type:"number" },
+              { label:"ACCESS PIN (4-8 digits) *", val:pin, set:setPin, ph:"Enter access PIN", type:"password" },
+              { label:"CONFIRM PIN *", val:confirmPin, set:setConfirmPin, ph:"Re-enter access PIN", type:"password" },
             ].map(f=>(
               <div key={f.label} style={{ marginBottom:12 }}>
                 <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:5 }}>{f.label}</div>
@@ -246,7 +260,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               border:"none",borderRadius:10,cursor:loading?"not-allowed":"pointer",
               color:loading?"rgba(255,255,255,0.5)":"#fff",fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",fontWeight:700,
             }}>
-              {loading?"جاري الإرسال...":"إرسال طلب التسجيل"}
+              {loading ? "SUBMITTING..." : "SUBMIT REGISTRATION REQUEST"}
             </button>
           </form>
         )}
@@ -256,12 +270,12 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
           <div style={{ ...cardStyle, textAlign:"center", animation:"fadeUp 0.4s ease" }}>
             <div style={{ fontSize:52,marginBottom:16 }}>🕐</div>
             <div className="font-orbitron" style={{ fontSize:13,color:C.cyan,letterSpacing:"0.15em",marginBottom:12 }}>
-              طلبك قيد المراجعة
+              REQUEST UNDER REVIEW
             </div>
             <div style={{ fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.7,marginBottom:20 }}>
-              أُرسل طلب تسجيلك باسم <strong style={{ color:"#fff" }}>{pendingName}</strong><br/>
-              سيراجعه المدرب ويُفعّل حسابك قريباً.<br/>
-              بعد الموافقة يمكنك الدخول من زر <em>"دخول متدرب مسجّل"</em>
+              Your registration request has been submitted as <strong style={{ color:"#fff" }}>{pendingName}</strong><br/>
+              The admin will review and activate your account shortly.<br/>
+              Once approved, use <em>"Registered Trainee Login"</em> to sign in
             </div>
             <div style={{ padding:"12px 16px",background:"rgba(0,174,239,0.06)",border:"1px solid rgba(0,174,239,0.15)",borderRadius:10,marginBottom:20 }}>
               <div style={{ fontSize:10,color:"rgba(0,174,239,0.5)",fontFamily:"Orbitron, monospace",letterSpacing:"0.15em",marginBottom:6 }}>REGISTRATION STATUS</div>
@@ -274,7 +288,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               padding:"10px 24px",background:"rgba(255,255,255,0.05)",
               border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,
               color:"rgba(255,255,255,0.45)",fontFamily:"Inter",fontSize:12,cursor:"pointer",
-            }}>عودة للرئيسية</button>
+            }}>BACK TO HOME</button>
           </div>
         )}
 
@@ -681,6 +695,88 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   );
 }
 
+
+/* ─────────────────────────────────────────────────────────
+   GUEST HOME PAGE — limited read-only access
+───────────────────────────────────────────────────────── */
+function GuestHomePage({ onExit }: { onExit: () => void }) {
+  const [, navigate] = useLocation();
+  const sections = [
+    { icon:"📘", label:"TLS BASICS",    sub:"Core TLS concepts",        path:"/basics",   color:"#00AEEF", available:true  },
+    { icon:"⭐", label:"TLS ADVANCED",  sub:"Advanced procedures",      path:"/advanced", color:"#FFD166", available:true  },
+    { icon:"📄", label:"MANUALS",       sub:"Reference documents",      path:"/manuals",  color:"#C9A66B", available:true  },
+    { icon:"ℹ️", label:"ABOUT",         sub:"System information",       path:"/about",    color:"#35D4FF", available:true  },
+    { icon:"🎯", label:"QUIZ",          sub:"Requires registration",    path:"/quiz-list",color:"#00D26A", available:false },
+    { icon:"🏆", label:"LEADERBOARD",   sub:"Requires registration",    path:"/leaderboard",color:"#FF4D4D",available:false},
+    { icon:"💬", label:"CHAT",          sub:"Requires registration",    path:"/chat",     color:"#FF9500", available:false },
+    { icon:"📊", label:"PROGRESS",      sub:"Requires registration",    path:"/",         color:"#AF52DE", available:false },
+  ];
+  return (
+    <div className="page" style={{ background:"var(--bg-primary)", minHeight:"100vh", paddingBottom:40 }}>
+      {/* Guest banner */}
+      <div style={{
+        background:"linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,215,0,0.04))",
+        border:"1px solid rgba(255,215,0,0.25)", padding:"12px 20px",
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{fontSize:18}}>👁</span>
+          <div>
+            <div style={{ fontFamily:"Orbitron,monospace", fontSize:10, color:"#FFD166", letterSpacing:"0.15em" }}>GUEST MODE</div>
+            <div style={{ fontFamily:"Inter", fontSize:10, color:"rgba(255,215,0,0.5)", marginTop:2 }}>Read-only access · Limited features</div>
+          </div>
+        </div>
+        <button onClick={onExit} style={{
+          background:"rgba(255,215,0,0.1)", border:"1px solid rgba(255,215,0,0.3)",
+          borderRadius:8, color:"#FFD166", fontFamily:"Inter", fontSize:10,
+          letterSpacing:"0.1em", padding:"6px 14px", cursor:"pointer",
+        }}>EXIT GUEST</button>
+      </div>
+
+      {/* Register CTA */}
+      <div style={{ padding:"16px 16px 0" }}>
+        <div style={{
+          background:"linear-gradient(135deg,rgba(0,174,239,0.1),rgba(0,174,239,0.04))",
+          border:"1px solid rgba(0,174,239,0.25)", borderRadius:14, padding:"16px 20px",
+          display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
+        }}>
+          <div>
+            <div style={{ fontFamily:"Inter", fontSize:12, color:"#00AEEF", fontWeight:600 }}>Unlock all features</div>
+            <div style={{ fontFamily:"Inter", fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:3 }}>Register to track progress, take quizzes &amp; more</div>
+          </div>
+          <button onClick={onExit} style={{
+            background:"linear-gradient(135deg,#00AEEF,#35D4FF)",
+            border:"none", borderRadius:10, color:"#fff",
+            fontFamily:"Orbitron,monospace", fontSize:9, letterSpacing:"0.12em",
+            padding:"10px 16px", cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" as const,
+          }}>REGISTER</button>
+        </div>
+      </div>
+
+      {/* Section grid */}
+      <div style={{ padding:"20px 16px 0" }}>
+        <div style={{ fontFamily:"Inter", fontSize:9, letterSpacing:"0.2em", color:"rgba(255,255,255,0.25)", marginBottom:14 }}>AVAILABLE SECTIONS</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {sections.map(s=>(
+            <div key={s.label} onClick={()=>{ if(s.available) navigate(s.path); }} style={{
+              padding:"16px 14px", borderRadius:14, cursor:s.available?"pointer":"not-allowed",
+              background: s.available ? `${s.color}0d` : "rgba(255,255,255,0.02)",
+              border:`1px solid ${s.available ? s.color+"30" : "rgba(255,255,255,0.07)"}`,
+              opacity: s.available ? 1 : 0.45,
+              transition:"all 0.15s",
+            }}>
+              <div style={{ fontSize:22, marginBottom:8 }}>{s.icon}</div>
+              <div style={{ fontFamily:"Orbitron,monospace", fontSize:9, color:s.available?s.color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em" }}>{s.label}</div>
+              <div style={{ fontFamily:"Inter", fontSize:10, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{s.sub}</div>
+              {!s.available && <div style={{ fontFamily:"Inter", fontSize:8, color:"rgba(255,255,255,0.18)", marginTop:5, letterSpacing:"0.08em" }}>🔒 LOCKED</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    ROOT EXPORT — gates login vs home
 ───────────────────────────────────────────────────────────────────────────── */
@@ -689,7 +785,7 @@ export default function Index() {
   const [session, setSessionState] = useState<TraineeSession | null>(() => getSession());
 
   const handleLogin = (s: TraineeSession) => {
-    setSession(s);
+    if (s.id !== 'guest') setSession(s); // guests are session-only, not persisted
     setSessionState(s);
   };
 
@@ -707,6 +803,10 @@ export default function Index() {
 
   if (!session) {
     return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  if (session.id === 'guest') {
+    return <GuestHomePage onExit={() => { setSessionState(null); }} />;
   }
 
   return <HomePage session={session} onLogout={handleLogout} />;
