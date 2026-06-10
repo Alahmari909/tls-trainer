@@ -56,6 +56,213 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; }
   background-size: 44px 44px;
 }
 
+/* ══════════════════════════════════════════
+   ANIMATED RADAR BACKGROUND
+   ══════════════════════════════════════════ */
+
+/* Radar canvas background */
+.radar-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* Moving grid lines */
+.radar-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,174,239,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,174,239,0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridDrift 20s linear infinite;
+}
+
+@keyframes gridDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 60px 60px; }
+}
+
+/* Radar sweep circle */
+.radar-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(0,174,239,0.08);
+}
+.radar-ring-1 { width: 250px; height: 250px; }
+.radar-ring-2 { width: 500px; height: 500px; }
+.radar-ring-3 { width: 750px; height: 750px; }
+.radar-ring-4 { width: 1000px; height: 1000px; }
+
+/* Radar sweep beam */
+.radar-sweep-wrap {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  overflow: hidden;
+  animation: radarSpin 6s linear infinite;
+}
+
+@keyframes radarSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.radar-sweep-beam {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 50%; height: 50%;
+  transform-origin: 0% 100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(0,174,239,0.12) 25deg,
+    rgba(0,174,239,0.06) 50deg,
+    transparent 60deg
+  );
+}
+
+/* Radar center dot */
+.radar-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(0,174,239,0.8);
+  box-shadow: 0 0 12px rgba(0,174,239,0.6), 0 0 24px rgba(0,174,239,0.3);
+}
+
+/* Random blips */
+@keyframes blipAppear {
+  0%   { opacity: 0; transform: scale(0); }
+  30%  { opacity: 1; transform: scale(1.4); }
+  60%  { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+.radar-blip {
+  position: absolute;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #00AEEF;
+  box-shadow: 0 0 8px rgba(0,174,239,0.9);
+  animation: blipAppear 3s ease-in-out infinite;
+}
+.radar-blip-2 { animation-delay: 1.2s; top: 35%; left: 62%; background: #35D4FF; }
+.radar-blip-3 { animation-delay: 2.4s; top: 60%; left: 40%; }
+.radar-blip-4 { animation-delay: 0.8s; top: 45%; left: 55%; background: #FFD700; }
+.radar-blip-5 { animation-delay: 1.8s; top: 30%; left: 45%; }
+
+/* Crosshair lines */
+.radar-cross {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.radar-cross::before {
+  content: '';
+  position: absolute;
+  top: -300px; left: 0;
+  width: 1px; height: 600px;
+  background: linear-gradient(to bottom, transparent, rgba(0,174,239,0.1) 50%, transparent);
+}
+.radar-cross::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -300px;
+  width: 600px; height: 1px;
+  background: linear-gradient(to right, transparent, rgba(0,174,239,0.1) 50%, transparent);
+}
+
+/* ══════════════════════════════════════════
+   PAGE TRANSITIONS
+   ══════════════════════════════════════════ */
+
+@keyframes pageSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pageSlideLeft {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.page-transition {
+  animation: pageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.page-transition-left {
+  animation: pageSlideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* V2 pages use this */
+.v2-page-enter {
+  animation: pageSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ══════════════════════════════════════════
+   ENHANCED BUTTON GLOW
+   ══════════════════════════════════════════ */
+
+.btn-glow-hover {
+  transition: all 0.25s ease;
+}
+.btn-glow-hover:hover {
+  box-shadow: 0 0 20px rgba(0,174,239,0.5), 0 0 40px rgba(0,174,239,0.2);
+  transform: translateY(-2px);
+}
+.btn-glow-green:hover {
+  box-shadow: 0 0 20px rgba(0,255,136,0.5), 0 0 40px rgba(0,255,136,0.2);
+  transform: translateY(-2px);
+}
+.btn-glow-red:hover {
+  box-shadow: 0 0 20px rgba(239,68,68,0.5), 0 0 40px rgba(239,68,68,0.15);
+  transform: translateY(-2px);
+}
+
+/* ══════════════════════════════════════════
+   V2 CARD HOVER EFFECTS
+   ══════════════════════════════════════════ */
+
+.v2-card-hover {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.v2-card-hover:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(0,174,239,0.12);
+}
+.v2-card-hover:active {
+  transform: scale(0.97);
+}
+
+/* ══════════════════════════════════════════
+   FLOATING PARTICLES
+   ══════════════════════════════════════════ */
+
+@keyframes floatParticle {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.3; }
+  100% { transform: translateY(-120px) translateX(20px); opacity: 0; }
+}
+.particle {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: rgba(0,174,239,0.6);
+  border-radius: 50%;
+  animation: floatParticle 8s ease-in infinite;
+}
+.particle:nth-child(2) { animation-delay: 2s; left: 25%; }
+.particle:nth-child(3) { animation-delay: 4s; left: 50%; }
+.particle:nth-child(4) { animation-delay: 6s; left: 75%; }
+
 /* ── Scan line ── */
 @keyframes scanline {
   0%   { top: -4%; opacity: 0.9; }
