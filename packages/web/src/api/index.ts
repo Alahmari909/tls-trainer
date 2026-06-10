@@ -440,6 +440,17 @@ async function ensureTables() {
           [label, href, icon, order, Date.now()]);
       }
     }
+    // ── Error Code Media table ──────────────────────────────────────────────────
+    await client.execute(`CREATE TABLE IF NOT EXISTS error_code_media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      error_code_id INTEGER NOT NULL,
+      media_data TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      filename TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (error_code_id) REFERENCES error_codes(id) ON DELETE CASCADE
+    )`);
     // Ensure Error Codes nav item exists (added post-seed)
     const ecNavRow = await sql(`SELECT id FROM nav_items WHERE href='/error-codes' LIMIT 1`);
     if (ecNavRow.length === 0) {
@@ -3593,6 +3604,53 @@ app.delete('/admin/nav-items/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+
+// ── Error Code Media ─────────────────────────────────────────────────────────
+
+// GET /api/error-codes/:id/media — list media metadata for one code
+app.get('/error-codes/:id/media', async (c) => {
+  const id = c.req.param('id');
+  const rows = await sql(
+    `SELECT id, mime_type, filename, sort_order FROM error_code_media WHERE error_code_id=? ORDER BY sort_order ASC, id ASC`,
+    [id]
+  );
+  return c.json(rows, 200);
+});
+
+// GET /api/error-codes/:id/media/:mediaId — stream image data
+app.get('/error-codes/:id/media/:mediaId', async (c) => {
+  const mediaId = c.req.param('mediaId');
+  const [row] = await sql(`SELECT media_data, mime_type, filename FROM error_code_media WHERE id=?`, [mediaId]);
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  const r = row as any;
+  const buf = Buffer.from(r.media_data as string, 'base64');
+  return new Response(buf, { headers: { 'Content-Type': r.mime_type, 'Content-Disposition': `inline; filename="${r.filename ?? 'image'}"`, 'Cache-Control': 'public, max-age=31536000' } });
+});
+
+// POST /api/admin/error-codes/:id/media — upload image (base64)
+app.post('/admin/error-codes/:id/media', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const ecId = c.req.param('id');
+  const body = await c.req.json();
+  const { media_data, mime_type, filename, sort_order } = body as any;
+  if (!media_data || !mime_type) return c.json({ error: 'Missing fields' }, 400);
+  await sqlRun(
+    `INSERT INTO error_code_media (error_code_id, media_data, mime_type, filename, sort_order, created_at) VALUES (?,?,?,?,?,?)`,
+    [ecId, media_data, mime_type, filename ?? '', sort_order ?? 0, Date.now()]
+  );
+  const [row] = await sql(`SELECT id FROM error_code_media WHERE rowid=last_insert_rowid()`);
+  return c.json({ id: (row as any).id }, 201);
+});
+
+// DELETE /api/admin/error-codes/media/:mediaId — delete one image
+app.delete('/admin/error-codes/media/:mediaId', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const mediaId = c.req.param('mediaId');
+  await sqlRun(`DELETE FROM error_code_media WHERE id=?`, [mediaId]);
+  return c.json({ ok: true }, 200);
+});
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
