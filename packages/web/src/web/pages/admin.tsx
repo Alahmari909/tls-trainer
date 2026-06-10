@@ -3439,6 +3439,8 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
   const [form, setForm] = useState({ error_code: '', software_id: '', description: '', possible_reason: '', solution: '' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [media, setMedia] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -3449,17 +3451,24 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
   };
   useEffect(() => { load(); }, []);
 
+  const loadMedia = async (id: number) => {
+    const res = await fetch(`/api/error-codes/${id}/media`);
+    const data = await res.json();
+    setMedia(Array.isArray(data) ? data : []);
+  };
+
   const openAdd = () => {
     setEditing({ id: null });
     setForm({ error_code: '', software_id: '', description: '', possible_reason: '', solution: '' });
-    setMsg('');
+    setMedia([]); setMsg('');
   };
   const openEdit = (r: any) => {
     setEditing(r);
     setForm({ error_code: r.error_code, software_id: r.software_id, description: r.description, possible_reason: r.possible_reason, solution: r.solution });
-    setMsg('');
+    setMedia([]); setMsg('');
+    loadMedia(r.id);
   };
-  const closeModal = () => { setEditing(null); setMsg(''); };
+  const closeModal = () => { setEditing(null); setMsg(''); setMedia([]); };
 
   const save = async () => {
     if (!form.error_code.trim() || !form.description.trim()) { setMsg('Error code and description are required'); return; }
@@ -3468,11 +3477,41 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
     const url = editing?.id ? `/api/admin/error-codes/${editing.id}` : '/api/admin/error-codes';
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'x-admin-pw': adminPw }, body: JSON.stringify(form) });
     setSaving(false);
-    if (res.ok) { closeModal(); load(); }
-    else { const e = await res.json(); setMsg('Error: ' + (e.error ?? 'Unknown')); }
+    if (res.ok) {
+      if (!editing?.id) { closeModal(); load(); }
+      else {
+        setMsg('Saved ✓');
+        // refresh rows silently
+        fetch('/api/admin/error-codes?pw=' + adminPw).then(r => r.json()).then(d => setRows(Array.isArray(d) ? d : []));
+      }
+    } else { const e = await res.json(); setMsg('Error: ' + (e.error ?? 'Unknown')); }
   };
+
+  const uploadImage = async (file: File) => {
+    if (!editing?.id) { setMsg('Save the error code first before uploading images'); return; }
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const b64 = (e.target?.result as string).split(',')[1];
+      const res = await fetch(`/api/admin/error-codes/${editing.id}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-pw': adminPw },
+        body: JSON.stringify({ media_data: b64, mime_type: file.type, filename: file.name, sort_order: media.length })
+      });
+      setUploading(false);
+      if (res.ok) { loadMedia(editing.id); }
+      else { setMsg('Upload failed'); }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const delMedia = async (mediaId: number) => {
+    await fetch(`/api/admin/error-codes/media/${mediaId}`, { method: 'DELETE', headers: { 'x-admin-pw': adminPw } });
+    if (editing?.id) loadMedia(editing.id);
+  };
+
   const del = async (id: number) => {
-    if (!confirm('Delete this error code?')) return;
+    if (!confirm('Delete this error code and all its images?')) return;
     await fetch(`/api/admin/error-codes/${id}`, { method: 'DELETE', headers: { 'x-admin-pw': adminPw } });
     load();
   };
@@ -3489,8 +3528,10 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
 
       {/* Fixed Modal Overlay */}
       {editing !== null && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px', overflowY: 'auto' }}>
-          <div style={{ background: '#0a1f0a', border: '1px solid #2a6a2a', borderRadius: '12px', padding: '20px', width: '100%', maxWidth: '560px', marginTop: '20px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '12px', overflowY: 'auto' }}>
+          <div style={{ background: '#0a1f0a', border: '1px solid #2a6a2a', borderRadius: '12px', padding: '20px', width: '100%', maxWidth: '580px', marginTop: '16px', marginBottom: '16px' }}>
+
+            {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#4aff6a' }}>
                 {editing.id ? `Edit Code ${editing.error_code}` : 'Add New Error Code'}
@@ -3498,34 +3539,74 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
               <button onClick={closeModal} style={{ background: 'none', border: '1px solid #2a4a2a', borderRadius: '6px', color: '#4a6a4a', padding: '4px 10px', cursor: 'pointer', fontSize: '16px' }}>✕</button>
             </div>
 
+            {/* Form Fields */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-              <div>
-                <label style={lbl}>Error Code *</label>
-                <input style={inp} value={form.error_code} onChange={e => setForm({...form, error_code: e.target.value})} placeholder="e.g. 101" />
-              </div>
-              <div>
-                <label style={lbl}>Software ID</label>
-                <input style={inp} value={form.software_id} onChange={e => setForm({...form, software_id: e.target.value})} placeholder="LM_ID_..." />
-              </div>
+              <div><label style={lbl}>Error Code *</label><input style={inp} value={form.error_code} onChange={e => setForm({...form, error_code: e.target.value})} placeholder="e.g. 101" /></div>
+              <div><label style={lbl}>Software ID</label><input style={inp} value={form.software_id} onChange={e => setForm({...form, software_id: e.target.value})} placeholder="LM_ID_..." /></div>
             </div>
-
             <label style={lbl}>Description *</label>
-            <textarea style={{...inp, height: '64px', resize: 'vertical'}} value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Description of the error" />
-
+            <textarea style={{...inp, height: '60px', resize: 'vertical'}} value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Description of the error" />
             <label style={lbl}>Possible Reason</label>
-            <textarea style={{...inp, height: '80px', resize: 'vertical'}} value={form.possible_reason} onChange={e => setForm({...form, possible_reason: e.target.value})} placeholder="Why this error occurs" />
-
+            <textarea style={{...inp, height: '70px', resize: 'vertical'}} value={form.possible_reason} onChange={e => setForm({...form, possible_reason: e.target.value})} placeholder="Why this error occurs" />
             <label style={lbl}>Corrective Action</label>
-            <textarea style={{...inp, height: '80px', resize: 'vertical'}} value={form.solution} onChange={e => setForm({...form, solution: e.target.value})} placeholder="Steps to resolve the error" />
+            <textarea style={{...inp, height: '70px', resize: 'vertical'}} value={form.solution} onChange={e => setForm({...form, solution: e.target.value})} placeholder="Steps to resolve the error" />
 
-            {msg && <div style={{ color: '#ff6a6a', fontSize: '12px', marginBottom: '10px' }}>{msg}</div>}
+            {msg && <div style={{ color: msg.includes('✓') ? '#4aff6a' : '#ff6a6a', fontSize: '12px', marginBottom: '8px' }}>{msg}</div>}
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
               <button onClick={save} disabled={saving} style={{ flex: 1, background: '#0a3a0a', border: '1px solid #2a8a2a', borderRadius: '8px', color: '#4aff6a', padding: '11px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
                 {saving ? 'Saving...' : '✓ Save'}
               </button>
               <button onClick={closeModal} style={{ background: 'none', border: '1px solid #2a4a2a', borderRadius: '8px', color: '#4a6a4a', padding: '11px 18px', cursor: 'pointer' }}>Cancel</button>
             </div>
+
+            {/* ── Images Section (only when editing existing code) ── */}
+            {editing.id && (
+              <div style={{ borderTop: '1px solid #1a4a1a', paddingTop: '16px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#4a9a4a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>📷 Images</div>
+
+                {/* Existing images grid */}
+                {media.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                    {media.map(m => (
+                      <div key={m.id} style={{ position: 'relative', background: '#020c02', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1a4a1a' }}>
+                        <img
+                          src={`/api/error-codes/${editing.id}/media/${m.id}`}
+                          alt={m.filename ?? 'image'}
+                          style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
+                        />
+                        <button
+                          onClick={() => delMedia(m.id)}
+                          style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(20,0,0,0.85)', border: '1px solid #6a2a2a', borderRadius: '4px', color: '#ff6a6a', padding: '2px 6px', cursor: 'pointer', fontSize: '11px', lineHeight: 1 }}
+                        >✕</button>
+                        {m.filename && <div style={{ fontSize: '9px', color: '#4a6a4a', padding: '3px 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.filename}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload button */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#020c02', border: '1px dashed #2a6a2a', borderRadius: '8px', padding: '12px 16px', cursor: 'pointer' }}>
+                  <input
+                    type="file" accept="image/*" multiple style={{ display: 'none' }}
+                    onChange={async e => {
+                      const files = Array.from(e.target.files ?? []);
+                      for (const f of files) await uploadImage(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <span style={{ fontSize: '20px' }}>{uploading ? '⟳' : '📎'}</span>
+                  <span style={{ fontSize: '13px', color: '#4a8a4a' }}>
+                    {uploading ? 'Uploading...' : 'Tap to add images (PNG, JPG)'}
+                  </span>
+                </label>
+              </div>
+            )}
+            {!editing.id && (
+              <div style={{ borderTop: '1px solid #1a3a1a', paddingTop: '12px', color: '#3a5a3a', fontSize: '12px', textAlign: 'center' }}>
+                💡 Save the code first, then reopen to add images
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3540,9 +3621,7 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
       </div>
 
       {/* Search filter */}
-      <input
-        value={search} onChange={e => setSearch(e.target.value)}
-        placeholder="Filter by code, ID, or description..."
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter by code, ID, or description..."
         style={{ width: '100%', background: '#0a1a0a', border: '1px solid #1a4a1a', borderRadius: '7px', padding: '9px 12px', color: '#c8f0c8', fontFamily: 'monospace', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box', outline: 'none' }}
       />
 
