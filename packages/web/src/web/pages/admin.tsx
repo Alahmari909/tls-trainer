@@ -3450,7 +3450,7 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
   useEffect(() => { load(); }, []);
 
   const openAdd = () => {
-    setEditing({});
+    setEditing({ id: null });
     setForm({ error_code: '', software_id: '', description: '', possible_reason: '', solution: '' });
     setMsg('');
   };
@@ -3459,14 +3459,17 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
     setForm({ error_code: r.error_code, software_id: r.software_id, description: r.description, possible_reason: r.possible_reason, solution: r.solution });
     setMsg('');
   };
+  const closeModal = () => { setEditing(null); setMsg(''); };
+
   const save = async () => {
+    if (!form.error_code.trim() || !form.description.trim()) { setMsg('Error code and description are required'); return; }
     setSaving(true); setMsg('');
     const method = editing?.id ? 'PUT' : 'POST';
     const url = editing?.id ? `/api/admin/error-codes/${editing.id}` : '/api/admin/error-codes';
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'x-admin-pw': adminPw }, body: JSON.stringify(form) });
     setSaving(false);
-    if (res.ok) { setEditing(null); setMsg('Saved ✓'); load(); }
-    else { const e = await res.json(); setMsg('Error: ' + e.error); }
+    if (res.ok) { closeModal(); load(); }
+    else { const e = await res.json(); setMsg('Error: ' + (e.error ?? 'Unknown')); }
   };
   const del = async (id: number) => {
     if (!confirm('Delete this error code?')) return;
@@ -3478,68 +3481,94 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
     !search || r.error_code.includes(search) || r.software_id.toLowerCase().includes(search.toLowerCase()) || r.description.toLowerCase().includes(search.toLowerCase())
   );
 
-  const inputStyle: React.CSSProperties = { width: '100%', background: '#0a1f0a', border: '1px solid #2a6a2a', borderRadius: '6px', padding: '8px 10px', color: '#c8f0c8', fontFamily: 'monospace', fontSize: '13px', marginBottom: '8px', boxSizing: 'border-box' };
-  const labelStyle: React.CSSProperties = { fontSize: '10px', color: '#4a8a4a', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '3px', display: 'block' };
+  const inp: React.CSSProperties = { width: '100%', background: '#020c02', border: '1px solid #2a6a2a', borderRadius: '6px', padding: '9px 11px', color: '#c8f0c8', fontFamily: 'monospace', fontSize: '13px', marginBottom: '10px', boxSizing: 'border-box', outline: 'none' };
+  const lbl: React.CSSProperties = { fontSize: '10px', color: '#4a9a4a', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', display: 'block', fontWeight: 'bold' };
 
   return (
-    <div style={{ background: '#030d03', minHeight: '100vh', color: '#c8f0c8', fontFamily: 'monospace', padding: '24px 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4aff6a' }}>🔍 Error Code Management</div>
-          <div style={{ fontSize: '11px', color: '#4a6a4a' }}>{rows.length} codes in database</div>
-        </div>
-        <button onClick={openAdd} style={{ background: '#0a3a0a', border: '1px solid #2a8a2a', borderRadius: '6px', color: '#4aff6a', padding: '8px 16px', cursor: 'pointer', fontWeight: 'bold' }}>+ Add Code</button>
-      </div>
+    <div style={{ background: '#030d03', minHeight: '100vh', color: '#c8f0c8', fontFamily: 'monospace', padding: '20px 16px' }}>
 
-      {msg && <div style={{ marginBottom: '12px', color: msg.startsWith('Error') ? '#ff4a4a' : '#4aff6a', fontSize: '13px' }}>{msg}</div>}
-
-      {/* Edit modal */}
+      {/* Fixed Modal Overlay */}
       {editing !== null && (
-        <div style={{ background: '#0a1f0a', border: '1px solid #2a6a2a', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#4aff6a', marginBottom: '16px' }}>{editing.id ? 'Edit Error Code' : 'Add New Error Code'}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-            <div><label style={labelStyle}>Error Code *</label><input style={inputStyle} value={form.error_code} onChange={e => setForm({...form, error_code: e.target.value})} placeholder="e.g. 101" /></div>
-            <div><label style={labelStyle}>Software ID</label><input style={inputStyle} value={form.software_id} onChange={e => setForm({...form, software_id: e.target.value})} placeholder="e.g. LM_ID_BAD_DATA_FILES" /></div>
-          </div>
-          <label style={labelStyle}>Description *</label>
-          <textarea style={{...inputStyle, height: '60px', resize: 'vertical'}} value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Description of the error" />
-          <label style={labelStyle}>Possible Reason</label>
-          <textarea style={{...inputStyle, height: '80px', resize: 'vertical'}} value={form.possible_reason} onChange={e => setForm({...form, possible_reason: e.target.value})} placeholder="Why this error occurs" />
-          <label style={labelStyle}>Corrective Action / Solution</label>
-          <textarea style={{...inputStyle, height: '80px', resize: 'vertical'}} value={form.solution} onChange={e => setForm({...form, solution: e.target.value})} placeholder="Steps to resolve the error" />
-          <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-            <button onClick={save} disabled={saving} style={{ background: '#0a3a0a', border: '1px solid #2a8a2a', borderRadius: '6px', color: '#4aff6a', padding: '8px 20px', cursor: 'pointer', fontWeight: 'bold' }}>{saving ? 'Saving...' : 'Save'}</button>
-            <button onClick={() => setEditing(null)} style={{ background: 'none', border: '1px solid #2a4a2a', borderRadius: '6px', color: '#4a6a4a', padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px', overflowY: 'auto' }}>
+          <div style={{ background: '#0a1f0a', border: '1px solid #2a6a2a', borderRadius: '12px', padding: '20px', width: '100%', maxWidth: '560px', marginTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#4aff6a' }}>
+                {editing.id ? `Edit Code ${editing.error_code}` : 'Add New Error Code'}
+              </div>
+              <button onClick={closeModal} style={{ background: 'none', border: '1px solid #2a4a2a', borderRadius: '6px', color: '#4a6a4a', padding: '4px 10px', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+              <div>
+                <label style={lbl}>Error Code *</label>
+                <input style={inp} value={form.error_code} onChange={e => setForm({...form, error_code: e.target.value})} placeholder="e.g. 101" />
+              </div>
+              <div>
+                <label style={lbl}>Software ID</label>
+                <input style={inp} value={form.software_id} onChange={e => setForm({...form, software_id: e.target.value})} placeholder="LM_ID_..." />
+              </div>
+            </div>
+
+            <label style={lbl}>Description *</label>
+            <textarea style={{...inp, height: '64px', resize: 'vertical'}} value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Description of the error" />
+
+            <label style={lbl}>Possible Reason</label>
+            <textarea style={{...inp, height: '80px', resize: 'vertical'}} value={form.possible_reason} onChange={e => setForm({...form, possible_reason: e.target.value})} placeholder="Why this error occurs" />
+
+            <label style={lbl}>Corrective Action</label>
+            <textarea style={{...inp, height: '80px', resize: 'vertical'}} value={form.solution} onChange={e => setForm({...form, solution: e.target.value})} placeholder="Steps to resolve the error" />
+
+            {msg && <div style={{ color: '#ff6a6a', fontSize: '12px', marginBottom: '10px' }}>{msg}</div>}
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <button onClick={save} disabled={saving} style={{ flex: 1, background: '#0a3a0a', border: '1px solid #2a8a2a', borderRadius: '8px', color: '#4aff6a', padding: '11px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
+                {saving ? 'Saving...' : '✓ Save'}
+              </button>
+              <button onClick={closeModal} style={{ background: 'none', border: '1px solid #2a4a2a', borderRadius: '8px', color: '#4a6a4a', padding: '11px 18px', cursor: 'pointer' }}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Search */}
-      <div style={{ marginBottom: '16px' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter by code, software ID, or description..." style={{ width: '100%', background: '#0a1f0a', border: '1px solid #1a4a1a', borderRadius: '6px', padding: '9px 12px', color: '#c8f0c8', fontFamily: 'monospace', fontSize: '13px', boxSizing: 'border-box' }} />
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div>
+          <div style={{ fontSize: '17px', fontWeight: 'bold', color: '#4aff6a' }}>🔍 Error Code Management</div>
+          <div style={{ fontSize: '11px', color: '#4a6a4a' }}>{rows.length} codes in database</div>
+        </div>
+        <button onClick={openAdd} style={{ background: '#0a3a0a', border: '1px solid #2a8a2a', borderRadius: '8px', color: '#4aff6a', padding: '9px 16px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>+ Add</button>
       </div>
 
+      {/* Search filter */}
+      <input
+        value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="Filter by code, ID, or description..."
+        style={{ width: '100%', background: '#0a1a0a', border: '1px solid #1a4a1a', borderRadius: '7px', padding: '9px 12px', color: '#c8f0c8', fontFamily: 'monospace', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box', outline: 'none' }}
+      />
+
       {/* Table */}
-      {loading ? <div style={{ color: '#4a6a4a', textAlign: 'center', padding: '40px' }}>Loading...</div> : (
+      {loading ? (
+        <div style={{ color: '#4a6a4a', textAlign: 'center', padding: '40px' }}>Loading...</div>
+      ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1a4a1a', color: '#4a8a4a' }}>
-                <th style={{ textAlign: 'left', padding: '8px 10px', width: '70px' }}>Code</th>
-                <th style={{ textAlign: 'left', padding: '8px 10px', width: '200px' }}>Software ID</th>
+                <th style={{ textAlign: 'left', padding: '8px 10px', minWidth: '60px' }}>Code</th>
+                <th style={{ textAlign: 'left', padding: '8px 10px', minWidth: '180px' }}>Software ID</th>
                 <th style={{ textAlign: 'left', padding: '8px 10px' }}>Description</th>
-                <th style={{ textAlign: 'center', padding: '8px 10px', width: '90px' }}>Actions</th>
+                <th style={{ textAlign: 'center', padding: '8px 10px', minWidth: '80px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(r => (
                 <tr key={r.id} style={{ borderBottom: '1px solid #0f2a0f' }}>
-                  <td style={{ padding: '8px 10px', color: '#4aff6a', fontWeight: 'bold' }}>{r.error_code}</td>
-                  <td style={{ padding: '8px 10px', color: '#6ab86a', fontSize: '11px' }}>{r.software_id}</td>
-                  <td style={{ padding: '8px 10px', color: '#a0d0a0' }}>{r.description}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                    <button onClick={() => openEdit(r)} style={{ background: 'none', border: '1px solid #2a6a2a', borderRadius: '4px', color: '#4a8a4a', padding: '3px 8px', cursor: 'pointer', marginRight: '4px', fontSize: '11px' }}>Edit</button>
-                    <button onClick={() => del(r.id)} style={{ background: 'none', border: '1px solid #6a2a2a', borderRadius: '4px', color: '#8a4a4a', padding: '3px 8px', cursor: 'pointer', fontSize: '11px' }}>Del</button>
+                  <td style={{ padding: '9px 10px', color: '#4aff6a', fontWeight: 'bold' }}>{r.error_code}</td>
+                  <td style={{ padding: '9px 10px', color: '#6ab86a', fontSize: '11px' }}>{r.software_id}</td>
+                  <td style={{ padding: '9px 10px', color: '#a0d0a0' }}>{r.description}</td>
+                  <td style={{ padding: '9px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <button onClick={() => openEdit(r)} style={{ background: '#0a2a0a', border: '1px solid #2a6a2a', borderRadius: '5px', color: '#4aff6a', padding: '5px 10px', cursor: 'pointer', marginRight: '5px', fontSize: '12px' }}>Edit</button>
+                    <button onClick={() => del(r.id)} style={{ background: '#1a0a0a', border: '1px solid #6a2a2a', borderRadius: '5px', color: '#ff6a6a', padding: '5px 10px', cursor: 'pointer', fontSize: '12px' }}>Del</button>
                   </td>
                 </tr>
               ))}
@@ -3551,6 +3580,7 @@ function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
     </div>
   );
 }
+
 
 function AdminFaults({ adminPw }: { adminPw: string }) {
   const [faults, setFaults]         = useState<FaultItem[]>([]);
