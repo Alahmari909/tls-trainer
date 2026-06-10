@@ -213,6 +213,153 @@ async function ensureTables() {
       created_at INTEGER NOT NULL,
       FOREIGN KEY (fault_id) REFERENCES common_faults(id) ON DELETE CASCADE
     )`);
+    // ── Error Codes table (TLS Maintenance Manual Table 3-7) ─────────────────
+    await client.execute(`CREATE TABLE IF NOT EXISTS error_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      error_code TEXT NOT NULL,
+      software_id TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      possible_reason TEXT NOT NULL DEFAULT '',
+      solution TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    )`);
+    // Seed error codes if empty
+    const ecCount = await sql('SELECT COUNT(*) as n FROM error_codes');
+    if ((ecCount[0] as any).n === 0) {
+      const now = Date.now();
+      const seed = [
+        ['100','LM_ID_BAD_DATA_FILES','A settings file (approach, cal, limits, settings, or tilt data) has a checksum error','The .dat file generation was interrupted, or the base was not connected to the MIU','Ensure the configuration process is followed all the way to completion. Run Network Diagnostics and repair dropped connections. Reinstall .dat files from the archive. See 3.20.4 Base Computer Hardware/Software Fault Isolation'],
+        ['101','LM_ID_DIFF_DATA_FILES','Checksum differs between CPU1 and CPU2 for a data file (approach, cal, survey, settings, monitor limits, or tilt)','The .dat file generation was interrupted, or the base was not connected to the MIU','Ensure configuration process is followed to completion. Run Network Diagnostics and repair dropped connections. Reinstall .dat files from archive. See 3.20.4 Base Computer Hardware/Software Fault Isolation'],
+        ['102','LM_ID_BAD_HOSTS_FILE','A hosts file was not found on the computer','A host file was deleted, or the folder containing the host file changed','Ensure the path to the host file is correct. Reinstall hosts file. See SW installation instruction'],
+        ['103','LM_ID_BAD_SERVICES_FILE','A services file was not found on the computer','The file was deleted, or the folder containing the services file changed','Ensure the path to the services file is correct. Reinstall services file. See SW installation instruction'],
+        ['110','LM_ID_FAILED_INIT','Indicates a process initialization error','The network connection to the sensors may not be operating','Power on the ESA and ASA electronics. Ping the ESA and ASA. See 3.20.8 Measurement Sensor Fault Isolation'],
+        ['111','LM_ID_REGISTER_CONTROL_PROCESS','There was a Process Registration error — possible problem with the operating system','Developmental message used by ANPC for troubleshooting','See 3.20.4.1 General Troubleshooting for Base1. See 3.20.4.2 General Troubleshooting for Base2'],
+        ['112','LM_ID_CREATE_TIMER','System timer fault — possible problem with the operating system','Developmental message used by ANPC for troubleshooting','Contact ANPC for assistance. See 3.20.4.1 General Troubleshooting for Base1. See 3.20.4.2 General Troubleshooting for Base2'],
+        ['120','LM_ID_CREATE_DIR','Directory creation error','The permissions to a folder may have been changed to read-only','Change the folder permissions to allow writing'],
+        ['130','LM_ID_UNKNOWN_MESSAGE','A message was sent to a process that was unknown','Unknown cause — developmental message used by ANPC for troubleshooting','This message does not result in an alert or alarm, and no action is necessary to resolve this message'],
+        ['140','LM_ID_VERSION_MISMATCH','The version of the software did not match','When the software boots, firmware revisions are checked on all devices and must match or continued operation is not possible','Install the same version of software on all devices. See SW installation instruction'],
+        ['1001','LM_ID_HIGH_PHASE','CAL/BIT signal at the AOA sensor has phase measurement error exceeding tolerance for the indicated resolution','Change to ground surface conditions (grass height, snow accumulation); Change to antenna alignment; Change to AOA sensor electronics','Cut the grass / remove excess snow — See 3.5 C-3. Restore the antenna alignment — See 3.20.11 ESA Antenna Re-alignment. Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1002','LM_ID_MED_PHASE','CAL/BIT signal at the AOA sensor has medium phase measurement error exceeding tolerance','Change to ground surface conditions; Change to antenna alignment; Change to AOA sensor electronics','Cut the grass / remove excess snow — See 3.5 C-3. Restore the antenna alignment — See 3.20.11 ESA Antenna Re-alignment. Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1003','LM_ID_MED_PHASE_C','CAL/BIT signal at the AOA sensor has medium-C phase measurement error exceeding tolerance','Change to ground surface conditions; Change to antenna alignment; Change to AOA sensor electronics','Cut the grass / remove excess snow — See 3.5 C-3. Restore the antenna alignment — See 3.20.11 ESA Antenna Re-alignment. Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1004','LM_ID_LOW_PHASE','CAL/BIT signal at the AOA sensor has low phase measurement error exceeding tolerance','Change to ground surface conditions; Change to antenna alignment; Change to AOA sensor electronics','Cut the grass / remove excess snow — See 3.5 C-3. Restore the antenna alignment — See 3.20.11 ESA Antenna Re-alignment. Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1010','LM_ID_CHANA_FREQ','CAL/BIT signal has a frequency measurement that exceeds tolerance','An AOA sensor has a frequency measurement exceeding tolerance','If both AOA sensors have frequency alarm, replace the CAL/BIT. If one AOA sensor has a frequency alarm, replace the AOA sensor — See 3.21 LRU Replacement'],
+        ['1020','LM_ID_AOA_LOW_PWR','CAL/BIT signal at an AOA sensor has an amplitude error (Low channel)','Change to ground surface conditions; Degraded cable attachment; Damaged antenna or water inside the antenna','Cut grass / remove excess snow — See 3.5.4 C-3. Repair or replace cable — See 3.14 C-12. Repair the antenna, drain water, repair mounting bracket — See 3.10 C-8 Antenna Maintenance'],
+        ['1021','LM_ID_AOA_MED_PWR','CAL/BIT signal at an AOA sensor has an amplitude error (Medium channel)','Change to ground surface conditions; Degraded cable attachment; Damaged antenna or water inside the antenna','Cut grass / remove excess snow — See 3.5.4 C-3. Repair or replace cable — See 3.14 C-12. Repair the antenna — See 3.10 C-8 Antenna Maintenance'],
+        ['1022','LM_ID_AOA_HIGH_PWR','CAL/BIT signal at an AOA sensor has an amplitude error (High channel)','Change to ground surface conditions; Degraded cable attachment; Damaged antenna or water inside the antenna','Cut grass / remove excess snow — See 3.5.4 C-3. Repair or replace cable — See 3.14 C-12. Repair the antenna — See 3.10 C-8 Antenna Maintenance'],
+        ['1023','LM_ID_AOA_REF_PWR','CAL/BIT signal at an AOA sensor has an amplitude error (Reference channel)','Change to ground surface conditions; Degraded cable attachment; Damaged antenna or water inside the antenna','Cut grass / remove excess snow — See 3.5.4 C-3. Repair or replace cable — See 3.14 C-12. Repair the antenna — See 3.10 C-8 Antenna Maintenance'],
+        ['1030','LM_ID_AOA_LOW_PWR_JTR','CAL/BIT signal at an AOA sensor has an amplitude jitter exceeding tolerance (Low channel)','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area'],
+        ['1031','LM_ID_AOA_MED_PWR_JTR','CAL/BIT signal at an AOA sensor has an amplitude jitter exceeding tolerance (Medium channel)','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area'],
+        ['1032','LM_ID_AOA_HIGH_PWR_JTR','CAL/BIT signal at an AOA sensor has an amplitude jitter exceeding tolerance (High channel)','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area'],
+        ['1033','LM_ID_AOA_REF_PWR_JTR','CAL/BIT signal at an AOA sensor has an amplitude jitter exceeding tolerance (Reference channel)','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area'],
+        ['1040','LM_ID_AOA_NOISE','AOA sensor noise level exceeds tolerance on the indicated channel','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area'],
+        ['1050','LM_ID_AOA_LOW_PH_JTR','CAL/BIT signal at an AOA sensor has phase measurement jitter exceeding tolerance (Low channel)','There could be a reflective object in the critical area; vegetation on the edges of the critical area; AOA sensor electronics LRU failing','Remove the object / cut vegetation from the critical area — See 3.5.4 C-3. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1051','LM_ID_AOA_MED_PH_JTR','CAL/BIT signal at an AOA sensor has phase measurement jitter exceeding tolerance (Medium channel)','There could be a reflective object in the critical area; vegetation on the edges; AOA sensor electronics LRU failing','Remove the object / cut vegetation from the critical area — See 3.5.4 C-3. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1052','LM_ID_AOA_HIGH_PH_JTR','CAL/BIT signal at an AOA sensor has phase measurement jitter exceeding tolerance (High channel)','There could be a reflective object in the critical area; AOA sensor electronics LRU failing','Remove the object from the critical area — See 3.5.4 C-3. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1060','LM_ID_TOA_NEAR','CAL/BIT signal at an AOA sensor has a Near TOA value that exceeds tolerance','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area'],
+        ['1061','LM_ID_TOA_FAR','CAL/BIT signal at an AOA sensor has a Far TOA value that exceeds tolerance','There could be a reflective object in the critical area','Remove the reflector from the critical area — See 3.5.4 C-3 Maintenance of Critical Area. Cut the vegetation that may be reflecting the signal'],
+        ['1062','LM_ID_TOA_JTR','CAL/BIT signal at an AOA sensor has a TOA jitter value that exceeds tolerance','The F1 trigger pulse needs adjustment; there may be a reflective object in the critical area; AOA sensor electronics LRU may have failed','Adjust the F1 trigger pulse to the lowest TOA jitter value — See F1 Tuning. Remove the object from the critical area. Replace AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1101','LM_ID_DEL_PH_HIGH','CAL/BIT signal at the AOA sensor has phase measurement difference between channels exceeding tolerance (High)','The sensor electronics has failed','Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1102','LM_ID_DEL_PH_MED','CAL/BIT signal at the AOA sensor has phase measurement difference between channels exceeding tolerance (Medium)','The sensor electronics has failed','Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1103','LM_ID_DEL_PH_LOW','CAL/BIT signal at the AOA sensor has phase measurement difference between channels exceeding tolerance (Low)','The sensor electronics has failed','Replace the sensor electronics — See 3.21 LRU Replacement'],
+        ['1301','LM_ID_AOA_TEMP','An AOA sensor temperature has exceeded the tolerance','The AOA sensor cooling is off','Turn on the sensor cooling heat exchanger or A/C as appropriate'],
+        ['1302','LM_ID_AOA_12V','An AOA sensor 12V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter (TOA or Phase) fails. If a key parameter fails, replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1303','LM_ID_AOA_18V','An AOA sensor 18V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter (TOA or Phase) fails. If a key parameter fails, replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1304','LM_ID_AOA_5V','An AOA sensor 5V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter (TOA or Phase) fails. If a key parameter fails, replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1305','LM_ID_AOA_MINUS12V','An AOA sensor -12V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter fails. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1306','LM_ID_AOA_MINUS5V','An AOA sensor -5V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter fails. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1307','LM_ID_AOA_15VRF','An AOA sensor 15V RF power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter fails. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1308','LM_ID_AOA_5VRF','An AOA sensor 5V RF power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter fails. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1309','LM_ID_2PP3V','An AOA sensor 2.3V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter fails. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1310','LM_ID_2V','An AOA sensor 2V power supply has failed','The power supply has reached the end of life','No action required unless a key performance parameter fails. Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['1350','LM_ID_TILT_PARA','The tilt sensor detected a parallel shift in the ESA tower position','The ESA tilt has changed due to anchor settling or changes to guy wire tension','Return the tower to original install condition by tensioning the guy wires — See 3.8 C-6 Check and adjust pay wire tension. Verify tilt sensors are operating normally'],
+        ['1351','LM_ID_TILT_PERPEN','The tilt sensor detected a perpendicular shift in the ESA tower position','The ESA tilt has changed due to anchor settling or changes to guy wire tension','Return the tower to original install condition by tensioning the guy wires — See 3.8 C-6. Verify tilt sensors are operating normally'],
+        ['1352','LM_ID_TILT_SELF_PARA','A tilt sensor self-test detected an error in the parallel sensor','The tilt sensor may be failing','Check cables for damage — See 3.14 C-12 Cable repair and waterproofing. Replace the tilt sensor with a spare — See 3.20.12 Tilt Sensor Fault Isolation'],
+        ['1353','LM_ID_TILT_SELF_PERPEN','A tilt sensor self-test detected an error in the perpendicular sensor','The tilt sensor may be failing','Check cables for damage — See 3.14 C-12. Replace the tilt sensor with a spare — See 3.20.12 Tilt Sensor Fault Isolation'],
+        ['1354','LM_ID_TILT_TEMP','A tilt sensor temperature is beyond limits','The tilt sensor cable may be damaged','Check cables for damage. This is not a critical failure — the system can continue to operate'],
+        ['2001','LM_ID_TRK_AZ_UPDATE','Not enough azimuth measurement updates on the track','Aircraft transponder is off; lost line-of-sight to aircraft; transponder low gain/power output; synchronous garble interfered with transponder plot extraction','Ask the pilot to turn on the transponder. Ensure approach plate includes accurate notes about signal coverage. Verify the interrogator output is sufficient. Schedule a maintenance appointment for the aircraft. Enable side lobe suppression P2'],
+        ['2002','LM_ID_TRK_EL_UPDATE','Not enough elevation measurement updates on the track','Aircraft transponder is off; lost line-of-sight; transponder low gain/power; synchronous garble interfered with plot extraction','Ask the pilot to turn on the transponder. Verify interrogator output is sufficient. Schedule maintenance appointment for the aircraft'],
+        ['2003','LM_ID_TRK_RANGE_UPDATE','Not enough range measurement updates on the track','Aircraft transponder is off; lost line-of-sight to aircraft','Ask the pilot to turn on the transponder. Verify the interrogator output is sufficient'],
+        ['2010','LM_ID_TRK_HYP_COMPARE','Track Hyperbolic measurement comparison failed','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2011','LM_ID_TRK_LOW_LOC_COMP','Error in the comparison to the Localizer low accuracy measurement','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2012','LM_ID_TRK_LOW_GS_COMP','Error in the comparison to the Glideslope low accuracy measurement','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2013','LM_ID_TRK_MEDIUM_HIGH','Structure jitter between medium and high accuracy measurements','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2020','LM_ID_TRK_AZ_ACC','Azimuth acceleration error — track jumped in azimuth','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2021','LM_ID_TRK_EL_ACC','Elevation acceleration error — track jumped in elevation','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2022','LM_ID_TRK_RANGE_ACC','Range acceleration error — track jumped in range','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2023','LM_ID_TRK_AZ_STRUCT','Structure jitter in the azimuth track exceeds tolerances','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2024','LM_ID_TRK_EL_STRUCT','Structure jitter in the elevation track exceeds tolerances','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2030','LM_ID_TRK_AZ_VOL','Azimuth volume alarm — aircraft flew out of azimuth service volume','The aircraft departed the service volume','This is an informational message; no corrective action is needed. The aircraft has departed the service volume'],
+        ['2031','LM_ID_TRK_EL_VOL','Elevation volume alarm — aircraft flew out of elevation service volume','The aircraft departed the service volume','This is an informational message; no corrective action is needed'],
+        ['2042','LM_ID_TRK_UPDATE_TIME','Time out on the update rate','The track consumed more time than the allowed interval','This is an informational message; no corrective action is needed'],
+        ['2045','LM_ID_TRK_CAPACITY','System is at capacity for the number of tracks it can handle','More than 100 aircraft have been detected; the system will only track the closest 100 aircraft','This is an informational message; no corrective action is needed'],
+        ['2046','LM_ID_MHT_CONFIDENCE','Software track process has low confidence level on the track','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2047','LM_ID_TRK_MISSED_AGREE','Mismatch on the differential TOA compare','The calibration process has not been performed','Complete calibration process — See 020-00071'],
+        ['2048','LM_ID_TRK_PP_DROP','Pulse Processing track was dropped; algorithm could not associate more replies to the track','There were no updates for the track for more than the allowed interval','This is informational. The aircraft departed the service volume'],
+        ['2049','LM_ID_TRK_COAST','Track count limit exceeded; no updates to the track for more than the allowed interval','The aircraft is no longer line-of-sight','No corrective action — the track count limit is a common information message in the base log'],
+        ['2010','LM_ID_RCU_COMPARE (RCU)','The RCU integrity test of PAR track position failed','Integrity test failed due to a failed RCU','Replace the RCU — See 3.4.2 RCU Troubleshooting Procedures'],
+        ['2011','LM_ID_RCU_TIMEOUT (RCU)','Lost the network connection to the RCU','The network path to the RCU was interrupted; the RCU may be counterfeited','Turn on the RCU. Reassign wireless link antenna — See RCU troubleshooting 3.20.13.1'],
+        ['3010','LM_ID_ULBIT_DDM','GTU BIT DDM compare failed','The DDM difference between the transmitted value and the monitor value exceeded the tolerance','Complete the GTU calibration process — See 020-00071 4.13 GTU verification'],
+        ['3011','LM_ID_ULBIT_SDM','GTU BIT SDM is out of range','The SDM has drifted and exceeds tolerance; this is a hardware fault','Replace the GTU — See 3.21 LRU Replacement'],
+        ['3012','LM_ID_ULBIT_CARRIER','GTU BIT power is out of range','GTU power feedback loop recorded an increase or decrease in amplitude; cables may be loose or contain moisture','Clean and waterproof the cable connections. Replace the damaged cable — See 3.14 C-12 cable repair. See 3.11 C-9 GTU Fault Isolation'],
+        ['3013','LM_ID_ULBIT_REFL_POWER','GTU BIT reflected power out of range','Cable connections may be loose or contain moisture; there may be damage to the antenna','Verify cable connections are clean, dry, and secured. Verify no physical damage to antenna. See 3.20.5 Guidance Transmitter Unit (GTU) Fault Isolation'],
+        ['3020','LM_ID_ULBIT_TONE_DB','GTU BIT tone modulation out of range','The tone modulation hardware has drifted and cannot be repaired in the field','Replace the GTU'],
+        ['3021','LM_ID_ULBIT_T0_Period','GTU BIT did not detect a T0 period; synch pulse failure','The T-Zero cable is disconnected or damaged','Connect or replace the T-Zero BSC cable to the GTU. See 3.20.5 GTU Fault Isolation'],
+        ['3022','LM_ID_ULBIT_CPU_UPDATE','Self-test failure; GTU BIT did not detect a CPU update','The test of the dual dissimilar CPU integrity monitor failed','Verify all GTU cable connections are correct. See 3.20.5 GTU Fault Isolation'],
+        ['3023','LM_ID_ULBIT_DDM_COMPARE','Self-test failure; GTU BIT did not detect a DDM compare failure','The test of the dual dissimilar CPU DDM compare failed','Verify all GTU cable connections are correct. See 3.20.5 GTU Fault Isolation'],
+        ['3030','LM_ID_ULBIT_TEMP_INIT','GTU BIT internal temperature is out of range','The GTU temperature exceeded the monitor limit because shelter temperature is not controlled','Repair the ECU A/C or heater to return shelter temperature to normal operating ranges'],
+        ['3031','LM_ID_ULBIT_TEMP_EXT','Temperature from the pressure sensor is beyond tolerance','The shelter environmental control unit (ECU) has failed; the pressure sensor has a faulty temperature sensor','Repair the heating or cooling units. Ensure all temperature mitigations are implemented. If ECU is within spec and temperature is minimal — replace the base unit. See 3.20.5 GTU Fault Isolation'],
+        ['3040','LM_ID_ULBIT_5V','GTU 5V power supply out of range','The power supply has reached the end of life','If a key performance parameter (SDM, DDM, or output power) is in alarm, replace the GTU — See 3.21 LRU Replacement'],
+        ['3041','LM_ID_ULBIT_15V','GTU 15V power supply out of range','The power supply has reached the end of life','If a key performance parameter is in alarm, replace the GTU — See 3.21 LRU Replacement'],
+        ['3042','LM_ID_ULBIT_MINUS15V','GTU -15V power supply out of range','The power supply has reached the end of life','If a key performance parameter is in alarm, replace the GTU — See 3.21 LRU Replacement'],
+        ['3043','LM_ID_ULBIT_LOC_24V','GTU Localizer 24V power supply out of range','The power supply has reached the end of life','If a key performance parameter is in alarm, replace the GTU — See 3.21 LRU Replacement'],
+        ['3044','LM_ID_ULBIT_GS_24V','GTU Glide Slope 24V power supply out of range','The power supply has reached the end of life','If a key performance parameter is in alarm, replace the GTU — See 3.21 LRU Replacement'],
+        ['3045','LM_ID_ULBIT_SUPPLY_BITS','Hardware failure; LRU needs service','The GTU has failed','Replace the GTU — See 3.21 LRU Replacement'],
+        ['3050','LM_ID_ULBIT_TONE_CODE','GTU BIT tone output does not match commanded value','The GTU has failed','Replace the GTU — See 3.21 LRU Replacement'],
+        ['3051','LM_ID_ULBIT_TONE_ON007','GTU BIT tone control BIT mismatch','The self-test of the GTU tone has failed','Replace the GTU — See 3.21 LRU Replacement'],
+        ['3052','LM_ID_UPLINK_T0','T-zero synchronization signal failed at the GTU','T-zero cannot be detected on the GTU','Check the BIT T-zero connection. See 3.20.4.3 Base1 Timing Signal Fault Isolation'],
+        ['3053','LM_ID_UPLINK_SWR','Too much signal reflected back from the antenna (standing wave ratio)','The antenna may be damaged; the cable may be damaged','Check for cable path damage. Replace or re-route cable. Replace the antenna'],
+        ['3054','LM_ID_UPLINK_GTU_ID','ID mismatch; cannot distinguish the GTU ID','Communications fault with Base1 or Base2','Verify rack cable connections — See 3.20 Fault Isolation LRU Inspection'],
+        ['3055','LM_ID_UPLINK_NO_DDM','One of the host computers did not provide a DDM value','Communications fault with Base1 or Base2','Verify rack cable connections. See 3.20 Fault Isolation LRU Inspection'],
+        ['3056','LM_ID_UPLINK_DDM_NOMAT','The DDM value between the two CPUs did not match','Communications fault with Base1 or Base2','Verify rack cable connections. See 3.20 Fault Isolation LRU Inspection'],
+        ['3057','LM_ID_UPLINK_FAILURE','The uplink software cannot determine why the glideslope is failing','Communications fault with Base1 or Base2','Verify rack cable connections. See 3.20 Fault Isolation LRU Inspection'],
+        ['3060','LM_ID_UPLINK_NT_IO_ERR','Windows OS could not establish a communication port to the GTU','Communications fault with Base1 or Base2','Verify rack cable connections. See 3.20 Fault Isolation LRU Inspection'],
+        ['3062','LM_ID_UPLINK_MORSECODE','A non-alphanumeric Morse code identifier was requested','Incorrect Morse code configuration — one or more characters cannot be broadcast using Morse code','Change the Morse code to a series of characters that can be broadcast using Morse code'],
+        ['3070','LM_ID_ULMON_SDM','GTU Monitor SDM is out of range','Communications fault with Base1 or Base2','Replace the GTU — See 3.21 LRU Replacement'],
+        ['3071','LM_ID_ULMON_DDM','GTU Monitor DDM compare failed','Communications fault with Base1 or Base2','Verify rack cable connections — See 3.20 Fault Isolation LRU Inspection'],
+        ['3073','LM_ID_ULMON_DDM_VOLUME','GTU Monitor DDM volume edge not met','The GTU has not been calibrated or the calibration could be improved','Calibrate the GTU using a PIR — See 3.113 C-11 GTU verification'],
+        ['4032','LM_ID_PHASE_SHIFT','A failure occurred in the Sensor PRM Phase discriminator','This is a BIT check of the PRM and is not field repairable','Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['4033','LM_ID_PHASE_STUCK_BIT','An RF channel on the AOA is not returning an expected value','This is a BIT check of the PRM and is not field repairable','Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['4034','LM_ID_PHASE_FIFO','A stuck bit was detected in the HW phase FIFO on the REV-A sensor','This is a BIT check of the PRM on the REV-A sensor and is not field repairable','Replace the AOA sensor electronics LRU — See 3.21 LRU Replacement'],
+        ['5010','LM_ID_INT_P_WIDTH','Interrogator pulse width out of range','Interrogator self-test of pulse width is out of tolerance; hardware is failing (not adjustable in field)','Perform the interrogation control card test to isolate the cause to either the ICC or the interrogator — See 3.12 C-10 Interrogation transmitter check'],
+        ['5011','LM_ID_P2_AMP','Interrogator P2 amplitude out of range','Interrogator self-test of amplitude for P2 is out of tolerance; hardware is failing','Perform the interrogation control card test — See 3.12 C-10 Interrogation transmitter check'],
+        ['5020','LM_ID_INT_PIP2_SPACE','Interrogator P1/P2 spacing out of range','Interrogator self-test of P1/P2 spacing is out of tolerance; hardware is failing','Perform the interrogation control card test — See 3.12 C-10'],
+        ['5021','LM_ID_INT_PIP3_SPACE','Interrogator P1/P3 spacing out of range','Interrogator self-test of P1/P3 spacing is out of tolerance; hardware is failing','Perform the interrogation control card test — See 3.12 C-10'],
+        ['5030','LM_ID_INT_P1_P3_AMP','Interrogator P1/P3 amplitude out of range','Interrogator self-test of amplitude for P1 and P3 is out of tolerance; hardware is failing','Perform the interrogation control card test — See 3.12 C-10'],
+        ['5032','LM_ID_INT_STATUS','Interrogator status bits indicate a failure','The interrogation control card is not properly installed or has failed','Replace or reseat the ICC card in Base1 — See 3.20.4.3 Base1 Timing Signal Fault Isolation'],
+        ['5073','LM_ID_SENSOR_DATA_CHECKSUM','Corrupted data — the checksum at the base does not match what was sent from the sensor','A GTU file was changed intentionally or unintentionally; the checksum does not match','Retrieve the last good archive from the MIU. If a GTU file was changed intentionally and verified, run the checksum tool on the EU tool set to send to base to install the file'],
+        ['6010','LM_ID_PRESSURE','General failure error on the pressure sensor','The pressure sensor communication cable is not connected; the pressure sensor power supply is not connected','Verify cables are connected. Verify the pressure sensor with a spare — See 3.21 LRU Replacement'],
+        ['7001','LM_ID_UPS_SHUTDOWN','Software is shut down due to low battery minutes remaining on the UPS','The utility power is disconnected','Leave the system off until utility power is restored'],
+        ['7010','LM_ID_RACK_SWITCH_STATUS','General failure error on the rack switch','The Rack Switch is powered off; Rack Switch cables are not connected; Rack Switch has failed','Power on the Rack Switch. Connect all cables to the Rack Switch. Replace the rack switch — See 3.22 Rackswitch troubleshooting'],
+        ['8000','LM_ID_LRU_LINK_DOWN','Reports an RCU link failure','The RCU is not powered on; the RCU link is not powered on; the RCU cables are not connected','Power on the RCU. Power on the link for the RCU. Connect the RCU cables. See RCU troubleshooting 3.20.13.1'],
+        ['8010','LM_ID_CPU_DISK_SPACE','CPU hard drive is full','Archives have filled up the drive; RAM collection was turned on and capturing too many files','Remove old archives or delete unused archives — See 3.1 C-1 Archive of data files. Turn off RAM collection in the MI settings. Remove non-TLS files'],
+        ['8011','LM_ID_BASE_TEMPERATURE','The base temperature is out of tolerance','The shelter ECU has failed','Repair the heating or cooling units. Ensure temperature mitigations are implemented. If ECU is within spec and temperature is minimal — replace the base unit'],
+        ['9001','LM_ID_NO_RECEIVER','No network receiver for the message','Developmental message used by ANPC for troubleshooting','This message does not result in an alert or alarm, and no action is necessary'],
+        ['9002','LM_ID_NETWORK_MSG_ERR','Network message error','Developmental message used by ANPC for troubleshooting','This message does not result in an alert or alarm, and no action is necessary'],
+        ['9003','LM_ID_BASE_TIME','Base Station time differs from a sensor','The clocks may not be synchronized','Use the SW tool Sync_clocks to synchronize the clocks — 020-00073 4.13 System software CPU clock synchronization'],
+        ['9004','LM_ID_MULTIPLE_REPLIES','The sensor received multiple replies to an interrogation','More than one transponder is set to the code that was entered at the RCU','Ask the pilot to set a unique transponder code'],
+        ['9005','LM_ID_INTERROG_TIMEOUT','An interrogation timeout occurred','Network cables are not connected properly','Verify all TLS components are powered on and can ping. Verify correct network cable connections. See 3.20.4.3 Base1 Timing Signal Fault Isolation LRU Inspection'],
+        ['9006','LM_ID_INTERROG_TIMEOUT_NET','Network connection errors between LRUs','Network cables are not connected properly','Verify all TLS components are powered on and can ping. Verify network cable connections. See 3.20 Fault Isolation LRU Inspection'],
+        ['9007','LM_ID_INTERROG_TIMEOUT_ESA','Interrogation timeout at the ESA','The fiber optic cable transmitting the T-zero pulse to the ESA is not connected','Verify connectivity of the T-zero fiber cable by tracing from the output of the ICC to the rack switch, to the interface panel, and finally at the sensor — See 3.20.4.3 Base1 Timing Signal Fault Isolation'],
+        ['9008','LM_ID_INTERROG_TIMEOUT_LAOA','Interrogation timeout at the ASA','The fiber optic cable transmitting the T-zero pulse to the ASA is not connected','Verify connectivity of the T-zero fiber cable — See 3.20.4.3 Base1 Timing Signal Fault Isolation'],
+        ['9009','LM_ID_INTERROG_TIMEOUT_INTERROG','Interrogation timeout at the Interrogator','The interrogation control card (ICC) is in the wrong slot; the RCC cables are not connected to the interrogator','Re-install the ICC in the correct slot. Verify connection of cables from the ICC to the interrogator — See 3.20.4.3 Base1 Timing Signal Fault Isolation'],
+        ['9010','LM_ID_INTERROG_TIMEOUT_RETRY','Retrying the interrogation after a timeout','Network cables may not be connected properly','Verify all TLS components are powered on. Verify correct network cable connections'],
+        ['9011','LM_ID_UNEXPECTED_MSG','An unexpected message was received by the base software','Unknown cause — developmental message used by ANPC for troubleshooting','This message does not result in an alert or alarm, and no action is necessary'],
+      ];
+      for (const [ec, sw, desc, reason, sol] of seed) {
+        await sqlRun('INSERT INTO error_codes (error_code, software_id, description, possible_reason, solution, created_at) VALUES (?,?,?,?,?,?)',
+          [ec, sw, desc, reason, sol, now]);
+      }
+    }
     // ── Simulator tables ──────────────────────────────────────────────────────
     await client.execute(`CREATE TABLE IF NOT EXISTS simulator_config (
       key TEXT PRIMARY KEY,
@@ -3438,4 +3585,61 @@ app.delete('/admin/nav-items/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+
+// ── Error Codes ──────────────────────────────────────────────────────────────
+
+// GET /api/error-codes?q=101  — search by code or keyword
+app.get('/error-codes', async (c) => {
+  const q = (c.req.query('q') ?? '').trim();
+  if (!q) return c.json([], 200);
+  const like = `%${q}%`;
+  const rows = await sql(
+    `SELECT id, error_code, software_id, description, possible_reason, solution FROM error_codes
+     WHERE error_code LIKE ? OR software_id LIKE ? OR description LIKE ? OR possible_reason LIKE ? OR solution LIKE ?
+     ORDER BY CAST(error_code AS INTEGER) ASC, error_code ASC LIMIT 50`,
+    [like, like, like, like, like]
+  );
+  return c.json(rows, 200);
+});
+
+// GET /api/admin/error-codes — list all
+app.get('/admin/error-codes', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql(`SELECT id, error_code, software_id, description, possible_reason, solution, created_at FROM error_codes ORDER BY CAST(error_code AS INTEGER) ASC, error_code ASC`);
+  return c.json(rows, 200);
+});
+
+// POST /api/admin/error-codes — create
+app.post('/admin/error-codes', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const { error_code, software_id, description, possible_reason, solution } = await c.req.json().catch(() => ({})) as any;
+  if (!error_code || !description) return c.json({ error: 'error_code and description are required' }, 400);
+  await sqlRun('INSERT INTO error_codes (error_code, software_id, description, possible_reason, solution, created_at) VALUES (?,?,?,?,?,?)',
+    [String(error_code), software_id ?? '', description, possible_reason ?? '', solution ?? '', Date.now()]);
+  const row = await sql('SELECT * FROM error_codes ORDER BY id DESC LIMIT 1');
+  return c.json(row[0], 201);
+});
+
+// PUT /api/admin/error-codes/:id — update
+app.put('/admin/error-codes/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = parseInt(c.req.param('id'));
+  const { error_code, software_id, description, possible_reason, solution } = await c.req.json().catch(() => ({})) as any;
+  await sqlRun('UPDATE error_codes SET error_code=?, software_id=?, description=?, possible_reason=?, solution=? WHERE id=?',
+    [error_code, software_id ?? '', description, possible_reason ?? '', solution ?? '', id]);
+  const row = await sql('SELECT * FROM error_codes WHERE id=?', [id]);
+  return c.json(row[0] ?? {}, 200);
+});
+
+// DELETE /api/admin/error-codes/:id — delete
+app.delete('/admin/error-codes/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? c.req.query('pw') ?? '';
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = parseInt(c.req.param('id'));
+  await sqlRun('DELETE FROM error_codes WHERE id=?', [id]);
+  return c.json({ ok: true });
+});
 export default app;
