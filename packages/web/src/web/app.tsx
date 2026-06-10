@@ -270,6 +270,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  // Guest mode — allow read-only pages without a real session
+  const GUEST_PAGES = ["/basics", "/advanced", "/manuals", "/about"];
+  if (sessionStorage.getItem("tls_guest_mode") === "1") {
+    if (GUEST_PAGES.some(p => location === p || location.startsWith(p + "/"))) {
+      return <>{children}</>;
+    }
+    // Guest tried a locked page — go back to guest home
+    return <Suspense fallback={null}><Index /></Suspense>;
+  }
+
   // Not logged in — show Index (which renders LoginScreen internally)
   if (!session) {
     // Save intended destination for redirect after login (localStorage survives iOS reload)
