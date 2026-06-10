@@ -700,6 +700,10 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
    GUEST HOME PAGE — limited read-only access
 ───────────────────────────────────────────────────────── */
 function GuestHomePage({ onExit }: { onExit: () => void }) {
+  const handleExit = () => {
+    sessionStorage.removeItem('tls_guest_mode');
+    onExit();
+  };
   const [, navigate] = useLocation();
   const sections = [
     { icon:"📘", label:"TLS BASICS",    sub:"Core TLS concepts",        path:"/basics",   color:"#00AEEF", available:true  },
@@ -726,7 +730,7 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
             <div style={{ fontFamily:"Inter", fontSize:10, color:"rgba(255,215,0,0.5)", marginTop:2 }}>Read-only access · Limited features</div>
           </div>
         </div>
-        <button onClick={onExit} style={{
+        <button onClick={handleExit} style={{
           background:"rgba(255,215,0,0.1)", border:"1px solid rgba(255,215,0,0.3)",
           borderRadius:8, color:"#FFD166", fontFamily:"Inter", fontSize:10,
           letterSpacing:"0.1em", padding:"6px 14px", cursor:"pointer",
@@ -744,7 +748,7 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
             <div style={{ fontFamily:"Inter", fontSize:12, color:"#00AEEF", fontWeight:600 }}>Unlock all features</div>
             <div style={{ fontFamily:"Inter", fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:3 }}>Register to track progress, take quizzes &amp; more</div>
           </div>
-          <button onClick={onExit} style={{
+          <button onClick={handleExit} style={{
             background:"linear-gradient(135deg,#00AEEF,#35D4FF)",
             border:"none", borderRadius:10, color:"#fff",
             fontFamily:"Orbitron,monospace", fontSize:9, letterSpacing:"0.12em",
@@ -785,7 +789,12 @@ export default function Index() {
   const [session, setSessionState] = useState<TraineeSession | null>(() => getSession());
 
   const handleLogin = (s: TraineeSession) => {
-    if (s.id !== 'guest') setSession(s); // guests are session-only, not persisted
+    if (s.id !== 'guest') {
+      setSession(s);
+      sessionStorage.removeItem('tls_guest_mode');
+    } else {
+      sessionStorage.setItem('tls_guest_mode', '1'); // AuthGate reads this to allow guest pages
+    }
     setSessionState(s);
   };
 
@@ -806,7 +815,7 @@ export default function Index() {
   }
 
   if (session.id === 'guest') {
-    return <GuestHomePage onExit={() => { setSessionState(null); }} />;
+    return <GuestHomePage onExit={() => { sessionStorage.removeItem('tls_guest_mode'); setSessionState(null); }} />;
   }
 
   return <HomePage session={session} onLogout={handleLogout} />;
