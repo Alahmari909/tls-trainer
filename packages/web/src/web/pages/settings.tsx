@@ -519,26 +519,28 @@ export default function Settings() {
             {!stats.loaded ? (
               <div style={{ textAlign: "center", color: C.dim, fontSize: 13, padding: "8px 0" }}>Loading...</div>
             ) : (
-              <div style={{ display: "flex", gap: 8 }}>
-                <StatCard value={stats.totalXp >= 1000 ? `${(stats.totalXp/1000).toFixed(1)}k` : stats.totalXp} label="TOTAL XP" color={C.gold} />
-                <StatCard value={stats.streak} label="STREAK" color={C.cyan} />
-                <StatCard value={stats.quizzesPassed} label="PASSED" color={C.green} />
-                <StatCard value={`${stats.avgScore}%`} label="AVG" color={C.blue} />
-              </div>
-              <button
-                onClick={() => window.location.href = '/quiz-history'}
-                style={{
-                  width: "100%", marginTop: 12, padding: "10px 16px",
-                  background: "rgba(0,174,239,0.07)",
-                  border: "1px solid rgba(0,174,239,0.25)", borderRadius: 10,
-                  color: "#00AEEF", fontFamily: "Inter", fontSize: 11,
-                  letterSpacing: "0.08em", cursor: "pointer", textAlign: "left",
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                }}
-              >
-                <span>📋 View Full Quiz History</span>
-                <span style={{ opacity: 0.6 }}>→</span>
-              </button>
+              <>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <StatCard value={stats.totalXp >= 1000 ? `${(stats.totalXp/1000).toFixed(1)}k` : stats.totalXp} label="TOTAL XP" color={C.gold} />
+                  <StatCard value={stats.streak} label="STREAK" color={C.cyan} />
+                  <StatCard value={stats.quizzesPassed} label="PASSED" color={C.green} />
+                  <StatCard value={`${stats.avgScore}%`} label="AVG" color={C.blue} />
+                </div>
+                <button
+                  onClick={() => window.location.href = '/quiz-history'}
+                  style={{
+                    width: "100%", marginTop: 12, padding: "10px 16px",
+                    background: "rgba(0,174,239,0.07)",
+                    border: "1px solid rgba(0,174,239,0.25)", borderRadius: 10,
+                    color: "#00AEEF", fontFamily: "Inter", fontSize: 11,
+                    letterSpacing: "0.08em", cursor: "pointer", textAlign: "left" as const,
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}
+                >
+                  <span>📋 View Full Quiz History</span>
+                  <span style={{ opacity: 0.6 }}>→</span>
+                </button>
+              </>
             )}
           </div>
         </Section>
