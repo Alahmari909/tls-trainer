@@ -624,6 +624,248 @@ export default function Basics() {
           </div>
         </div>
 
+        {/* ── DIVIDER ── */}
+        <div style={{ marginTop: 36, marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, height: 1, background: "rgba(0,174,239,0.15)" }} />
+          <span className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.25em", color: "rgba(0,174,239,0.45)" }}>SYSTEM REFERENCE</span>
+          <div style={{ flex: 1, height: 1, background: "rgba(0,174,239,0.15)" }} />
+        </div>
+
+        {/* ── 1. MODES OF OPERATION ── */}
+        <div style={{ marginTop: 20 }}>
+          <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.2em", color: "var(--text-muted)", marginBottom: 14 }}>
+            MODES OF OPERATION
+          </div>
+
+          {/* Flow diagram image */}
+          <div style={{
+            borderRadius: 12, overflow: "hidden",
+            border: "1px solid rgba(0,174,239,0.2)",
+            background: "#fff",
+            marginBottom: 14,
+          }}>
+            <img
+              src="/manual-modes-flow.jpg"
+              alt="TLS Modes of Operation Flow Diagram"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </div>
+
+          {/* Mode cards */}
+          {[
+            { name: "SYSTEM START UP", color: "#00AEEF", desc: "Initial power-on sequence. System performs hardware checks and prepares for initialization." },
+            { name: "INITIALIZATION", color: "#00AEEF", desc: "System loads configuration, establishes communication between subsystems, and runs built-in diagnostics." },
+            { name: "DIAGNOSTIC", color: "#FFD166", desc: "BIT (Built-In Test) runs automatically. Validates sensor, transmitter, and monitor subsystems before operation." },
+            { name: "TRACK", color: "#00D26A", desc: "Normal operational mode. System interrogates aircraft transponders, processes sensor data, and computes guidance." },
+            { name: "ACTIVE GUIDANCE", color: "#00D26A", desc: "Full ILS-equivalent guidance active. LOC and GS signals transmitted to aircraft cockpit displays." },
+            { name: "MAINTENANCE", color: "#C9A66B", desc: "Technician access mode. Allows component-level testing, alignment, and calibration without affecting active operations." },
+            { name: "TEST", color: "#9B59B6", desc: "Controlled test environment. Simulates approach sequences for verification and training purposes." },
+          ].map((m, i) => (
+            <div key={i} className="glass-card" style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "12px 16px", marginBottom: 8,
+              border: `1px solid ${m.color}22`,
+            }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                background: m.color, boxShadow: `0 0 8px ${m.color}`,
+              }} />
+              <div>
+                <div className="font-orbitron" style={{ fontSize: 10, color: m.color, marginBottom: 4 }}>{m.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>{m.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── 2. GTU STATUS STATES ── */}
+        <div style={{ marginTop: 28 }}>
+          <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.2em", color: "var(--text-muted)", marginBottom: 14 }}>
+            GTU STATUS STATES
+          </div>
+
+          {/* Manual image */}
+          <div style={{
+            borderRadius: 12, overflow: "hidden",
+            border: "1px solid rgba(0,174,239,0.2)",
+            background: "#fff",
+            marginBottom: 14,
+          }}>
+            <img
+              src="/manual-gtu-status.jpg"
+              alt="GTU Status and System Mode States"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </div>
+
+          {/* Status state rows */}
+          {[
+            { label: "READY",                    bg: "#c0c0c0", fg: "#000", desc: "System is powered and initialized. No aircraft currently acquired on the channel." },
+            { label: "SEARCHING FOR CODE",        bg: "#ff8800", fg: "#fff", desc: "Operator entered a squawk code. System is actively searching for a matching transponder reply in the LOC cone." },
+            { label: "TRACKING — LOC ONLY",       bg: "#00ffff", fg: "#000", desc: "Aircraft acquired and tracked in azimuth (Localizer) cone only. Elevation (Glide Slope) tracking not yet active." },
+            { label: "TRACKING",                  bg: "#ffff00", fg: "#000", desc: "Aircraft is fully tracked in both azimuth and elevation. System is computing LOC and GS guidance." },
+            { label: "ILS GUIDANCE ACTIVE",       bg: "#00ff00", fg: "#000", desc: "ILS-equivalent LOC and GS signals are being transmitted to the aircraft's cockpit instruments." },
+            { label: "GCA GUIDANCE ACTIVE",       bg: "#00ff00", fg: "#000", desc: "Ground Controlled Approach guidance mode is active. Controller provides verbal guidance to the pilot." },
+            { label: "GUIDANCE SUBSYSTEM ALARM",  bg: "#ff0000", fg: "#fff", desc: "A fault has been detected in the guidance subsystem. Guidance transmission is suspended until cleared." },
+            { label: "FAILED GTU BIT",            bg: "#ff0000", fg: "#fff", desc: "The GTU built-in test has detected a failure. Immediate maintenance action required." },
+          ].map((s, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "10px 14px", marginBottom: 6,
+              borderRadius: 10,
+              background: "rgba(8,15,28,0.88)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}>
+              <div style={{
+                minWidth: 14, height: "100%", alignSelf: "stretch",
+                borderRadius: 4, background: s.bg,
+                flexShrink: 0, width: 6,
+              }} />
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  display: "inline-block",
+                  background: s.bg, color: s.fg,
+                  fontFamily: "Orbitron", fontSize: 9,
+                  fontWeight: 700, letterSpacing: "0.08em",
+                  padding: "2px 8px", borderRadius: 4,
+                  marginBottom: 5,
+                }}>
+                  {s.label}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── 3. SYSTEM MODE STATES ── */}
+        <div style={{ marginTop: 28 }}>
+          <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.2em", color: "var(--text-muted)", marginBottom: 14 }}>
+            SYSTEM MODE STATES
+          </div>
+          {[
+            { label: "NO COMM",      color: "#ff4444", desc: "No communication established between RCU and base stations. Check network/cable connections." },
+            { label: "INITIALIZING", color: "#ff8800", desc: "System is starting up. Subsystems are loading and establishing internal communications." },
+            { label: "DIAGNOSTIC",   color: "#FFD166", desc: "BIT in progress. System is self-testing all major subsystems before entering operational mode." },
+            { label: "TRACK",        color: "#00D26A", desc: "Primary operational mode. Sensors active, interrogator transmitting, aircraft being tracked." },
+            { label: "MAINTENANCE",  color: "#C9A66B", desc: "System in maintenance mode. For technician use only. Normal operations suspended." },
+            { label: "TEST",         color: "#9B59B6", desc: "Test mode active. Simulated signals and scenarios for training and verification." },
+          ].map((m, i) => (
+            <div key={i} className="glass-card" style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "12px 16px", marginBottom: 8,
+              border: `1px solid ${m.color}22`,
+            }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                background: m.color, boxShadow: `0 0 8px ${m.color}`,
+              }} />
+              <div>
+                <div className="font-orbitron" style={{ fontSize: 10, color: m.color, marginBottom: 4 }}>{m.label}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>{m.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── 4. INTEGRITY MONITOR ── */}
+        <div style={{ marginTop: 28 }}>
+          <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.2em", color: "var(--text-muted)", marginBottom: 14 }}>
+            INTEGRITY MONITOR
+          </div>
+
+          {/* Manual image */}
+          <div style={{
+            borderRadius: 12, overflow: "hidden",
+            border: "1px solid rgba(0,174,239,0.2)",
+            background: "#fff",
+            marginBottom: 14,
+          }}>
+            <img
+              src="/manual-integrity.jpg"
+              alt="Integrity Monitor — OK / ALERT / ALARM"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </div>
+
+          {[
+            { label: "OK",    bg: "#00cc44", fg: "#000", desc: "All system parameters within normal limits. Safe for operation. Guidance is reliable." },
+            { label: "ALERT", bg: "#FFD166", fg: "#000", desc: "One or more parameters approaching limits. Monitor closely. Guidance still active but caution required." },
+            { label: "ALARM", bg: "#ff2222", fg: "#fff", desc: "Parameter(s) exceeded safe limits. System automatically suspends guidance. Immediate action required." },
+          ].map((s, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "stretch", gap: 0,
+              marginBottom: 10, borderRadius: 10, overflow: "hidden",
+              border: `1px solid ${s.bg}44`,
+            }}>
+              <div style={{
+                width: 64, flexShrink: 0,
+                background: s.bg,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{
+                  fontFamily: "Orbitron", fontSize: 11,
+                  fontWeight: 700, color: s.fg,
+                  letterSpacing: "0.05em",
+                }}>{s.label}</span>
+              </div>
+              <div style={{
+                flex: 1, padding: "12px 14px",
+                background: "rgba(8,15,28,0.9)",
+              }}>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── 5. RCU INTERFACE CONTROLS ── */}
+        <div style={{ marginTop: 28, marginBottom: 16 }}>
+          <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.2em", color: "var(--text-muted)", marginBottom: 14 }}>
+            RCU INTERFACE CONTROLS
+          </div>
+
+          {/* Manual image */}
+          <div style={{
+            borderRadius: 12, overflow: "hidden",
+            border: "1px solid rgba(0,174,239,0.2)",
+            background: "#fff",
+            marginBottom: 14,
+          }}>
+            <img
+              src="/manual-rcu-interface.jpg"
+              alt="RCU Interface Controls"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </div>
+
+          {[
+            { label: "RCU WINDOW",       color: "#00AEEF", desc: "Main radar display window. Shows real-time aircraft tracks, approach path, and system status." },
+            { label: "RBL WINDOW",       color: "#00AEEF", desc: "Range Bearing Line window. Used to measure distance and bearing to a selected track." },
+            { label: "VIEW",             color: "#35D4FF", desc: "Controls the display view angle and orientation of the radar presentation." },
+            { label: "ZOOM",             color: "#35D4FF", desc: "Adjusts the radar display zoom level to focus on the approach area or wide area coverage." },
+            { label: "APPROACH WINDOW",  color: "#00D26A", desc: "Dedicated window showing the final approach segment with glide path and localizer alignment." },
+            { label: "GUIDANCE WINDOW",  color: "#00D26A", desc: "Displays computed LOC and GS guidance deviations and transmitted signal status." },
+            { label: "NO COMM WITH BASES", color: "#ff4444", desc: "Status indicator. Red warning shown when the RCU loses communication with one or more base stations." },
+          ].map((c, i) => (
+            <div key={i} className="glass-card" style={{
+              display: "flex", alignItems: "flex-start", gap: 14,
+              padding: "12px 16px", marginBottom: 8,
+              border: `1px solid ${c.color}22`,
+            }}>
+              <div style={{
+                width: 3, minHeight: 36, borderRadius: 2,
+                background: c.color, boxShadow: `0 0 6px ${c.color}`,
+                flexShrink: 0, alignSelf: "stretch",
+              }} />
+              <div>
+                <div className="font-orbitron" style={{ fontSize: 10, color: c.color, marginBottom: 4 }}>{c.label}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>{c.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );
