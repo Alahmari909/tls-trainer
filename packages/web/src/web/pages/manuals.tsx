@@ -38,7 +38,7 @@ function StarIcon({ filled, color }: { filled: boolean; color: string }) {
 export default function Manuals() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch]               = useState("");
-  const [pdfViewer, setPdfViewer]         = useState<{ url: string; title: string } | null>(null);
+
   const [favorites, setFavorites]         = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) ?? "[]")); }
     catch { return new Set(); }
@@ -115,126 +115,19 @@ export default function Manuals() {
         }),
       }).catch(() => {});
     }
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.open(`/pdfs/${manual.file}`, '_blank');
-    } else {
-      setPdfViewer({ url: `/pdfs/${manual.file}`, title: manual.title });
-    }
+    // On all devices: open PDF directly in browser tab — full scrollable view
+    window.open(`/pdfs/${manual.file}`, '_blank');
   };
 
   const handleSave = (file: string) => {
-    const a = document.createElement("a");
-    a.href = `/pdfs/${file}`;
-    a.download = file;
-    a.click();
+    // ?dl=1 sets Content-Disposition: attachment → iOS shows share/save sheet
+    window.open(`/pdfs/${file}?dl=1`, '_blank');
   };
 
   return (
     <div className="page" style={{ background: "var(--bg-primary)" }}>
 
-      {/* PDF Inline Viewer Modal */}
-      {pdfViewer && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          background: "rgba(0,0,0,0.88)",
-          display: "flex", flexDirection: "column",
-          alignItems: "stretch",
-        }}>
-          {/* Modal Header */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "10px 16px",
-            background: "linear-gradient(90deg, #071426, #0f3460)",
-            borderBottom: "1px solid rgba(201,166,107,0.3)",
-            flexShrink: 0,
-          }}>
-            <span style={{ fontFamily: "Orbitron, monospace", fontSize: 11, color: "#C9A66B", letterSpacing: "0.1em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70vw" }}>
-              {pdfViewer.title}
-            </span>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <a href={pdfViewer.url} download style={{
-                padding: "5px 12px", borderRadius: 6, fontSize: 10,
-                background: "rgba(0,174,239,0.15)", border: "1px solid rgba(0,174,239,0.4)",
-                color: "#00AEEF", textDecoration: "none", fontFamily: "monospace",
-              }}>↓ DOWNLOAD</a>
-              <button onClick={() => setPdfViewer(null)} style={{
-                padding: "5px 12px", borderRadius: 6, fontSize: 10,
-                background: "rgba(255,60,60,0.15)", border: "1px solid rgba(255,60,60,0.4)",
-                color: "#FF6B6B", cursor: "pointer", fontFamily: "monospace",
-              }}>✕ CLOSE</button>
-            </div>
-          </div>
-          {/* PDF viewer — Google Docs for mobile/iOS, direct iframe for desktop */}
-          {(() => {
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            const fullUrl = `${window.location.origin}${pdfViewer.url}`;
-            const googleUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
-            return isMobile ? (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, background: "#0a0f1e" }}>
-                <div style={{ fontSize: 48 }}>📄</div>
-                <div style={{ color: "#C9A66B", fontFamily: "Orbitron, monospace", fontSize: 13, textAlign: "center", letterSpacing: "0.05em" }}>
-                  {pdfViewer.title}
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textAlign: "center", maxWidth: 280 }}>
-                  Safari على iOS لا يدعم عرض PDF مباشرة.<br/>
-                  اختر طريقة العرض:
-                </div>
-                <a
-                  href={pdfViewer.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    padding: "12px 24px", borderRadius: 8, fontSize: 13,
-                    background: "linear-gradient(135deg, #00AEEF22, #00AEEF44)",
-                    border: "1px solid #00AEEF88",
-                    color: "#00AEEF", textDecoration: "none",
-                    fontFamily: "monospace", fontWeight: "bold",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  📖 فتح PDF في المتصفح
-                </a>
-                <a
-                  href={googleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    padding: "12px 24px", borderRadius: 8, fontSize: 13,
-                    background: "linear-gradient(135deg, #FFD70022, #FFD70044)",
-                    border: "1px solid #FFD70088",
-                    color: "#FFD700", textDecoration: "none",
-                    fontFamily: "monospace", fontWeight: "bold",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  🌐 عرض عبر Google Docs
-                </a>
-                <a
-                  href={pdfViewer.url}
-                  download
-                  style={{
-                    padding: "12px 24px", borderRadius: 8, fontSize: 13,
-                    background: "linear-gradient(135deg, #00FF8822, #00FF8844)",
-                    border: "1px solid #00FF8888",
-                    color: "#00FF88", textDecoration: "none",
-                    fontFamily: "monospace", fontWeight: "bold",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  ↓ تحميل PDF
-                </a>
-              </div>
-            ) : (
-              <iframe
-                src={pdfViewer.url}
-                style={{ flex: 1, border: "none", width: "100%", background: "#1a1a2e" }}
-                title={pdfViewer.title}
-              />
-            );
-          })()}
-        </div>
-      )}
+      {/* PDF viewer removed — opens in browser tab via window.open */}
 
       {/* Header */}
       <div className="radar-grid" style={{

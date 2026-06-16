@@ -31,9 +31,21 @@ const server = Bun.serve({
     const staticPath = getStaticFilePath(url.pathname, staticDir);
     const staticFile = Bun.file(staticPath);
     if (await staticFile.exists()) {
-      return new Response(staticFile, {
-        headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
-      });
+      const isPdf = url.pathname.toLowerCase().endsWith(".pdf");
+      const isDownload = url.searchParams.get("dl") === "1";
+      const headers: Record<string, string> = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      };
+      if (isPdf) {
+        headers["Content-Type"] = "application/pdf";
+        if (isDownload) {
+          const fileName = url.pathname.split("/").pop() ?? "file.pdf";
+          headers["Content-Disposition"] = `attachment; filename="${fileName}"`;
+        } else {
+          headers["Content-Disposition"] = "inline";
+        }
+      }
+      return new Response(staticFile, { headers });
     }
 
     // Serve admin.html for /admin and all /admin/* routes
