@@ -2460,8 +2460,8 @@ function NavManagerAdmin({ adminPw }: { adminPw: string }) {
 // ─── Report Stats (small helper to avoid IIFE in JSX) ───────────────────────
 function ReportStats({ trainees }: { trainees: Trainee[] }) {
   const online   = trainees.filter(t => t.online).length;
-  const avgXp    = Math.round(trainees.reduce((s,t) => s + t.xp, 0) / trainees.length);
-  const avgMods  = (trainees.reduce((s,t) => s + t.completedModules, 0) / trainees.length).toFixed(1);
+  const avgXp    = Math.round(trainees.reduce((s,t) => s + t.xp, 0) / (trainees.length||1));
+  const avgMods  = (trainees.reduce((s,t) => s + t.completedModules, 0) / (trainees.length||1)).toFixed(1);
   const avgScore = Math.round(trainees.filter(t => (t.avgScore ?? 0) > 0).reduce((s,t) => s + (t.avgScore ?? 0), 0) / (trainees.filter(t=>(t.avgScore??0)>0).length||1));
   const stats = [
     { label: "TRAINEES",  value: String(trainees.length), color: "#00FF88" },
@@ -2470,18 +2470,74 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
     { label: "AVG MODS",  value: avgMods,                 color: "#00AEEF" },
     { label: "AVG SCORE", value: `${avgScore}%`,          color: "#FF9F1C" },
   ];
+
+  // Bar chart data
+  const maxXp   = Math.max(...trainees.map(t => t.xp), 1);
+  const maxMods = Math.max(...trainees.map(t => t.completedModules), 1);
+
   return (
-    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-      {stats.map(s => (
-        <div key={s.label} style={{
-          flex: "1 1 auto", minWidth: 60, textAlign: "center",
-          background: `${s.color}10`, border: `1px solid ${s.color}25`,
-          borderRadius: 10, padding: "10px 6px",
-        }}>
-          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
-          <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.08em" }}>{s.label}</div>
+    <div>
+      {/* Stat Cards */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        {stats.map(s => (
+          <div key={s.label} style={{
+            flex: "1 1 auto", minWidth: 60, textAlign: "center",
+            background: `${s.color}10`, border: `1px solid ${s.color}25`,
+            borderRadius: 10, padding: "10px 6px",
+          }}>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.08em" }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {trainees.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+
+          {/* XP Bar Chart */}
+          <div style={{ background: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 9, color: "#FFD700", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>XP RANKING</div>
+            {[...trainees].sort((a,b) => b.xp - a.xp).slice(0,8).map(t => (
+              <div key={t.id} style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                  <span style={{ fontSize: 9, color: "#FFD700", fontFamily: "monospace" }}>{t.xp}</span>
+                </div>
+                <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 3,
+                    width: `${Math.round((t.xp / maxXp) * 100)}%`,
+                    background: "linear-gradient(90deg, #FFD700, #FF9F1C)",
+                    transition: "width 0.6s ease",
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Module Completion Chart */}
+          <div style={{ background: "rgba(0,174,239,0.05)", border: "1px solid rgba(0,174,239,0.15)", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 9, color: "#00AEEF", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>MODULE COMPLETION</div>
+            {[...trainees].sort((a,b) => b.completedModules - a.completedModules).slice(0,8).map(t => (
+              <div key={t.id} style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                  <span style={{ fontSize: 9, color: "#00AEEF", fontFamily: "monospace" }}>{t.completedModules}</span>
+                </div>
+                <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 3,
+                    width: `${Math.round((t.completedModules / maxMods) * 100)}%`,
+                    background: "linear-gradient(90deg, #00AEEF, #00FF88)",
+                    transition: "width 0.6s ease",
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
-      ))}
+      )}
     </div>
   );
 }

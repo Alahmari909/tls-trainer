@@ -1,4 +1,4 @@
-import { Route, Switch, useLocation } from "wouter";
+import { Route, Switch, useLocation, Redirect } from "wouter";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { telegramTrack, getSession, clearSession } from "./hooks/useTelegramTrack";
 import type { TraineeSession } from "./hooks/useTelegramTrack";
@@ -453,6 +453,9 @@ function App() {
                 <Route path="/error-codes" component={ErrorCodes} />
                 <Route path="/simulator" component={Simulator} />
                 <Route path="/tls-animation" component={TLSAnimation} />
+                {/* Redirect legacy/deep-link routes to dashboard */}
+                <Route path="/menu">{() => <Redirect to="/" />}</Route>
+                <Route path="/modules">{() => <Redirect to="/" />}</Route>
               </Switch>
             </Suspense>
           </AuthGate>

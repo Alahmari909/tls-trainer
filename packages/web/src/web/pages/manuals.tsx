@@ -38,6 +38,7 @@ function StarIcon({ filled, color }: { filled: boolean; color: string }) {
 export default function Manuals() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch]               = useState("");
+  const [pdfViewer, setPdfViewer]         = useState<{ url: string; title: string } | null>(null);
   const [favorites, setFavorites]         = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) ?? "[]")); }
     catch { return new Set(); }
@@ -114,7 +115,7 @@ export default function Manuals() {
         }),
       }).catch(() => {});
     }
-    window.open(`/pdfs/${manual.file}`, "_blank", "noopener,noreferrer");
+    setPdfViewer({ url: `/pdfs/${manual.file}`, title: manual.title });
   };
 
   const handleSave = (file: string) => {
@@ -126,6 +127,47 @@ export default function Manuals() {
 
   return (
     <div className="page" style={{ background: "var(--bg-primary)" }}>
+
+      {/* PDF Inline Viewer Modal */}
+      {pdfViewer && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.88)",
+          display: "flex", flexDirection: "column",
+          alignItems: "stretch",
+        }}>
+          {/* Modal Header */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 16px",
+            background: "linear-gradient(90deg, #071426, #0f3460)",
+            borderBottom: "1px solid rgba(201,166,107,0.3)",
+            flexShrink: 0,
+          }}>
+            <span style={{ fontFamily: "Orbitron, monospace", fontSize: 11, color: "#C9A66B", letterSpacing: "0.1em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70vw" }}>
+              {pdfViewer.title}
+            </span>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <a href={pdfViewer.url} download style={{
+                padding: "5px 12px", borderRadius: 6, fontSize: 10,
+                background: "rgba(0,174,239,0.15)", border: "1px solid rgba(0,174,239,0.4)",
+                color: "#00AEEF", textDecoration: "none", fontFamily: "monospace",
+              }}>↓ DOWNLOAD</a>
+              <button onClick={() => setPdfViewer(null)} style={{
+                padding: "5px 12px", borderRadius: 6, fontSize: 10,
+                background: "rgba(255,60,60,0.15)", border: "1px solid rgba(255,60,60,0.4)",
+                color: "#FF6B6B", cursor: "pointer", fontFamily: "monospace",
+              }}>✕ CLOSE</button>
+            </div>
+          </div>
+          {/* iframe viewer */}
+          <iframe
+            src={pdfViewer.url}
+            style={{ flex: 1, border: "none", width: "100%", background: "#1a1a2e" }}
+            title={pdfViewer.title}
+          />
+        </div>
+      )}
 
       {/* Header */}
       <div className="radar-grid" style={{
