@@ -22,14 +22,16 @@ interface RealNotif {
   alert_type?: string;
   sender_role?: string;
   read: number;
+  pinned: number;
   ts: number;
   _kind: "alert" | "message";
 }
 
-type FilterKey = "all" | "message" | "warning" | "danger" | "info" | "sound" | "module";
+type FilterKey = "all" | "pinned" | "message" | "warning" | "danger" | "info" | "sound" | "module";
 
 const filters: { key: FilterKey; label: string }[] = [
   { key: "all",     label: "All" },
+  { key: "pinned",  label: "📌 Pinned" },
   { key: "message", label: "Messages" },
   { key: "warning", label: "Warnings" },
   { key: "danger",  label: "Danger" },
@@ -73,6 +75,7 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
   const [notifs, setNotifs] = useState<RealNotif[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [loading, setLoading] = useState(true);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null); // `${kind}-${id}`
   const [, navigate] = useLocation();
 
   const session = getSession();
@@ -82,9 +85,12 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
     try {
       const r = await fetch(`/api/trainee/notifications/${session.id}`);
       const data = await r.json() as { alerts: RealNotif[]; messages: RealNotif[] };
-      const alerts = (data.alerts ?? []).map(a => ({ ...a, _kind: "alert" as const }));
-      const msgs = (data.messages ?? []).map(m => ({ ...m, _kind: "message" as const }));
-      const all = [...alerts, ...msgs].sort((a, b) => b.ts - a.ts);
+      const alerts = (data.alerts ?? []).map(a => ({ ...a, pinned: a.pinned ?? 0, _kind: "alert" as const }));
+      const msgs = (data.messages ?? []).map(m => ({ ...m, pinned: m.pinned ?? 0, _kind: "message" as const }));
+      const all = [...alerts, ...msgs].sort((a, b) => {
+        if (b.pinned !== a.pinned) return b.pinned - a.pinned;
+        return b.ts - a.ts;
+      });
       setNotifs(all);
     } catch { /* non-fatal */ }
     setLoading(false);
@@ -96,6 +102,14 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
     return () => clearInterval(id);
   }, [load]);
 
+  // Close menu on outside tap
+  useEffect(() => {
+    if (!activeMenu) return;
+    const handler = () => setActiveMenu(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [activeMenu]);
+
   const markAllRead = async () => {
     if (!session) return;
     await fetch("/api/trainee/notifications/read", {
@@ -106,26 +120,56 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
     setNotifs(prev => prev.map(n => ({ ...n, read: 1 })));
   };
 
+  const deleteNotif = async (notif: RealNotif) => {
+    if (!session) return;
+    setNotifs(prev => prev.filter(n => !(n._kind === notif._kind && n.id === notif.id)));
+    setActiveMenu(null);
+    await fetch("/api/trainee/notifications/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ traineeId: session.id, id: notif.id, kind: notif._kind }),
+    }).catch(() => {});
+  };
+
+  const togglePin = async (notif: RealNotif) => {
+    if (!session) return;
+    const newPinned = notif.pinned ? 0 : 1;
+    setNotifs(prev => {
+      const updated = prev.map(n =>
+        n._kind === notif._kind && n.id === notif.id ? { ...n, pinned: newPinned } : n
+      );
+      return [...updated].sort((a, b) => {
+        if (b.pinned !== a.pinned) return b.pinned - a.pinned;
+        return b.ts - a.ts;
+      });
+    });
+    setActiveMenu(null);
+    await fetch("/api/trainee/notifications/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ traineeId: session.id, id: notif.id, kind: notif._kind, pinned: newPinned }),
+    }).catch(() => {});
+  };
+
   const handleClick = (notif: RealNotif) => {
     const isMsg = notif._kind === "message";
     const atype = notif.alert_type ?? "";
-    // Play sound on tap
     playAlertTone(isMsg ? "message" : (atype as any) || "info");
     vibrate("light");
-    // In admin mode — never navigate away to trainee pages
     if (adminMode) return;
-    // Trainee navigation
     if (isMsg) navigate("/private-chat");
     else if (atype === "module") navigate("/modules");
-    // else stay on notifications
   };
 
-  const filtered = filter === "all" ? notifs : notifs.filter(n => {
+  const filtered = notifs.filter(n => {
+    if (filter === "all") return true;
+    if (filter === "pinned") return n.pinned === 1;
     if (filter === "message") return n._kind === "message";
     return n.alert_type === filter;
   });
 
   const unreadCount = notifs.filter(n => !n.read).length;
+  const pinnedCount = notifs.filter(n => n.pinned).length;
 
   return (
     <div className="page" style={{ background: "var(--bg-primary)" }}>
@@ -147,8 +191,11 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
               <div>
                 <div className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.3em", color: C.red, marginBottom: 5 }}>ALERTS & MESSAGES</div>
                 <div className="font-orbitron" style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>NOTIFICATIONS</div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                  {unreadCount > 0 ? `${unreadCount} unread` : loading ? "Loading..." : "All acknowledged"}
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, display: "flex", gap: 10 }}>
+                  {unreadCount > 0 && <span style={{ color: C.cyan }}>{unreadCount} unread</span>}
+                  {pinnedCount > 0 && <span style={{ color: C.gold }}>📌 {pinnedCount} pinned</span>}
+                  {unreadCount === 0 && pinnedCount === 0 && !loading && <span>All acknowledged</span>}
+                  {loading && <span>Loading...</span>}
                 </div>
               </div>
               {unreadCount > 0 && (
@@ -195,7 +242,7 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
             <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.25)" }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
               <p style={{ fontFamily: "Inter", fontSize: 13, letterSpacing: "0.1em" }}>
-                {filter === "all" ? "NO NOTIFICATIONS" : `NO ${filter.toUpperCase()} ALERTS`}
+                {filter === "all" ? "NO NOTIFICATIONS" : filter === "pinned" ? "NO PINNED NOTIFICATIONS" : `NO ${filter.toUpperCase()} ALERTS`}
               </p>
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>
                 Instructor alerts will appear here
@@ -209,59 +256,125 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
                 const color = alertColor(atype, isMsg);
                 const label = alertLabel(atype, isMsg);
                 const body = notif.message ?? notif.text ?? "";
+                const menuKey = `${notif._kind}-${notif.id}`;
+                const menuOpen = activeMenu === menuKey;
 
                 return (
-                  <div
-                    key={`${notif._kind}-${notif.id}`}
-                    onClick={() => handleClick(notif)}
-                    style={{
-                      background: notif.read ? "rgba(28,38,51,0.35)" : "rgba(28,38,51,0.65)",
-                      border: `1px solid ${notif.read ? "rgba(255,255,255,0.05)" : `${color}30`}`,
-                      borderLeft: `3px solid ${notif.read ? "rgba(255,255,255,0.1)" : color}`,
-                      borderRadius: "0 12px 12px 0",
-                      padding: "14px 16px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                      {/* Colored dot */}
-                      <div style={{
-                        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                        background: `${color}18`,
-                        border: `1px solid ${color}30`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 16,
-                      }}>
-                        {isMsg ? "💬" : atype === "danger" ? "🚨" : atype === "warning" ? "⚠️" : atype === "sound" ? "🔊" : "📢"}
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <span style={{
-                            fontSize: 10, fontFamily: "Inter", letterSpacing: "0.06em",
-                            color, background: `${color}15`,
-                            padding: "1px 7px", borderRadius: 4,
-                          }}>{label}</span>
-                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginLeft: "auto" }}>
-                            {formatTs(notif.ts)}
-                          </span>
-                          {!notif.read && (
-                            <span style={{
-                              width: 7, height: 7, borderRadius: "50%",
-                              background: color, flexShrink: 0,
-                              animation: "pulse-glow 1.5s ease infinite",
-                            }} />
-                          )}
-                        </div>
+                  <div key={menuKey} style={{ position: "relative" }}>
+                    <div
+                      onClick={() => handleClick(notif)}
+                      style={{
+                        background: notif.pinned
+                          ? `linear-gradient(135deg, rgba(201,166,107,0.12), rgba(28,38,51,0.65))`
+                          : notif.read ? "rgba(28,38,51,0.35)" : "rgba(28,38,51,0.65)",
+                        border: `1px solid ${notif.pinned ? `${C.gold}40` : notif.read ? "rgba(255,255,255,0.05)" : `${color}30`}`,
+                        borderLeft: `3px solid ${notif.pinned ? C.gold : notif.read ? "rgba(255,255,255,0.1)" : color}`,
+                        borderRadius: "0 12px 12px 0",
+                        padding: "14px 16px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        {/* Icon */}
                         <div style={{
-                          fontSize: 13, color: notif.read ? "rgba(255,255,255,0.55)" : "#fff",
-                          lineHeight: 1.5,
-                        }}>{body}</div>
-                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 4 }}>
-                          {isMsg ? "Tap to open chat →" : atype === "module" ? "Tap to open modules →" : ""}
+                          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                          background: `${color}18`,
+                          border: `1px solid ${color}30`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 16,
+                        }}>
+                          {isMsg ? "💬" : atype === "danger" ? "🚨" : atype === "warning" ? "⚠️" : atype === "sound" ? "🔊" : "📢"}
                         </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            {notif.pinned === 1 && (
+                              <span style={{ fontSize: 11, color: C.gold }}>📌</span>
+                            )}
+                            <span style={{
+                              fontSize: 10, fontFamily: "Inter", letterSpacing: "0.06em",
+                              color, background: `${color}15`,
+                              padding: "1px 7px", borderRadius: 4,
+                            }}>{label}</span>
+                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginLeft: "auto" }}>
+                              {formatTs(notif.ts)}
+                            </span>
+                            {!notif.read && (
+                              <span style={{
+                                width: 7, height: 7, borderRadius: "50%",
+                                background: color, flexShrink: 0,
+                                animation: "pulse-glow 1.5s ease infinite",
+                              }} />
+                            )}
+                          </div>
+                          <div style={{
+                            fontSize: 13, color: notif.read ? "rgba(255,255,255,0.55)" : "#fff",
+                            lineHeight: 1.5,
+                          }}>{body}</div>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 4 }}>
+                            {isMsg ? "Tap to open chat →" : atype === "module" ? "Tap to open modules →" : ""}
+                          </div>
+                        </div>
+
+                        {/* Action button (⋮) */}
+                        <button
+                          onClick={e => { e.stopPropagation(); setActiveMenu(menuOpen ? null : menuKey); }}
+                          style={{
+                            background: "transparent", border: "none",
+                            color: "rgba(255,255,255,0.35)", cursor: "pointer",
+                            fontSize: 18, padding: "0 4px", flexShrink: 0,
+                            lineHeight: 1,
+                          }}
+                        >⋮</button>
                       </div>
                     </div>
+
+                    {/* Action menu */}
+                    {menuOpen && (
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          position: "absolute", top: 8, right: 8, zIndex: 100,
+                          background: "#0f1e2e",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          minWidth: 160,
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        {/* Pin / Unpin */}
+                        <button
+                          onClick={() => togglePin(notif)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            width: "100%", padding: "12px 16px",
+                            background: "transparent", border: "none",
+                            borderBottom: "1px solid rgba(255,255,255,0.07)",
+                            color: notif.pinned ? C.gold : "rgba(255,255,255,0.75)",
+                            fontSize: 13, cursor: "pointer", textAlign: "left",
+                          }}
+                        >
+                          <span style={{ fontSize: 16 }}>{notif.pinned ? "📌" : "📍"}</span>
+                          <span>{notif.pinned ? "Unpin" : "Pin"}</span>
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          onClick={() => deleteNotif(notif)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            width: "100%", padding: "12px 16px",
+                            background: "transparent", border: "none",
+                            color: C.red,
+                            fontSize: 13, cursor: "pointer", textAlign: "left",
+                          }}
+                        >
+                          <span style={{ fontSize: 16 }}>🗑️</span>
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

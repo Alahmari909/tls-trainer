@@ -151,6 +151,11 @@ async function ensureTables() {
     await client.execute(`ALTER TABLE trainees ADD COLUMN air_base TEXT`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN avatar TEXT`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN avatar_pending TEXT`).catch(() => {});
+    // Notification pin/delete support
+    await client.execute(`ALTER TABLE trainee_alerts ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    await client.execute(`ALTER TABLE trainee_alerts ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    await client.execute(`ALTER TABLE trainee_messages ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    await client.execute(`ALTER TABLE trainee_messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     await client.execute(`CREATE TABLE IF NOT EXISTS moderation_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       trainee_id TEXT NOT NULL,
@@ -1280,10 +1285,10 @@ const app = new Hono()
   .get('/trainee/notifications/:id', async (c) => {
     const id = c.req.param('id');
     const alerts = await sql(
-      `SELECT id, message, alert_type, read, ts FROM trainee_alerts WHERE trainee_id=? ORDER BY ts DESC LIMIT 20`, [id]
+      `SELECT id, message, alert_type, read, ts, COALESCE(pinned,0) as pinned FROM trainee_alerts WHERE trainee_id=? AND COALESCE(deleted,0)=0 ORDER BY pinned DESC, ts DESC LIMIT 50`, [id]
     );
     const msgs = await sql(
-      `SELECT id, sender_role, text, read, ts FROM trainee_messages WHERE trainee_id=? AND sender_role='admin' ORDER BY ts DESC LIMIT 20`, [id]
+      `SELECT id, sender_role, text, read, ts, COALESCE(pinned,0) as pinned FROM trainee_messages WHERE trainee_id=? AND sender_role='admin' AND COALESCE(deleted,0)=0 ORDER BY pinned DESC, ts DESC LIMIT 50`, [id]
     );
     return c.json({ alerts, messages: msgs }, 200);
   })
@@ -1293,6 +1298,31 @@ const app = new Hono()
     if (!traineeId) return c.json({ error: 'traineeId required' }, 400);
     await sqlRun(`UPDATE trainee_alerts SET read=1 WHERE trainee_id=?`, [traineeId]);
     await sqlRun(`UPDATE trainee_messages SET read=1 WHERE trainee_id=? AND sender_role='admin'`, [traineeId]);
+    return c.json({ ok: true }, 200);
+  })
+
+  // DELETE single notification
+  .post('/trainee/notifications/delete', async (c) => {
+    const { traineeId, id, kind } = await c.req.json().catch(() => ({})) as { traineeId?: string; id?: number; kind?: string };
+    if (!traineeId || !id || !kind) return c.json({ error: 'traineeId, id, kind required' }, 400);
+    if (kind === 'alert') {
+      await sqlRun(`UPDATE trainee_alerts SET deleted=1 WHERE id=? AND trainee_id=?`, [id, traineeId]);
+    } else {
+      await sqlRun(`UPDATE trainee_messages SET deleted=1 WHERE id=? AND trainee_id=?`, [id, traineeId]);
+    }
+    return c.json({ ok: true }, 200);
+  })
+
+  // TOGGLE PIN single notification
+  .post('/trainee/notifications/pin', async (c) => {
+    const { traineeId, id, kind, pinned } = await c.req.json().catch(() => ({})) as { traineeId?: string; id?: number; kind?: string; pinned?: number };
+    if (!traineeId || !id || !kind) return c.json({ error: 'traineeId, id, kind required' }, 400);
+    const val = pinned ? 1 : 0;
+    if (kind === 'alert') {
+      await sqlRun(`UPDATE trainee_alerts SET pinned=? WHERE id=? AND trainee_id=?`, [val, id, traineeId]);
+    } else {
+      await sqlRun(`UPDATE trainee_messages SET pinned=? WHERE id=? AND trainee_id=?`, [val, id, traineeId]);
+    }
     return c.json({ ok: true }, 200);
   })
 
