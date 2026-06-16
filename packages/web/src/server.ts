@@ -1,6 +1,29 @@
 import app from "./api";
 
 const port = Number(process.env.PORT ?? 3000);
+
+// ── Layer 2: Security Headers ────────────────────────────────────────────────
+function securityHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Content-Security-Policy":
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com data:; " +
+      "img-src 'self' data: blob: https://storage.googleapis.com; " +
+      "connect-src 'self' wss: https://api.openai.com https://*.turso.io; " +
+      "frame-src 'self' https://docs.google.com; " +
+      "object-src 'none';",
+    ...extra,
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
 const distDir = `${import.meta.dir}/../dist`;
 const staticDir = `${import.meta.dir}/../static`;
 const indexPath = `${distDir}/index.html`;
@@ -22,9 +45,11 @@ const server = Bun.serve({
       // Hashed assets (e.g. main-abc123.js) get long cache; others get no-cache
       const isHashed = /\/assets\/[^/]+-[a-zA-Z0-9_]{8}\.(js|css)$/.test(url.pathname);
       return new Response(file, {
-        headers: isHashed
-          ? { "Cache-Control": "public, max-age=31536000, immutable" }
-          : { "Cache-Control": "no-cache, no-store, must-revalidate" },
+        headers: securityHeaders(
+          isHashed
+            ? { "Cache-Control": "public, max-age=31536000, immutable" }
+            : { "Cache-Control": "no-cache, no-store, must-revalidate" }
+        ),
       });
     }
 
@@ -45,7 +70,7 @@ const server = Bun.serve({
           headers["Content-Disposition"] = "inline";
         }
       }
-      return new Response(staticFile, { headers });
+      return new Response(staticFile, { headers: securityHeaders(headers) });
     }
 
     // Serve admin.html for /admin and all /admin/* routes
@@ -58,10 +83,10 @@ const server = Bun.serve({
 
     if (await htmlFile.exists()) {
       return new Response(htmlFile, {
-        headers: {
+        headers: securityHeaders({
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
+        }),
       });
     }
 
@@ -69,16 +94,16 @@ const server = Bun.serve({
     const index = Bun.file(indexPath);
     if (await index.exists()) {
       return new Response(index, {
-        headers: {
+        headers: securityHeaders({
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
+        }),
       });
     }
 
     return new Response("Build output not found. Run `bun run build` first.", {
       status: 500,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: securityHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
     });
   },
 });
