@@ -160,12 +160,74 @@ export default function Manuals() {
               }}>✕ CLOSE</button>
             </div>
           </div>
-          {/* iframe viewer */}
-          <iframe
-            src={pdfViewer.url}
-            style={{ flex: 1, border: "none", width: "100%", background: "#1a1a2e" }}
-            title={pdfViewer.title}
-          />
+          {/* PDF viewer — Google Docs for mobile/iOS, direct iframe for desktop */}
+          {(() => {
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const fullUrl = `${window.location.origin}${pdfViewer.url}`;
+            const googleUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
+            return isMobile ? (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, background: "#0a0f1e" }}>
+                <div style={{ fontSize: 48 }}>📄</div>
+                <div style={{ color: "#C9A66B", fontFamily: "Orbitron, monospace", fontSize: 13, textAlign: "center", letterSpacing: "0.05em" }}>
+                  {pdfViewer.title}
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textAlign: "center", maxWidth: 280 }}>
+                  Safari على iOS لا يدعم عرض PDF مباشرة.<br/>
+                  اختر طريقة العرض:
+                </div>
+                <a
+                  href={pdfViewer.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "12px 24px", borderRadius: 8, fontSize: 13,
+                    background: "linear-gradient(135deg, #00AEEF22, #00AEEF44)",
+                    border: "1px solid #00AEEF88",
+                    color: "#00AEEF", textDecoration: "none",
+                    fontFamily: "monospace", fontWeight: "bold",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  📖 فتح PDF في المتصفح
+                </a>
+                <a
+                  href={googleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "12px 24px", borderRadius: 8, fontSize: 13,
+                    background: "linear-gradient(135deg, #FFD70022, #FFD70044)",
+                    border: "1px solid #FFD70088",
+                    color: "#FFD700", textDecoration: "none",
+                    fontFamily: "monospace", fontWeight: "bold",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  🌐 عرض عبر Google Docs
+                </a>
+                <a
+                  href={pdfViewer.url}
+                  download
+                  style={{
+                    padding: "12px 24px", borderRadius: 8, fontSize: 13,
+                    background: "linear-gradient(135deg, #00FF8822, #00FF8844)",
+                    border: "1px solid #00FF8888",
+                    color: "#00FF88", textDecoration: "none",
+                    fontFamily: "monospace", fontWeight: "bold",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  ↓ تحميل PDF
+                </a>
+              </div>
+            ) : (
+              <iframe
+                src={pdfViewer.url}
+                style={{ flex: 1, border: "none", width: "100%", background: "#1a1a2e" }}
+                title={pdfViewer.title}
+              />
+            );
+          })()}
         </div>
       )}
 
