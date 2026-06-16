@@ -68,6 +68,7 @@ const server = Bun.serve({
     if (await staticFile.exists()) {
       const isPdf = url.pathname.toLowerCase().endsWith(".pdf");
       const isDownload = url.searchParams.get("dl") === "1";
+      const isHtml = url.pathname.toLowerCase().endsWith(".html");
       const headers: Record<string, string> = {
         "Cache-Control": "no-cache, no-store, must-revalidate",
       };
@@ -79,6 +80,17 @@ const server = Bun.serve({
         } else {
           headers["Content-Disposition"] = "inline";
         }
+      }
+      // HTML files served from /static (like simulator_tls.html) must be
+      // embeddable in iframes — override X-Frame-Options for these only
+      if (isHtml) {
+        return new Response(staticFile, {
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
       }
       return new Response(staticFile, { headers: securityHeaders(headers) });
     }
