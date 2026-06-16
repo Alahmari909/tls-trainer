@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from "hono/cors";
 import * as XLSX from 'xlsx';
-import pdfParse from 'pdf-parse';
+// pdf-parse removed — using built-in PDF text extraction
 import { eq, and, desc } from "drizzle-orm";
 // AI SDK import removed — using direct Anthropic fetch instead
 import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
@@ -2508,14 +2508,27 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
               }
             } catch {}
           }
-          // Fallback: pdf-parse (pure JS, works on any server without system deps)
+          // Fallback: extract text from raw PDF bytes using regex (no external deps)
           if (!text || text.trim().length < 50) {
             try {
               const fileBuffer = await Bun.file(filePath).arrayBuffer();
-              const parsed = await pdfParse(Buffer.from(fileBuffer));
-              text = parsed.text ?? '';
+              const raw = Buffer.from(fileBuffer).toString('latin1');
+              // Extract readable ASCII strings from PDF stream data
+              const matches = raw.match(/[\x20-\x7E\n\r\t]{4,}/g) ?? [];
+              // Filter out PDF syntax noise, keep human-readable content
+              const cleaned = matches
+                .filter(s => {
+                  const trimmed = s.trim();
+                  // Skip PDF keywords and binary noise
+                  if (/^(obj|endobj|stream|endstream|xref|trailer|startxref|%%EOF)/.test(trimmed)) return false;
+                  if (/^[<>\[\]{}\/\\0-9a-fA-F\s]+$/.test(trimmed)) return false;
+                  // Keep strings with actual words (letters + spaces)
+                  return /[a-zA-Z\u0600-\u06FF]{3,}/.test(trimmed);
+                })
+                .join(' ');
+              if (cleaned.trim().length > 50) text = cleaned;
             } catch (pdfErr: any) {
-              errors.push({ file, err: `pdf-parse error: ${pdfErr?.message?.slice(0, 80) ?? 'unknown'}` });
+              errors.push({ file, err: `PDF read error: ${pdfErr?.message?.slice(0, 80) ?? 'unknown'}` });
               continue;
             }
           }
