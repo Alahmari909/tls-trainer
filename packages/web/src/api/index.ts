@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from "hono/cors";
 import * as XLSX from 'xlsx';
+import pdfParse from 'pdf-parse';
 import { eq, and, desc } from "drizzle-orm";
 // AI SDK import removed — using direct Anthropic fetch instead
 import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
@@ -2494,18 +2495,33 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         }
 
         try {
-          if (!spawnSyncFn) {
-            errors.push({ file, err: 'pdftotext not available on this server' });
-            continue;
+          let text = '';
+          // Try pdftotext first (faster, better for large files)
+          if (spawnSyncFn) {
+            try {
+              const result = spawnSyncFn('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
+                encoding: 'utf8',
+                maxBuffer: 30 * 1024 * 1024,
+              });
+              if (result.status === 0 && result.stdout && result.stdout.trim().length > 50) {
+                text = result.stdout;
+              }
+            } catch {}
           }
-          const result = spawnSyncFn('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
-            encoding: 'utf8',
-            maxBuffer: 30 * 1024 * 1024,
-          });
-          const text = (result.status === 0 && result.stdout) ? result.stdout : '';
+          // Fallback: pdf-parse (pure JS, works on any server without system deps)
+          if (!text || text.trim().length < 50) {
+            try {
+              const fileBuffer = await Bun.file(filePath).arrayBuffer();
+              const parsed = await pdfParse(Buffer.from(fileBuffer));
+              text = parsed.text ?? '';
+            } catch (pdfErr: any) {
+              errors.push({ file, err: `pdf-parse error: ${pdfErr?.message?.slice(0, 80) ?? 'unknown'}` });
+              continue;
+            }
+          }
 
           if (!text || text.trim().length < 50) {
-            errors.push({ file, err: result.error ? 'pdftotext not installed on server' : 'No text extracted (PDF may be image-based or encrypted)' });
+            errors.push({ file, err: 'No text extracted (PDF may be image-based or encrypted)' });
             continue;
           }
 
