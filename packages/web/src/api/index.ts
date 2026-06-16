@@ -492,6 +492,28 @@ async function ensureTables() {
       indexed_at INTEGER NOT NULL
     )`).catch(() => {});
     await client.execute(`CREATE INDEX IF NOT EXISTS idx_ai_chunks_fn ON ai_doc_chunks(filename)`).catch(() => {});
+    // ── Documents table ──────────────────────────────────────────────────────
+    await client.execute(`CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'Technical',
+      description TEXT NOT NULL DEFAULT '',
+      pages INTEGER NOT NULL DEFAULT 0,
+      file_data TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT 'application/pdf',
+      size INTEGER NOT NULL DEFAULT 0,
+      share_mode TEXT NOT NULL DEFAULT 'all',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`).catch(() => {});
+    // document_shares: per-trainee sharing when share_mode='specific'
+    await client.execute(`CREATE TABLE IF NOT EXISTS document_shares (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL,
+      trainee_id TEXT NOT NULL,
+      UNIQUE(document_id, trainee_id)
+    )`).catch(() => {});
     console.log('[ensureTables] All tables ready');
     // Reset all is_online flags on startup — in-memory heartbeats are the source of truth
     await sqlRun(`UPDATE trainees SET is_online=0`);
@@ -3806,4 +3828,133 @@ app.delete('/admin/error-codes/:id', async (c) => {
   await sqlRun('DELETE FROM error_codes WHERE id=?', [id]);
   return c.json({ ok: true });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCUMENTS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/documents — trainee: list docs shared with them (all or specific)
+app.get('/documents', async (c) => {
+  const traineeId = c.req.query('trainee_id') ?? '';
+  // Get all docs shared with 'all', plus docs specifically shared with this trainee
+  const docs = await sql(`
+    SELECT d.id, d.title, d.filename, d.category, d.description, d.pages, d.size, d.mime_type, d.share_mode, d.created_at
+    FROM documents d
+    WHERE d.share_mode = 'all'
+       OR (d.share_mode = 'specific' AND EXISTS (
+         SELECT 1 FROM document_shares ds WHERE ds.document_id = d.id AND ds.trainee_id = ?
+       ))
+    ORDER BY d.created_at DESC
+  `, [traineeId]);
+  return c.json(docs, 200);
+});
+
+// GET /api/documents/:id/file — serve the PDF file
+app.get('/documents/:id/file', async (c) => {
+  const id = c.req.param('id');
+  const rows = await sql('SELECT file_data, mime_type, filename FROM documents WHERE id=?', [id]);
+  if (!(rows as any[]).length) return c.json({ error: 'Not found' }, 404);
+  const row = (rows as any[])[0];
+  const buf = Buffer.from(row.file_data, 'base64');
+  return new Response(buf, {
+    headers: {
+      'Content-Type': row.mime_type || 'application/pdf',
+      'Content-Disposition': `inline; filename="${row.filename}"`,
+      'Cache-Control': 'public, max-age=86400',
+    },
+  });
+});
+
+// GET /api/admin/documents — admin: list all docs
+app.get('/admin/documents', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const docs = await sql(`
+    SELECT d.id, d.title, d.filename, d.category, d.description, d.pages,
+           d.size, d.mime_type, d.share_mode, d.created_at, d.updated_at
+    FROM documents d ORDER BY d.created_at DESC
+  `);
+  // For each doc with share_mode='specific', get shared trainee ids
+  const result = [];
+  for (const doc of docs as any[]) {
+    let sharedWith: string[] = [];
+    if (doc.share_mode === 'specific') {
+      const shares = await sql('SELECT trainee_id FROM document_shares WHERE document_id=?', [doc.id]);
+      sharedWith = (shares as any[]).map(s => s.trainee_id);
+    }
+    result.push({ ...doc, sharedWith });
+  }
+  return c.json(result, 200);
+});
+
+// POST /api/admin/documents — upload new document
+app.post('/admin/documents', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const formData = await c.req.formData().catch(() => null);
+  if (!formData) return c.json({ error: 'Invalid form data' }, 400);
+
+  const file = formData.get('file') as File | null;
+  const title = (formData.get('title') as string) || '';
+  const category = (formData.get('category') as string) || 'Technical';
+  const description = (formData.get('description') as string) || '';
+  const pages = parseInt(formData.get('pages') as string) || 0;
+  const share_mode = (formData.get('share_mode') as string) || 'all';
+  const sharedWith = (formData.get('shared_with') as string) || '';
+
+  if (!file || !title) return c.json({ error: 'file and title required' }, 400);
+
+  const arrayBuf = await file.arrayBuffer();
+  const fileData = Buffer.from(arrayBuf).toString('base64');
+  const now = Date.now();
+
+  const res = await sqlRun(
+    'INSERT INTO documents (title, filename, category, description, pages, file_data, mime_type, size, share_mode, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    [title, file.name, category, description, pages, fileData, file.type || 'application/pdf', file.size, share_mode, now, now]
+  );
+  const docId = (res as any).lastInsertRowid ?? (res as any).insertId;
+
+  // Add per-trainee shares if specific
+  if (share_mode === 'specific' && sharedWith) {
+    const ids = sharedWith.split(',').map(s => s.trim()).filter(Boolean);
+    for (const tid of ids) {
+      await sqlRun('INSERT OR IGNORE INTO document_shares (document_id, trainee_id) VALUES (?,?)', [docId, tid]).catch(() => {});
+    }
+  }
+  return c.json({ ok: true, id: docId }, 201);
+});
+
+// PUT /api/admin/documents/:id — update metadata + sharing
+app.put('/admin/documents/:id', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({})) as any;
+  const now = Date.now();
+
+  await sqlRun(
+    'UPDATE documents SET title=?, category=?, description=?, pages=?, share_mode=?, updated_at=? WHERE id=?',
+    [body.title, body.category, body.description, body.pages || 0, body.share_mode || 'all', now, id]
+  );
+
+  // Update shares
+  await sqlRun('DELETE FROM document_shares WHERE document_id=?', [id]);
+  if (body.share_mode === 'specific' && Array.isArray(body.sharedWith)) {
+    for (const tid of body.sharedWith) {
+      await sqlRun('INSERT OR IGNORE INTO document_shares (document_id, trainee_id) VALUES (?,?)', [id, tid]).catch(() => {});
+    }
+  }
+  return c.json({ ok: true }, 200);
+});
+
+// DELETE /api/admin/documents/:id
+app.delete('/admin/documents/:id', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  await sqlRun('DELETE FROM document_shares WHERE document_id=?', [id]);
+  await sqlRun('DELETE FROM documents WHERE id=?', [id]);
+  return c.json({ ok: true }, 200);
+});
+
 export default app;

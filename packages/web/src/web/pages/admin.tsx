@@ -3527,6 +3527,298 @@ const NAV_LINKS = [
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
   | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager" | "ai-knowledge" | "error_codes";
 
+// ─── Admin Documents Management ──────────────────────────────────────────────
+const DOC_CATEGORIES = ["Technical","Installation","Operations","Maintenance","Calibration","Logistics","ATC","Regulatory","Training","Other"];
+
+type DocRow = {
+  id: number; title: string; filename: string; category: string;
+  description: string; pages: number; size: number; share_mode: string;
+  created_at: number; sharedWith: string[];
+};
+
+function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id: string; name: string }[] }) {
+  const [docs, setDocs] = useState<DocRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [editDoc, setEditDoc] = useState<DocRow | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload form state
+  const [uTitle, setUTitle] = useState("");
+  const [uCategory, setUCategory] = useState("Technical");
+  const [uDescription, setUDescription] = useState("");
+  const [uPages, setUPages] = useState("");
+  const [uShareMode, setUShareMode] = useState<"all"|"specific">("all");
+  const [uSharedWith, setUSharedWith] = useState<string[]>([]);
+  const [uFile, setUFile] = useState<File|null>(null);
+
+  // Edit form state
+  const [eTitle, setETitle] = useState("");
+  const [eCategory, setECategory] = useState("Technical");
+  const [eDescription, setEDescription] = useState("");
+  const [ePages, setEPages] = useState("");
+  const [eShareMode, setEShareMode] = useState<"all"|"specific">("all");
+  const [eSharedWith, setESharedWith] = useState<string[]>([]);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/documents", { headers: { "x-admin-password": adminPw } });
+      const data = await r.json();
+      setDocs(Array.isArray(data) ? data : []);
+    } catch { setError("Failed to load documents"); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleUpload = async () => {
+    if (!uFile || !uTitle.trim()) { setError("Title and file are required"); return; }
+    setUploading(true); setError(""); setSuccess("");
+    const fd = new FormData();
+    fd.append("file", uFile);
+    fd.append("title", uTitle.trim());
+    fd.append("category", uCategory);
+    fd.append("description", uDescription.trim());
+    fd.append("pages", uPages || "0");
+    fd.append("share_mode", uShareMode);
+    if (uShareMode === "specific") fd.append("shared_with", uSharedWith.join(","));
+    try {
+      const r = await fetch("/api/admin/documents", { method: "POST", headers: { "x-admin-password": adminPw }, body: fd });
+      if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Upload failed"); }
+      setSuccess("Document uploaded successfully");
+      setShowUpload(false);
+      setUTitle(""); setUCategory("Technical"); setUDescription(""); setUPages(""); setUShareMode("all"); setUSharedWith([]); setUFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      await load();
+    } catch (e: any) { setError(e.message || "Upload failed"); }
+    setUploading(false);
+  };
+
+  const openEdit = (doc: DocRow) => {
+    setEditDoc(doc);
+    setETitle(doc.title); setECategory(doc.category); setEDescription(doc.description);
+    setEPages(String(doc.pages)); setEShareMode(doc.share_mode as "all"|"specific");
+    setESharedWith(doc.sharedWith || []);
+    setError(""); setSuccess("");
+  };
+
+  const handleEdit = async () => {
+    if (!editDoc) return;
+    setUploading(true); setError(""); setSuccess("");
+    try {
+      const r = await fetch(`/api/admin/documents/${editDoc.id}`, {
+        method: "PUT",
+        headers: { "x-admin-password": adminPw, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: eTitle, category: eCategory, description: eDescription, pages: parseInt(ePages)||0, share_mode: eShareMode, sharedWith: eSharedWith }),
+      });
+      if (!r.ok) throw new Error("Update failed");
+      setSuccess("Updated successfully"); setEditDoc(null);
+      await load();
+    } catch (e: any) { setError(e.message); }
+    setUploading(false);
+  };
+
+  const handleDelete = async (doc: DocRow) => {
+    if (!confirm(`Delete "${doc.title}"?`)) return;
+    try {
+      await fetch(`/api/admin/documents/${doc.id}`, { method: "DELETE", headers: { "x-admin-password": adminPw } });
+      await load();
+    } catch { setError("Delete failed"); }
+  };
+
+  const C = { green: "#00FF88", bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)", text: "rgba(255,255,255,0.85)", muted: "rgba(255,255,255,0.4)" };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "8px 12px", background: "rgba(0,0,0,0.4)",
+    border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6,
+    color: "#e2e8f0", fontSize: 13, fontFamily: "Inter", outline: "none", boxSizing: "border-box",
+  };
+  const labelStyle: React.CSSProperties = { fontSize: 11, color: C.muted, fontFamily: "Inter", fontWeight: 600, letterSpacing: "0.08em", marginBottom: 4, display: "block" };
+
+  const TraineeSelector = ({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 120, overflowY: "auto", padding: "6px 0" }}>
+      {trainees.map(t => {
+        const checked = selected.includes(t.id);
+        return (
+          <button key={t.id} onClick={() => onChange(checked ? selected.filter(x => x !== t.id) : [...selected, t.id])}
+            style={{ padding: "4px 10px", borderRadius: 20, fontSize: 11, cursor: "pointer", fontFamily: "Inter",
+              background: checked ? "rgba(0,255,136,0.15)" : "rgba(255,255,255,0.05)",
+              border: checked ? "1px solid rgba(0,255,136,0.4)" : "1px solid rgba(255,255,255,0.1)",
+              color: checked ? C.green : C.muted }}>
+            {t.name}
+          </button>
+        );
+      })}
+      {trainees.length === 0 && <span style={{ fontSize: 12, color: C.muted }}>No trainees found</span>}
+    </div>
+  );
+
+  return (
+    <div style={{ fontFamily: "Inter" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: C.green, marginBottom: 4 }}>📄 DOCUMENTS</div>
+          <div style={{ fontSize: 11, color: C.muted }}>{docs.length} document{docs.length !== 1 ? "s" : ""} uploaded</div>
+        </div>
+        <button onClick={() => { setShowUpload(!showUpload); setError(""); setSuccess(""); }}
+          style={{ padding: "8px 18px", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.35)",
+            borderRadius: 8, color: C.green, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
+          {showUpload ? "✕ Cancel" : "+ Upload Document"}
+        </button>
+      </div>
+
+      {/* Alerts */}
+      {error && <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: 8, color: "#ff6b6b", fontSize: 12, marginBottom: 12 }}>{error}</div>}
+      {success && <div style={{ padding: "10px 14px", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 8, color: C.green, fontSize: 12, marginBottom: 12 }}>{success}</div>}
+
+      {/* Upload Form */}
+      {showUpload && (
+        <div style={{ background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12, padding: 20, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.green, marginBottom: 16 }}>Upload New Document</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <span style={labelStyle}>TITLE *</span>
+              <input style={inputStyle} value={uTitle} onChange={e => setUTitle(e.target.value)} placeholder="Document title" />
+            </div>
+            <div>
+              <span style={labelStyle}>CATEGORY</span>
+              <select style={{ ...inputStyle, cursor: "pointer" }} value={uCategory} onChange={e => setUCategory(e.target.value)}>
+                {DOC_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={labelStyle}>DESCRIPTION</span>
+              <input style={inputStyle} value={uDescription} onChange={e => setUDescription(e.target.value)} placeholder="Brief description" />
+            </div>
+            <div>
+              <span style={labelStyle}>PAGES</span>
+              <input style={inputStyle} type="number" min={0} value={uPages} onChange={e => setUPages(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <span style={labelStyle}>FILE *</span>
+            <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.docx,.xlsx,.txt" onChange={e => setUFile(e.target.files?.[0] || null)}
+              style={{ ...inputStyle, padding: "6px 12px", cursor: "pointer" }} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <span style={labelStyle}>SHARE WITH</span>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              {(["all","specific"] as const).map(m => (
+                <button key={m} onClick={() => setUShareMode(m)}
+                  style={{ padding: "5px 14px", borderRadius: 20, fontSize: 11, cursor: "pointer",
+                    background: uShareMode === m ? "rgba(0,255,136,0.15)" : "rgba(255,255,255,0.04)",
+                    border: uShareMode === m ? "1px solid rgba(0,255,136,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                    color: uShareMode === m ? C.green : C.muted }}>
+                  {m === "all" ? "🌐 All Trainees" : "👤 Specific Trainees"}
+                </button>
+              ))}
+            </div>
+            {uShareMode === "specific" && <TraineeSelector selected={uSharedWith} onChange={setUSharedWith} />}
+          </div>
+          <button onClick={handleUpload} disabled={uploading}
+            style={{ padding: "9px 22px", background: "rgba(0,255,136,0.15)", border: "1px solid rgba(0,255,136,0.4)",
+              borderRadius: 8, color: C.green, fontSize: 13, cursor: uploading ? "not-allowed" : "pointer", fontWeight: 700, opacity: uploading ? 0.6 : 1 }}>
+            {uploading ? "Uploading..." : "⬆ Upload"}
+          </button>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editDoc && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#0a1628", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 14, padding: 24, width: "100%", maxWidth: 500, maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.green, marginBottom: 16 }}>✏️ Edit Document</div>
+            <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
+              <div><span style={labelStyle}>TITLE</span><input style={inputStyle} value={eTitle} onChange={e => setETitle(e.target.value)} /></div>
+              <div><span style={labelStyle}>CATEGORY</span>
+                <select style={{ ...inputStyle, cursor: "pointer" }} value={eCategory} onChange={e => setECategory(e.target.value)}>
+                  {DOC_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div><span style={labelStyle}>DESCRIPTION</span><input style={inputStyle} value={eDescription} onChange={e => setEDescription(e.target.value)} /></div>
+              <div><span style={labelStyle}>PAGES</span><input style={inputStyle} type="number" min={0} value={ePages} onChange={e => setEPages(e.target.value)} /></div>
+              <div>
+                <span style={labelStyle}>SHARE WITH</span>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  {(["all","specific"] as const).map(m => (
+                    <button key={m} onClick={() => setEShareMode(m)}
+                      style={{ padding: "5px 14px", borderRadius: 20, fontSize: 11, cursor: "pointer",
+                        background: eShareMode === m ? "rgba(0,255,136,0.15)" : "rgba(255,255,255,0.04)",
+                        border: eShareMode === m ? "1px solid rgba(0,255,136,0.4)" : "1px solid rgba(255,255,255,0.1)",
+                        color: eShareMode === m ? C.green : C.muted }}>
+                      {m === "all" ? "🌐 All Trainees" : "👤 Specific Trainees"}
+                    </button>
+                  ))}
+                </div>
+                {eShareMode === "specific" && <TraineeSelector selected={eSharedWith} onChange={setESharedWith} />}
+              </div>
+            </div>
+            {error && <div style={{ color: "#ff6b6b", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={handleEdit} disabled={uploading}
+                style={{ flex: 1, padding: "9px", background: "rgba(0,255,136,0.15)", border: "1px solid rgba(0,255,136,0.4)", borderRadius: 8, color: C.green, fontSize: 13, cursor: "pointer", fontWeight: 700 }}>
+                {uploading ? "Saving..." : "💾 Save Changes"}
+              </button>
+              <button onClick={() => { setEditDoc(null); setError(""); }}
+                style={{ padding: "9px 16px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: C.muted, fontSize: 13, cursor: "pointer" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Documents List */}
+      {loading ? (
+        <div style={{ textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }}>Loading documents...</div>
+      ) : docs.length === 0 ? (
+        <div style={{ textAlign: "center", color: C.muted, padding: "60px 0", fontSize: 13 }}>
+          No documents yet. Click "+ Upload Document" to add the first one.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {docs.map(doc => (
+            <div key={doc.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 22, flexShrink: 0 }}>📄</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "#00bfff" }}>{doc.category}</span>
+                  {doc.pages > 0 && <span>{doc.pages} pages</span>}
+                  {doc.size > 0 && <span>{(doc.size/1024).toFixed(0)} KB</span>}
+                  <span style={{ color: doc.share_mode === "all" ? "#4ade80" : "#f59e0b" }}>
+                    {doc.share_mode === "all" ? "🌐 All" : `👤 ${doc.sharedWith.length} trainee${doc.sharedWith.length !== 1 ? "s" : ""}`}
+                  </span>
+                </div>
+                {doc.description && <div style={{ fontSize: 11, color: C.muted, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.description}</div>}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <a href={`/api/documents/${doc.id}/file`} target="_blank" rel="noopener noreferrer"
+                  style={{ padding: "5px 12px", background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.25)", borderRadius: 6, color: "#00bfff", fontSize: 10, fontWeight: 700, textDecoration: "none" }}>
+                  VIEW
+                </a>
+                <button onClick={() => openEdit(doc)}
+                  style={{ padding: "5px 12px", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 6, color: C.green, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                  EDIT
+                </button>
+                <button onClick={() => handleDelete(doc)}
+                  style={{ padding: "5px 12px", background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.25)", borderRadius: 6, color: "#ff6b6b", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                  DELETE
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Admin Password Change ────────────────────────────────────────────────────
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
   const [oldPw, setOldPw] = useState("");
@@ -4608,88 +4900,11 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications adminMode={true} /></div>}
         {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
       </AdminNavContext.Provider>
-      {activeView === "documents"     && <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh", padding: "24px 32px" }}>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", color: "#00FF88", fontFamily: "Inter", marginBottom: 4 }}>📄 DOCUMENTS</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>TLS reference documents — click OPEN to view in a new tab</div>
+      {activeView === "documents" && (
+        <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh", padding: "24px 32px" }}>
+          <AdminDocuments adminPw={adminPw} trainees={trainees.map(t => ({ id: t.id, name: t.name }))} />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[
-            "020-00089 RevA.pdf",
-            "020-00098 Rev B.pdf",
-            "1899539853.pdf",
-            "843572488.pdf",
-            "8D7799AD-C01F-4EC9-8AB9-E6C3E8B23537.pdf",
-            "ANPC-Data-Sheet_TLS_Final.pdf",
-            "ATC quick guide TLS.pdf",
-            "Antennas_Presentation.pdf",
-            "Application_of_the_Transponder_Landing_System_to_Achieve_Airport_Accessibility.pdf",
-            "Att.-B-FAA-8200.47-Transponder-Landing-System.pdf",
-            "B26FC8A9-237C-4A2B-A3C1-BCBC9CC6A897.pdf",
-            "Calibration Procedure.pdf",
-            "DME_TLS_Report_Clean.pdf",
-            "DOC-20250724-WA0007..pdf",
-            "DOC-2222222222.pdf",
-            "Extracted 3333333333.pdf",
-            "Extracted pages from 020-00103_Rev B.pdf",
-            "FTM_Theodolite_Survey_and_Calibration.pdf",
-            "FTM___Checklists44444444.pdf",
-            "GTU Program55555555.pdf",
-            "GTU setup.pdf",
-            "GetAtt.html.pdf",
-            "Input survey 111111111.pdf",
-            "Input survey data procedure.pdf",
-            "KKMC RWY 32.pdf",
-            "Pre-Calibration Procedure.pdf",
-            "Setting Monitor Limits and computing nominals.pdf",
-            "Setting Pulse in the frame.pdf",
-            "Survey procedure.pdf",
-            "TLS Training Slides.pdf",
-            "TLS all four Palau RWY9 (1).pdf",
-            "TLS_Antenna_System_Advantages_AllHeadersWhite.pdf",
-            "TLS_Approach_Guidance...pdf",
-            "TLS_Preliminary_Guide.pdf",
-            "TLS_System_Overview_EN.pdf",
-            "TTLS2027 Spares identification listing(3).pdf",
-            "TransponderLandingSystem.pdf",
-            "Transponder_Landing_System_Flight_Inspection.pdf",
-            "patria-anpc-a4-brochure-0124pdf.pdf",
-            "transponder-landing-system-material-2.pptx",
-            "‎⁨خطوات مسح موقع جهاز الثيودوليت⁩.pdf",
-          ].map(file => (
-            <div key={file} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 8, padding: "10px 16px", gap: 12,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <span style={{ fontSize: 16, flexShrink: 0 }}>
-                  {file.endsWith(".pptx") ? "📊" : "📄"}
-                </span>
-                <span style={{
-                  fontSize: 12, color: "rgba(255,255,255,0.75)", fontFamily: "Inter",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>{file}</span>
-              </div>
-              <a
-                href={`/admin-docs/${encodeURIComponent(file)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  flexShrink: 0, padding: "5px 14px",
-                  background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.3)",
-                  borderRadius: 6, color: "#00FF88", fontSize: 10,
-                  fontFamily: "Inter", fontWeight: 700, letterSpacing: "0.08em",
-                  textDecoration: "none", whiteSpace: "nowrap",
-                  transition: "background 0.2s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,255,136,0.18)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "rgba(0,255,136,0.08)")}
-              >OPEN</a>
-            </div>
-          ))}
-        </div>
-      </div>}
+      )}
 
       {/* ── RADAR GALLERY ADMIN ── */}
 
