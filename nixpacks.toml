@@ -1,2 +1,5 @@
 [phases.setup]
-nixPkgs = ["poppler_utils", "bun"]
+nixPkgs = ["bun"]
+
+[phases.install]
+cmds = ["bun install"]
