@@ -571,11 +571,11 @@ function TraineeDetailModal({
         }}>
           {loading ? (
             <>
-              <div style={{ flex: 1, height: 40, background: "rgba(0,174,239,0.08)", borderRadius: 8 }} />
+              <div style={{ flex: 1, height: 40, background: "rgba(0,255,136,0.08)", borderRadius: 8 }} />
               <button onClick={onClose} style={{
                 display: "flex", alignItems: "center", gap: 5, flexShrink: 0,
-                background: "rgba(0,174,239,0.10)", border: "1px solid rgba(0,174,239,0.35)",
-                borderRadius: 10, cursor: "pointer", padding: "8px 14px", color: "#00AEEF",
+                background: "rgba(0,255,136,0.10)", border: "1px solid rgba(0,255,136,0.35)",
+                borderRadius: 10, cursor: "pointer", padding: "8px 14px", color: "#00FF88",
                 fontFamily: "Inter", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
               }}>
                 <span style={{ fontSize: 14 }}>←</span><span>BACK</span>
@@ -606,7 +606,7 @@ function TraineeDetailModal({
                   )}
                   <span style={{
                     fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Inter", flexShrink: 0,
-                    background: t.trainingLevel === 'advanced' ? `${C.gold}18` : "rgba(0,174,239,0.1)",
+                    background: t.trainingLevel === 'advanced' ? `${C.gold}18` : "rgba(0,255,136,0.1)",
                     border: `1px solid ${t.trainingLevel === 'advanced' ? C.gold + "50" : C.cyan + "30"}`,
                     color: t.trainingLevel === 'advanced' ? C.gold : C.cyan,
                   }}>
@@ -648,10 +648,10 @@ function TraineeDetailModal({
             onClick={onClose}
             style={{
               display: "flex", alignItems: "center", gap: 5,
-              background: "rgba(0,174,239,0.10)",
-              border: "1px solid rgba(0,174,239,0.35)",
+              background: "rgba(0,255,136,0.10)",
+              border: "1px solid rgba(0,255,136,0.35)",
               borderRadius: 10, cursor: "pointer", flexShrink: 0,
-              padding: "8px 14px", color: "#00AEEF",
+              padding: "8px 14px", color: "#00FF88",
               fontFamily: "Inter", fontSize: 12, fontWeight: 600,
               letterSpacing: "0.06em",
             }}
@@ -697,7 +697,7 @@ function TraineeDetailModal({
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[...Array(4)].map((_, i) => (
-                <div key={i} style={{ height: 60, borderRadius: 10, background: "rgba(0,174,239,0.05)", animation: "pulse-glow 1.5s ease infinite" }} />
+                <div key={i} style={{ height: 60, borderRadius: 10, background: "rgba(0,255,136,0.05)", animation: "pulse-glow 1.5s ease infinite" }} />
               ))}
             </div>
           ) : !detail ? null : (
@@ -716,7 +716,7 @@ function TraineeDetailModal({
                     { label: "TRAINING H", value: `${s!.trainingHours ?? 0}h`, color: C.cyan },
                     { label: "PASSED", value: String(s!.passedAttempts ?? 0), color: C.green },
                     { label: "FAILED", value: String(s!.failedAttempts ?? 0), color: C.red },
-                    { label: "VIEWS", value: String(s!.manualViews), color: "#35D4FF" },
+                    { label: "VIEWS", value: String(s!.manualViews), color: "#00CC66" },
                   ].map(item => (
                     <div key={item.label} style={{
                       background: `${item.color}08`, border: `1px solid ${item.color}25`,
@@ -1007,7 +1007,7 @@ function TraineeDetailModal({
                       style={{
                         flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer",
                         fontFamily: "Inter", fontSize: 11, letterSpacing: "0.05em",
-                        background: lvl === 'advanced' ? `${C.gold}15` : "rgba(0,174,239,0.1)",
+                        background: lvl === 'advanced' ? `${C.gold}15` : "rgba(0,255,136,0.1)",
                         border: `1px solid ${lvl === 'advanced' ? C.gold + "50" : C.cyan + "40"}`,
                         color: lvl === 'advanced' ? C.gold : C.cyan,
                       }}
@@ -1164,7 +1164,7 @@ ${weaknessSection}${strengthSection}
                 ) : detail.activityLog.map(log => (
                   <div key={log.id} style={{
                     padding: "10px 12px", marginBottom: 6,
-                    background: "rgba(0,174,239,0.04)", border: "1px solid rgba(0,174,239,0.1)",
+                    background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.1)",
                     borderRadius: 8, display: "flex", alignItems: "center", gap: 10,
                   }}>
                     <div style={{
@@ -2049,7 +2049,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
               />
               <button onClick={createBackup} disabled={creating} style={{
                 width: "100%", padding: "11px", borderRadius: 8,
-                background: creating ? "rgba(0,174,239,0.04)" : "rgba(0,174,239,0.12)",
+                background: creating ? "rgba(0,255,136,0.04)" : "rgba(0,255,136,0.12)",
                 border: `1px solid ${C.cyan}${creating ? "15" : "45"}`,
                 color: creating ? "var(--text-muted)" : C.cyan,
                 fontFamily: "Inter", fontSize: 10, letterSpacing: "0.1em", cursor: creating ? "not-allowed" : "pointer",
@@ -2096,7 +2096,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
               <div className="font-orbitron" style={{ fontSize: 9, color: C.cyan, letterSpacing: "0.15em", marginBottom: 8 }}>PROJECT SOURCE CODE</div>
               <button onClick={exportProject} disabled={exporting === 'project'} style={{
                 width: "100%", padding: "14px 12px", borderRadius: 10, marginBottom: 16,
-                background: exporting === 'project' ? "rgba(0,174,239,0.04)" : "rgba(0,174,239,0.08)",
+                background: exporting === 'project' ? "rgba(0,255,136,0.04)" : "rgba(0,255,136,0.08)",
                 border: `1px solid ${C.cyan}${exporting === 'project' ? "15" : "35"}`,
                 color: exporting === 'project' ? "var(--text-muted)" : C.cyan,
                 fontFamily: "Inter", cursor: exporting === 'project' ? "not-allowed" : "pointer",
@@ -2156,7 +2156,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   padding: "24px 16px", borderRadius: 10, textAlign: "center", cursor: "pointer", marginBottom: 14,
-                  background: importFile ? "rgba(0,174,239,0.07)" : "rgba(0,0,0,0.2)",
+                  background: importFile ? "rgba(0,255,136,0.07)" : "rgba(0,0,0,0.2)",
                   border: `2px dashed ${importFile ? C.cyan + "60" : "rgba(255,255,255,0.1)"}`,
                   transition: "all 0.2s",
                 }}
@@ -2187,7 +2187,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 disabled={!importFile || importing}
                 style={{
                   width: "100%", padding: "12px", borderRadius: 8,
-                  background: !importFile ? "rgba(255,255,255,0.02)" : importing ? "rgba(0,174,239,0.04)" : "rgba(0,174,239,0.12)",
+                  background: !importFile ? "rgba(255,255,255,0.02)" : importing ? "rgba(0,255,136,0.04)" : "rgba(0,255,136,0.12)",
                   border: `1px solid ${!importFile ? "rgba(255,255,255,0.05)" : importing ? C.cyan + "15" : C.cyan + "50"}`,
                   color: !importFile ? "var(--text-muted)" : importing ? "var(--text-muted)" : C.cyan,
                   fontFamily: "Inter", fontSize: 10, letterSpacing: "0.1em",
@@ -2257,7 +2257,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => downloadBackup(b)} style={{
                         flex: 1, padding: "7px 4px", borderRadius: 7,
-                        background: "rgba(0,174,239,0.07)", border: `1px solid ${C.cyan}20`,
+                        background: "rgba(0,255,136,0.07)", border: `1px solid ${C.cyan}20`,
                         color: C.cyan, fontFamily: "Inter", fontSize: 8, letterSpacing: "0.05em", cursor: "pointer",
                       }}>⬇ DOWNLOAD</button>
                       <button onClick={() => setConfirmRestore(b)} disabled={!!restoring} style={{
@@ -2342,7 +2342,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                     color: "var(--text-muted)", fontFamily: "Inter", fontSize: 10, cursor: "pointer",
                   }}>CANCEL</button>
                   <button onClick={doImportFile} style={{
-                    flex: 1, padding: "10px", borderRadius: 8, background: "rgba(0,174,239,0.14)", border: `1px solid ${C.cyan}45`,
+                    flex: 1, padding: "10px", borderRadius: 8, background: "rgba(0,255,136,0.14)", border: `1px solid ${C.cyan}45`,
                     color: C.cyan, fontFamily: "Inter", fontSize: 10, cursor: "pointer",
                   }}>CONFIRM IMPORT</button>
                 </div>
@@ -2406,8 +2406,8 @@ function TelegramPanel({ adminPw }: { adminPw: string }) {
       <button onClick={() => setOpen(o => !o)} style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 16px",
-        background: open ? "rgba(0,174,239,0.08)" : "rgba(8,15,28,0.9)",
-        border: `1px solid ${open ? "rgba(0,174,239,0.35)" : "rgba(0,174,239,0.15)"}`,
+        background: open ? "rgba(0,255,136,0.08)" : "rgba(8,15,28,0.9)",
+        border: `1px solid ${open ? "rgba(0,255,136,0.35)" : "rgba(0,255,136,0.15)"}`,
         borderRadius: open ? "12px 12px 0 0" : 12, cursor: "pointer", color: "inherit", transition: "all 0.2s",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2421,23 +2421,23 @@ function TelegramPanel({ adminPw }: { adminPw: string }) {
       </button>
 
       {open && (
-        <div style={{ background: "rgba(6,12,24,0.97)", border: "1px solid rgba(0,174,239,0.2)", borderTop: "none", borderRadius: "0 0 12px 12px", padding: "16px" }}>
+        <div style={{ background: "rgba(6,12,24,0.97)", border: "1px solid rgba(0,255,136,0.2)", borderTop: "none", borderRadius: "0 0 12px 12px", padding: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
             <span style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "Inter" }}>Enable Telegram Notifications</span>
             <button onClick={() => setEnabled(e => !e)} style={{
               width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
-              background: enabled ? C.green : "rgba(0,174,239,0.15)", position: "relative", transition: "background 0.25s",
+              background: enabled ? C.green : "rgba(0,255,136,0.15)", position: "relative", transition: "background 0.25s",
             }}>
               <div style={{ width: 18, height: 18, borderRadius: "50%", background: "white", position: "absolute", top: 3, left: enabled ? 23 : 3, transition: "left 0.25s", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }} />
             </button>
           </div>
           <div style={{ marginBottom: 12 }}>
             <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.15em", color: "var(--text-muted)", marginBottom: 6 }}>BOT TOKEN {config?.hasToken && <span style={{ color: C.green }}>· SET ✓</span>}</div>
-            <input type="password" value={botToken} onChange={e => setBotToken(e.target.value)} placeholder={config?.hasToken ? "Leave blank to keep current" : "Enter bot token"} style={{ width: "100%", padding: "10px 12px", background: "rgba(0,174,239,0.05)", border: "1px solid rgba(0,174,239,0.2)", borderRadius: 8, color: "var(--text-primary)", fontSize: 12, outline: "none" }} />
+            <input type="password" value={botToken} onChange={e => setBotToken(e.target.value)} placeholder={config?.hasToken ? "Leave blank to keep current" : "Enter bot token"} style={{ width: "100%", padding: "10px 12px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "var(--text-primary)", fontSize: 12, outline: "none" }} />
           </div>
           <div style={{ marginBottom: 16 }}>
             <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.15em", color: "var(--text-muted)", marginBottom: 6 }}>ADMIN CHAT ID</div>
-            <input type="text" value={chatId} onChange={e => setChatId(e.target.value)} placeholder="e.g. 123456789" style={{ width: "100%", padding: "10px 12px", background: "rgba(0,174,239,0.05)", border: "1px solid rgba(0,174,239,0.2)", borderRadius: 8, color: "var(--text-primary)", fontSize: 12, outline: "none" }} />
+            <input type="text" value={chatId} onChange={e => setChatId(e.target.value)} placeholder="e.g. 123456789" style={{ width: "100%", padding: "10px 12px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "var(--text-primary)", fontSize: 12, outline: "none" }} />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={save} disabled={saving} className="tac-btn tac-btn-primary" style={{ flex: 1, opacity: saving ? 0.6 : 1 }}>{saving ? "SAVING..." : "SAVE SETTINGS"}</button>
@@ -2540,7 +2540,7 @@ function NavManagerAdmin({ adminPw }: { adminPw: string }) {
     setItems(prev => prev.filter(i => i.id !== id));
   };
 
-  const C = { primary: "#00FF88", cyan: "#00AEEF", gold: "#FFD166", red: "#FF4D4D", muted: "rgba(255,255,255,0.35)" };
+  const C = { primary: "#00FF88", cyan: "#00FF88", gold: "#FFD166", red: "#FF4D4D", muted: "rgba(255,255,255,0.35)" };
   const inp: React.CSSProperties = { background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontFamily: "Inter", fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box" };
 
   if (loading) return <div style={{ textAlign: "center", padding: 60, color: C.muted, fontFamily: "Inter", fontSize: 12 }}>Loading...</div>;
@@ -2553,13 +2553,13 @@ function NavManagerAdmin({ adminPw }: { adminPw: string }) {
           <div style={{ fontFamily: "Inter", fontSize: 12, color: C.muted }}>Control trainee sidebar navigation</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowAdd(v => !v)} style={{ padding: "8px 14px", background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", borderRadius: 8, color: C.cyan, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>+ Add</button>
+          <button onClick={() => setShowAdd(v => !v)} style={{ padding: "8px 14px", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.3)", borderRadius: 8, color: C.cyan, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>+ Add</button>
           <button onClick={saveAll} disabled={saving} style={{ padding: "8px 14px", background: saving ? "rgba(0,255,136,0.05)" : "rgba(0,255,136,0.15)", border: `1px solid ${C.primary}40`, borderRadius: 8, color: C.primary, fontFamily: "Inter", fontSize: 11, cursor: "pointer" }}>{saved ? "✓ Saved" : saving ? "Saving..." : "Save All"}</button>
         </div>
       </div>
 
       {showAdd && (
-        <div style={{ background: "rgba(0,174,239,0.06)", border: "1px solid rgba(0,174,239,0.2)", borderRadius: 12, padding: "16px", marginBottom: 16 }}>
+        <div style={{ background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 12, padding: "16px", marginBottom: 16 }}>
           <div style={{ fontFamily: "Orbitron", fontSize: 10, color: C.cyan, letterSpacing: "0.15em", marginBottom: 12 }}>NEW ITEM</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
             <div><div style={{ fontFamily: "Inter", fontSize: 10, color: C.muted, marginBottom: 4 }}>LABEL</div><input value={newItem.label} onChange={e => setNewItem(p => ({ ...p, label: e.target.value }))} placeholder="My Page" style={inp} /></div>
@@ -2618,7 +2618,7 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
     { label: "TRAINEES",  value: String(trainees.length), color: "#00FF88" },
     { label: "ONLINE",    value: String(online),          color: "#00D26A" },
     { label: "AVG XP",    value: String(avgXp),           color: "#FFD700" },
-    { label: "AVG MODS",  value: avgMods,                 color: "#00AEEF" },
+    { label: "AVG MODS",  value: avgMods,                 color: "#00FF88" },
     { label: "AVG SCORE", value: `${avgScore}%`,          color: "#FF9F1C" },
   ];
 
@@ -2667,19 +2667,19 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
           </div>
 
           {/* Module Completion Chart */}
-          <div style={{ background: "rgba(0,174,239,0.05)", border: "1px solid rgba(0,174,239,0.15)", borderRadius: 10, padding: "12px 14px" }}>
-            <div style={{ fontSize: 9, color: "#00AEEF", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>MODULE COMPLETION</div>
+          <div style={{ background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 9, color: "#00FF88", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>MODULE COMPLETION</div>
             {[...trainees].sort((a,b) => b.completedModules - a.completedModules).slice(0,8).map(t => (
               <div key={t.id} style={{ marginBottom: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                   <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
-                  <span style={{ fontSize: 9, color: "#00AEEF", fontFamily: "monospace" }}>{t.completedModules}</span>
+                  <span style={{ fontSize: 9, color: "#00FF88", fontFamily: "monospace" }}>{t.completedModules}</span>
                 </div>
                 <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
                   <div style={{
                     height: "100%", borderRadius: 3,
                     width: `${Math.round((t.completedModules / maxMods) * 100)}%`,
-                    background: "linear-gradient(90deg, #00AEEF, #00FF88)",
+                    background: "linear-gradient(90deg, #00FF88, #00FF88)",
                     transition: "width 0.6s ease",
                   }} />
                 </div>
@@ -4833,7 +4833,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                       <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>MODS</div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#00AEEF", fontFamily: "Inter" }}>{(t.avgScore ?? 0) > 0 ? (t.avgScore ?? 0) + "%" : "—"}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#00FF88", fontFamily: "Inter" }}>{(t.avgScore ?? 0) > 0 ? (t.avgScore ?? 0) + "%" : "—"}</div>
                       <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>AVG</div>
                     </div>
                   </div>
@@ -5244,7 +5244,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                     {t.online ? "● Online now" : `Last: ${timeAgo(t.lastActiveAt ?? t.lastActive)}`}
                   </div>
                   {t.lastPage && (
-                    <div style={{ fontSize: 9, color: "rgba(0,174,239,0.5)", marginTop: 1, fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: 9, color: "rgba(0,255,136,0.5)", marginTop: 1, fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       📍 {t.lastPage}
                     </div>
                   )}
