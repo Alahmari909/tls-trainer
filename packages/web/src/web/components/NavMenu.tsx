@@ -55,15 +55,17 @@ function BellIcon({ traineeId }: { traineeId: string }) {
 
 // Icon map — emoji fallback for nav items
 const ICON_EMOJI: Record<string, string> = {
-  Home: "⌂", BookOpen: "📡", Zap: "⭐", FileText: "📋",
+  Home: "🏠", BookOpen: "📡", Zap: "⭐", FileText: "📋",
   MessageSquare: "💬", MessageCircle: "🔒", Monitor: "🎮",
   ShieldAlert: "⚠️", Trophy: "🏅", BarChart: "📊",
   Bell: "🔔", Settings: "⚙️", Crosshair: "🎯", Users: "👥",
+  Info: "ℹ️",
 };
 
 interface DynNavItem { id: number; label: string; href: string; icon: string; order: number; isVisible: boolean; }
 
 const FALLBACK_NAV: DynNavItem[] = [
+  { id:0,  label:"Home",          href:"/",             icon:"Home",          order:0,  isVisible:true },
   { id:1,  label:"TLS Basic",     href:"/basics",       icon:"BookOpen",      order:1,  isVisible:true },
   { id:2,  label:"TLS Advanced",  href:"/advanced",     icon:"Zap",           order:2,  isVisible:true },
   { id:3,  label:"Quiz",          href:"/quiz",         icon:"Crosshair",     order:3,  isVisible:true },
@@ -75,8 +77,8 @@ const FALLBACK_NAV: DynNavItem[] = [
   { id:9,  label:"Achievements",  href:"/achievements", icon:"Trophy",        order:9,  isVisible:true },
   { id:10, label:"Leaderboard",   href:"/leaderboard",  icon:"BarChart",      order:10, isVisible:true },
   { id:11, label:"Notifications", href:"/notifications",icon:"Bell",          order:11, isVisible:true },
-  { id:12, label:"About",          href:"/about",        icon:"Info",          order:12, isVisible:true },
-  { id:13, label:"Settings",      href:"/settings",     icon:"Settings",      order:13, isVisible:true },
+  { id:12, label:"Settings",      href:"/settings",     icon:"Settings",      order:12, isVisible:true },
+  { id:13, label:"About",         href:"/about",        icon:"Info",          order:13, isVisible:true },
 ];
 
 function useDynamicNav() {
@@ -230,26 +232,8 @@ export default function NavMenu() {
           </div>
         )}
 
-        {/* Right: About + Hamburger */}
+        {/* Right: Hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          {/* About shortcut */}
-          <Link
-            href="/about"
-            aria-label="About"
-            title="About"
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: 34, height: 34,
-              background: location === "/about" ? "rgba(0,174,239,0.15)" : "rgba(255,255,255,0.03)",
-              border: `1px solid ${location === "/about" ? "rgba(0,174,239,0.45)" : "rgba(255,255,255,0.08)"}`,
-              borderRadius: 9, textDecoration: "none",
-              color: location === "/about" ? "#00AEEF" : "rgba(255,255,255,0.55)",
-              fontSize: 16, lineHeight: 1,
-              transition: "all 0.22s", flexShrink: 0,
-            }}
-          >
-            ℹ️
-          </Link>
           {/* Hamburger */}
           <button
             onClick={() => setOpen(o => !o)}
