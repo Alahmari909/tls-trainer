@@ -115,7 +115,12 @@ export default function Manuals() {
         }),
       }).catch(() => {});
     }
-    setPdfViewer({ url: `/pdfs/${manual.file}`, title: manual.title });
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.open(`/pdfs/${manual.file}`, '_blank');
+    } else {
+      setPdfViewer({ url: `/pdfs/${manual.file}`, title: manual.title });
+    }
   };
 
   const handleSave = (file: string) => {
