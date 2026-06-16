@@ -1006,7 +1006,20 @@ setInterval(() => {
 // ── App ───────────────────────────────────────────────────────────────────────
 const app = new Hono()
   .basePath('api')
-  .use(cors({ origin: (origin) => origin ?? "*", credentials: true, exposeHeaders: ["set-auth-token"] }))
+  // ── Layer 3: CORS — restrict to allowed origins only ──────────────────────
+  .use(cors({
+    origin: (origin) => {
+      const ALLOWED_ORIGINS = [
+        "https://templateweb-production-16cb.up.railway.app",
+        "http://localhost:4200",
+        "http://localhost:3000",
+      ];
+      return ALLOWED_ORIGINS.includes(origin ?? "") ? origin : ALLOWED_ORIGINS[0];
+    },
+    credentials: true,
+    exposeHeaders: ["set-auth-token"],
+  }))
+  // ─────────────────────────────────────────────────────────────────────────
   // Global rate limit: 300 requests / minute per IP (anti-DDoS)
   .use(rateLimit({ windowMs: 60 * 1000, max: 300, message: "Rate limit exceeded — slow down" }))
   .get('/ping', (c) => c.json({ message: `Pong! ${Date.now()}` }, 200))

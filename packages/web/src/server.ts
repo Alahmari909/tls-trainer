@@ -32,6 +32,16 @@ const adminPath = `${distDir}/admin.html`;
 const server = Bun.serve({
   port,
   async fetch(request) {
+    // ── Layer 4: Request size limit (anti-payload DDoS) ──────────────────────
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (contentLength > 10 * 1024 * 1024) {
+      return new Response(JSON.stringify({ error: "Payload too large" }), {
+        status: 413,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const url = new URL(request.url);
 
     if (url.pathname.startsWith("/api")) {
