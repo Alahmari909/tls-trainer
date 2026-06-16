@@ -4960,6 +4960,25 @@ export default function Admin() {
   const [verified, setVerified] = useState(() => getAdminSession() !== null);
   const adminPw = getAdminSession() ?? "";
 
+  // ── Isolate admin from browser back-swipe into trainee pages ──────────────
+  // Replace the current history entry with /admin so the back stack
+  // doesn't contain trainee routes. This prevents swipe-back from landing
+  // on the trainee dashboard.
+  useEffect(() => {
+    // Replace current entry so /admin IS the bottom of the stack
+    window.history.replaceState(null, "", "/admin");
+    // Push a dummy entry on top — so the first back-swipe hits this dummy
+    // and stays on /admin instead of leaving altogether
+    window.history.pushState(null, "", "/admin");
+
+    const onPopState = () => {
+      // Whenever the user swipes/taps back, push /admin again to stay in place
+      window.history.pushState(null, "", "/admin");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   if (!verified) {
     return <AdminLogin onSuccess={() => setVerified(true)} />;
   }
