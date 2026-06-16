@@ -3567,13 +3567,20 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
     setLoading(true);
     try {
       const r = await fetch("/api/admin/documents", { headers: { "x-admin-password": adminPw } });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        setError(`Load failed: ${e.error || r.status}`);
+        setDocs([]);
+        setLoading(false);
+        return;
+      }
       const data = await r.json();
       setDocs(Array.isArray(data) ? data : []);
-    } catch { setError("Failed to load documents"); }
+    } catch (err: any) { setError(`Failed to load documents: ${err?.message || err}`); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (adminPw) load(); }, [adminPw]);
 
   const handleUpload = async () => {
     if (!uFile || !uTitle.trim()) { setError("Title and file are required"); return; }

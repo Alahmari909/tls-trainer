@@ -3873,7 +3873,7 @@ app.get('/admin/documents', async (c) => {
   const docs = await sql(`
     SELECT d.id, d.title, d.filename, d.category, d.description, d.pages,
            d.size, d.mime_type, d.share_mode, d.created_at, d.updated_at
-    FROM documents d ORDER BY d.created_at DESC
+    FROM documents d ORDER BY CAST(d.created_at AS INTEGER) DESC, d.created_at DESC
   `);
   // For each doc with share_mode='specific', get shared trainee ids
   const result = [];
