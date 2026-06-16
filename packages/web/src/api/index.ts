@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from "hono/cors";
 import * as XLSX from 'xlsx';
 import { eq, and, desc } from "drizzle-orm";
@@ -3888,7 +3889,7 @@ app.get('/admin/documents', async (c) => {
 });
 
 // POST /api/admin/documents — upload new document
-app.post('/admin/documents', async (c) => {
+app.post('/admin/documents', bodyLimit({ maxSize: 100 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 100MB)' }, 413) }), async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   const formData = await c.req.formData().catch(() => null);
