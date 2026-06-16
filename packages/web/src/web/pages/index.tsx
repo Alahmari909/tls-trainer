@@ -616,68 +616,91 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         </div>
       </div>
 
-      {/* ── RECENT ACTIVITY ── */}
+      {/* ── LAST COMPLETED MODULES ── */}
       <div style={{ padding: "0 16px 40px" }}>
         <div style={{
           fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
-          color: "var(--text-muted)", marginBottom: 12,
-        }}>{t("recent_activity")}</div>
+          color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase",
+        }}>Last Completed Modules</div>
         <div className="glass-card" style={{ padding: "4px 0", border: "1px solid rgba(0,174,239,0.1)" }}>
-          {progress.length > 0 ? (
-            progress.sort((a,b) => b.progress - a.progress).slice(0, 3).map((p, i, arr) => {
-              const mod = modules.find(m => m.id === p.moduleId);
+          {(() => {
+            // get completed modules sorted by lastAccessedAt descending, take top 3
+            const completed = (progress as any[])
+              .filter((p: any) => Number(p.completed) === 1)
+              .sort((a: any, b: any) => (Number(b.lastAccessedAt) || 0) - (Number(a.lastAccessedAt) || 0))
+              .slice(0, 3);
+
+            if (completed.length === 0) {
+              return (
+                <div style={{ padding: "20px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
+                  <div style={{ fontFamily: "Inter", fontSize: 13, color: "var(--text-secondary)" }}>
+                    No completed modules yet
+                  </div>
+                  <div style={{ fontFamily: "Inter", fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                    Complete your first module to see it here
+                  </div>
+                </div>
+              );
+            }
+
+            return completed.map((p: any, i: number, arr: any[]) => {
+              const mod = modules.find((m: any) => m.id === p.moduleId);
               const color = COLORS[(p.moduleId - 1) % COLORS.length];
+              const ts = Number(p.lastAccessedAt);
+              const dateStr = ts
+                ? (() => {
+                    const d = new Date(ts);
+                    const days = Math.floor((Date.now() - ts) / 86400000);
+                    if (days === 0) return "Today";
+                    if (days === 1) return "Yesterday";
+                    if (days < 7) return `${days} days ago`;
+                    return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+                  })()
+                : "—";
+
               return (
                 <div key={p.moduleId} style={{
                   display: "flex", alignItems: "center", gap: 12,
                   padding: "12px 16px",
                   borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                 }}>
+                  {/* Icon */}
                   <div style={{
-                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                    background: `${color}14`, border: `1px solid ${color}28`,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: `${color}18`, border: `1px solid ${color}40`,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
                   }}>
-                    {p.completed ? "✅" : "📖"}
+                    ✅
                   </div>
-                  <div style={{ flex: 1 }}>
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 13, color: "var(--text-secondary)",
+                      fontFamily: "Inter, sans-serif", fontSize: 13,
+                      color: "var(--text-secondary)", whiteSpace: "nowrap",
+                      overflow: "hidden", textOverflow: "ellipsis",
                     }}>
-                      {p.completed ? "Completed" : "In Progress"} — {mod?.title ?? `Module ${p.moduleId}`}
+                      {mod?.title ?? `Module ${p.moduleId}`}
                     </div>
                     <div style={{
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 11, color: "var(--text-muted)", marginTop: 2,
-                    }}>{Math.round(p.progress)}% done</div>
+                      fontFamily: "Inter, sans-serif", fontSize: 11,
+                      color: "var(--text-muted)", marginTop: 3, display: "flex", gap: 8, alignItems: "center",
+                    }}>
+                      <span style={{ color: "#00D26A" }}>100% Complete</span>
+                      <span style={{ opacity: 0.4 }}>·</span>
+                      <span>{dateStr}</span>
+                    </div>
                   </div>
+                  {/* Badge */}
+                  <div style={{
+                    background: "rgba(0,210,106,0.1)", border: "1px solid rgba(0,210,106,0.25)",
+                    borderRadius: 6, padding: "3px 8px",
+                    fontFamily: "Inter", fontSize: 10, color: "#00D26A", flexShrink: 0,
+                  }}>Done</div>
                 </div>
               );
-            })
-          ) : (
-            [
-              { icon: "🚀", text: "Start your first module to begin training", time: "Get started", color: "#00AEEF" },
-              { icon: "🎯", text: "Complete quizzes to earn XP and streaks", time: "Tip", color: "#35D4FF" },
-              { icon: "📋", text: "Browse TLS manuals in the library", time: "Explore", color: "#C9A66B" },
-            ].map((item, i, arr) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "12px 16px",
-                borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: `${item.color}14`, border: `1px solid ${item.color}28`,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
-                }}>{item.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>{item.text}</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{item.time}</div>
-                </div>
-              </div>
-            ))
-          )}
+            });
+          })()}
         </div>
       </div>
 
