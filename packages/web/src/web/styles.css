@@ -836,3 +836,34 @@ input, textarea, select {
 .badge-animate {
   animation: badgePopIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
+
+/* ── Admin green theme overrides ── */
+[data-theme="admin"] {
+  --accent-blue:  #00FF88;
+  --accent-cyan:  #00CC66;
+  --border-color: rgba(0,255,136,0.15);
+  --bg-primary:   #030f03;
+  --bg-secondary: #071a07;
+  --bg-card:      rgba(0,255,136,0.04);
+}
+[data-theme="admin"] .glass-card {
+  border-color: rgba(0,255,136,0.18);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,136,0.08);
+}
+[data-theme="admin"] .glow-blue {
+  box-shadow: 0 0 24px rgba(0,255,136,0.4), 0 0 48px rgba(0,255,136,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+[data-theme="admin"] .glow-cyan {
+  box-shadow: 0 0 24px rgba(0,204,102,0.45), 0 0 48px rgba(0,204,102,0.18);
+}
+[data-theme="admin"] .text-glow {
+  text-shadow: 0 0 14px rgba(0,255,136,0.9), 0 0 28px rgba(0,255,136,0.5);
+}
+[data-theme="admin"] .online-dot {
+  background: #00FF88;
+  box-shadow: 0 0 6px #00FF88;
+}
+[data-theme="admin"] .progress-bar-inner,
+[data-theme="admin"] [class*="progress"] {
+  background: linear-gradient(90deg, #00FF88, #00CC66) !important;
+}

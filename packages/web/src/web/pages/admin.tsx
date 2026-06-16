@@ -557,7 +557,7 @@ function TraineeDetailModal({
         width: "100%", maxWidth: 520,
         /* Use dvh so Safari bottom bar is respected */
         height: "min(92dvh, 92vh)",
-        background: "#071426", border: `1px solid ${C.cyan}30`,
+        background: "#071a07", border: `1px solid ${C.cyan}30`,
         borderRadius: "16px 16px 0 0", overflow: "hidden",
         display: "flex", flexDirection: "column",
         /* safe area for iPhone home bar */
@@ -566,7 +566,7 @@ function TraineeDetailModal({
         {/* Header */}
         <div style={{
           padding: "16px 20px", borderBottom: `1px solid ${C.cyan}20`,
-          background: "linear-gradient(180deg, #0a1e38, #071426)",
+          background: "linear-gradient(180deg, #0a1a0a, #071a07)",
           display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
         }}>
           {loading ? (
@@ -585,7 +585,7 @@ function TraineeDetailModal({
             <>
               <div style={{
                 width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
-                background: `linear-gradient(135deg, ${t.online ? C.green : C.cyan}30, #071426)`,
+                background: `linear-gradient(135deg, ${t.online ? C.green : C.cyan}30, #071a07)`,
                 border: `2px solid ${t.online ? C.green : C.cyan}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontFamily: "Inter", fontSize: 16, fontWeight: 700, color: t.online ? C.green : C.cyan,
@@ -1695,7 +1695,7 @@ ${weaknessSection}${strengthSection}
             <div style={{
               flexShrink: 0, padding: "8px 16px 12px",
               borderTop: `1px solid ${C.blue}20`,
-              background: "#071426",
+              background: "#071a07",
             }}>
               <div className="glass-card" style={{ padding: "8px 10px", border: `1px solid ${C.blue}25` }}>
                 <textarea
@@ -2289,7 +2289,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
               display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
             }} onClick={() => setConfirmRestore(null)}>
               <div onClick={e => e.stopPropagation()} style={{
-                background: "#071426", border: `1px solid ${C.gold}40`,
+                background: "#071a07", border: `1px solid ${C.gold}40`,
                 borderRadius: 16, padding: 24, maxWidth: 360, width: "100%",
               }}>
                 <div style={{ fontSize: 32, textAlign: "center", marginBottom: 10 }}>♻️</div>
@@ -2324,7 +2324,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
               display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
             }} onClick={() => setConfirmImport(false)}>
               <div onClick={e => e.stopPropagation()} style={{
-                background: "#071426", border: `1px solid ${C.cyan}40`,
+                background: "#071a07", border: `1px solid ${C.cyan}40`,
                 borderRadius: 16, padding: 24, maxWidth: 360, width: "100%",
               }}>
                 <div style={{ fontSize: 32, textAlign: "center", marginBottom: 10 }}>📥</div>
@@ -4494,6 +4494,25 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
     }
   }, [activeView]);
 
+  // ── Inject admin green CSS variables — overrides shared styles.css blue theme ─
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--bg-primary",    "#030f03");
+    root.style.setProperty("--bg-secondary",  "#071a07");
+    root.style.setProperty("--bg-card",       "rgba(0,255,136,0.04)");
+    root.style.setProperty("--bg-elevated",   "#0a1a0a");
+    root.style.setProperty("--accent-blue",   "#00FF88");
+    root.style.setProperty("--accent-cyan",   "#00CC66");
+    root.style.setProperty("--border-color",  "rgba(0,255,136,0.15)");
+    root.setAttribute("data-theme", "admin");
+    return () => {
+      // cleanup when admin unmounts (user logs out)
+      ["--bg-primary","--bg-secondary","--bg-card","--bg-elevated",
+       "--accent-blue","--accent-cyan","--border-color"].forEach(v => root.style.removeProperty(v));
+      root.removeAttribute("data-theme");
+    };
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       const [res, retakeRes, regRes] = await Promise.all([
@@ -4908,7 +4927,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
       </AdminNavContext.Provider>
       {activeView === "documents" && (
-        <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh", padding: "24px 32px" }}>
+        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh", padding: "24px 32px" }}>
           <AdminDocuments adminPw={adminPw} trainees={trainees.map(t => ({ id: t.id, name: t.name }))} />
         </div>
       )}
@@ -4936,7 +4955,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         </div>
       )}
       {activeView === "nav_manager" && (
-        <div className="admin-view" style={{ background: "#03080f", minHeight: "100vh" }}>
+        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh" }}>
           <NavManagerAdmin adminPw={adminPw} />
         </div>
       )}
