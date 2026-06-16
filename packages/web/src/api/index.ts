@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from "hono/cors";
 import * as XLSX from 'xlsx';
-// pdf-parse removed — using built-in PDF text extraction
 import { eq, and, desc } from "drizzle-orm";
 // AI SDK import removed — using direct Anthropic fetch instead
 import { sendTelegram, getTelegramConfig, setTelegramConfig } from "./telegram";
@@ -2495,46 +2494,18 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         }
 
         try {
-          let text = '';
-          // Try pdftotext first (faster, better for large files)
-          if (spawnSyncFn) {
-            try {
-              const result = spawnSyncFn('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
-                encoding: 'utf8',
-                maxBuffer: 30 * 1024 * 1024,
-              });
-              if (result.status === 0 && result.stdout && result.stdout.trim().length > 50) {
-                text = result.stdout;
-              }
-            } catch {}
+          if (!spawnSyncFn) {
+            errors.push({ file, err: 'pdftotext not available on this server' });
+            continue;
           }
-          // Fallback: extract text from raw PDF bytes using regex (no external deps)
-          if (!text || text.trim().length < 50) {
-            try {
-              const fileBuffer = await Bun.file(filePath).arrayBuffer();
-              const raw = Buffer.from(fileBuffer).toString('latin1');
-              // Extract readable ASCII strings from PDF stream data
-              const matches = raw.match(/[\x20-\x7E\n\r\t]{4,}/g) ?? [];
-              // Filter out PDF syntax noise, keep human-readable content
-              const cleaned = matches
-                .filter(s => {
-                  const trimmed = s.trim();
-                  // Skip PDF keywords and binary noise
-                  if (/^(obj|endobj|stream|endstream|xref|trailer|startxref|%%EOF)/.test(trimmed)) return false;
-                  if (/^[<>\[\]{}\/\\0-9a-fA-F\s]+$/.test(trimmed)) return false;
-                  // Keep strings with actual words (letters + spaces)
-                  return /[a-zA-Z\u0600-\u06FF]{3,}/.test(trimmed);
-                })
-                .join(' ');
-              if (cleaned.trim().length > 50) text = cleaned;
-            } catch (pdfErr: any) {
-              errors.push({ file, err: `PDF read error: ${pdfErr?.message?.slice(0, 80) ?? 'unknown'}` });
-              continue;
-            }
-          }
+          const result = spawnSyncFn('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
+            encoding: 'utf8',
+            maxBuffer: 30 * 1024 * 1024,
+          });
+          const text = (result.status === 0 && result.stdout) ? result.stdout : '';
 
           if (!text || text.trim().length < 50) {
-            errors.push({ file, err: 'No text extracted (PDF may be image-based or encrypted)' });
+            errors.push({ file, err: result.error ? 'pdftotext not installed on server' : 'No text extracted (PDF may be image-based or encrypted)' });
             continue;
           }
 
