@@ -373,7 +373,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
     { labelKey: "chat" as const,         icon: "💬", path: "/chat",     color: "#35D4FF" },
   ];
 
-  useEffect(() => {
+  const fetchDashboard = useCallback(() => {
     Promise.all([
       fetch(`/api/ensure-user/${session.id}`).catch(() => {}),
       fetch("/api/modules").then(r => r.json()),
@@ -389,8 +389,23 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
     }).catch(() => {});
   }, [session.id]);
 
+  // Initial load
+  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+
+  // Re-fetch whenever user navigates back to this page (tab focus / visibility)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") fetchDashboard(); };
+    const onFocus   = () => fetchDashboard();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [fetchDashboard]);
+
   const totalMods = 9;
-  const completedMods = progress.filter(p => p.completed === 1).length;
+  const completedMods = progress.filter(p => Number(p.completed) === 1).length;
   const overallPct = progress.length === 0
     ? 0
     : Math.round(progress.reduce((sum, p) => sum + p.progress, 0) / totalMods);
@@ -544,7 +559,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
       {/* ── CONTINUE TRAINING CTA ── */}
       {(() => {
-        const inProgress = progress.find(p => p.progress > 0 && p.completed !== 1);
+        const inProgress = progress.find(p => p.progress > 0 && Number(p.completed) !== 1);
         if (!inProgress) return null;
         const mod = modules.find(m => m.id === inProgress.moduleId);
         const color = COLORS[(inProgress.moduleId - 1) % COLORS.length];
