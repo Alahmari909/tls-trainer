@@ -105,60 +105,146 @@ function fmtDate(ms: number) {
 // ─── Quiz Answer Breakdown Component ──────────────────────────────────────────
 function QuizAnswerBreakdown({ attemptId, traineeId, adminPw }: { attemptId: number; traineeId: string; adminPw: string }) {
   const [expanded, setExpanded] = useState(false);
-  const [answers, setAnswers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [answers, setAnswers]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [loaded, setLoaded]     = useState(false);
 
   const load = async () => {
-    if (answers.length > 0) { setExpanded(e => !e); return; }
+    if (loaded) { setExpanded(e => !e); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/quiz-answers/${traineeId}`, {
-        headers: { 'x-admin-password': adminPw }
+        headers: { "x-admin-password": adminPw },
       });
       const all = await res.json();
-      const filtered = all.filter((a: any) => a.attempt_id === attemptId);
-      setAnswers(filtered);
+      setAnswers((all as any[]).filter((a: any) => a.attempt_id === attemptId));
       setExpanded(true);
+      setLoaded(true);
     } catch {}
     setLoading(false);
   };
 
+  const wrong  = answers.filter((a: any) => !a.is_correct);
+  const total  = answers.length;
+
   return (
-    <div style={{ marginTop: 8 }}>
+    <div style={{ marginTop: 10 }}>
+      {/* Toggle button */}
       <button onClick={load} style={{
         background: "transparent", border: "1px solid rgba(0,255,136,0.2)",
-        color: "#00FF88", borderRadius: 6, padding: "4px 10px",
+        color: "#00FF88", borderRadius: 6, padding: "4px 12px",
         fontSize: 10, fontFamily: "Inter", cursor: "pointer", letterSpacing: "0.06em",
+        display: "flex", alignItems: "center", gap: 6,
       }}>
-        {loading ? "..." : expanded ? "▲ HIDE ANSWERS" : "▼ SHOW ANSWERS"}
+        {loading ? "Loading..." : expanded ? "▲ HIDE DETAILS" : `▼ SHOW DETAILS${loaded ? ` · ${wrong.length} wrong / ${total}` : ""}`}
       </button>
-      {expanded && answers.length > 0 && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-          {answers.map((a: any, i: number) => (
-            <div key={i} style={{
-              padding: "8px 10px", borderRadius: 8,
-              background: a.is_correct ? "rgba(0,210,106,0.05)" : "rgba(255,77,77,0.05)",
-              border: `1px solid ${a.is_correct ? "#00D26A" : "#FF4D4D"}20`,
-              fontSize: 11, fontFamily: "Inter",
-            }}>
-              <div style={{ color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>{a.question_text}</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <span style={{ color: a.is_correct ? "#00D26A" : "#FF4D4D" }}>
-                  {a.is_correct ? "✅" : "❌"} Answered: <b>{a.selected_option?.toUpperCase()}</b>
-                </span>
-                {!a.is_correct && (
-                  <span style={{ color: "#00D26A" }}>
-                    ✓ Correct: <b>{a.correct_option?.toUpperCase()}</b>
-                  </span>
-                )}
-              </div>
+
+      {expanded && (
+        <div style={{ marginTop: 10 }}>
+          {answers.length === 0 ? (
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>
+              No detailed answers recorded for this attempt.
             </div>
-          ))}
-        </div>
-      )}
-      {expanded && answers.length === 0 && (
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 6 }}>
-          No detailed answers recorded for this attempt.
+          ) : (
+            <>
+              {/* Summary bar */}
+              <div style={{
+                display: "flex", gap: 16, marginBottom: 10,
+                padding: "8px 12px", borderRadius: 8,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              }}>
+                <span style={{ fontSize: 11, fontFamily: "Inter", color: "#00D26A" }}>
+                  ✅ Correct: <b>{answers.filter((a:any) => a.is_correct).length}</b>
+                </span>
+                <span style={{ fontSize: 11, fontFamily: "Inter", color: "#FF4D4D" }}>
+                  ❌ Wrong: <b>{wrong.length}</b>
+                </span>
+                <span style={{ fontSize: 11, fontFamily: "Inter", color: "rgba(255,255,255,0.4)" }}>
+                  Total: <b>{total}</b>
+                </span>
+              </div>
+
+              {/* Wrong answers first — highlighted */}
+              {wrong.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{
+                    fontSize: 9, fontFamily: "Inter", letterSpacing: "0.14em",
+                    color: "#FF4D4D", marginBottom: 6, textTransform: "uppercase",
+                  }}>
+                    ❌ Wrong Answers — Needs Review
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {wrong.map((a: any, i: number) => (
+                      <div key={i} style={{
+                        padding: "10px 12px", borderRadius: 8,
+                        background: "rgba(255,77,77,0.06)",
+                        border: "1px solid rgba(255,77,77,0.25)",
+                      }}>
+                        {/* Question */}
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter", marginBottom: 8, lineHeight: 1.4 }}>
+                          <span style={{ fontSize: 10, color: "rgba(255,77,77,0.7)", marginRight: 6 }}>Q{i + 1}.</span>
+                          {a.question_text}
+                        </div>
+                        {/* Trainee answer */}
+                        <div style={{
+                          display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4,
+                          padding: "6px 10px", borderRadius: 6,
+                          background: "rgba(255,77,77,0.08)", border: "1px solid rgba(255,77,77,0.2)",
+                        }}>
+                          <span style={{ fontSize: 10, color: "#FF4D4D", flexShrink: 0, marginTop: 1 }}>✗</span>
+                          <div>
+                            <div style={{ fontSize: 9, color: "#FF4D4D", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 2 }}>TRAINEE ANSWERED</div>
+                            <div style={{ fontSize: 12, color: "#FF8080", fontFamily: "Inter" }}>{a.selected_option}</div>
+                          </div>
+                        </div>
+                        {/* Correct answer */}
+                        <div style={{
+                          display: "flex", alignItems: "flex-start", gap: 8,
+                          padding: "6px 10px", borderRadius: 6,
+                          background: "rgba(0,210,106,0.08)", border: "1px solid rgba(0,210,106,0.25)",
+                        }}>
+                          <span style={{ fontSize: 10, color: "#00D26A", flexShrink: 0, marginTop: 1 }}>✓</span>
+                          <div>
+                            <div style={{ fontSize: 9, color: "#00D26A", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 2 }}>CORRECT ANSWER</div>
+                            <div style={{ fontSize: 12, color: "#00FF88", fontFamily: "Inter" }}>{a.correct_option}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Correct answers — collapsed/secondary */}
+              {answers.filter((a:any) => a.is_correct).length > 0 && (
+                <div>
+                  <div style={{
+                    fontSize: 9, fontFamily: "Inter", letterSpacing: "0.14em",
+                    color: "#00D26A", marginBottom: 6, textTransform: "uppercase",
+                  }}>
+                    ✅ Correct Answers
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {answers.filter((a:any) => a.is_correct).map((a: any, i: number) => (
+                      <div key={i} style={{
+                        padding: "8px 12px", borderRadius: 8,
+                        background: "rgba(0,210,106,0.04)",
+                        border: "1px solid rgba(0,210,106,0.15)",
+                        fontSize: 11, fontFamily: "Inter",
+                        display: "flex", alignItems: "flex-start", gap: 8,
+                      }}>
+                        <span style={{ color: "#00D26A", flexShrink: 0 }}>✓</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: "rgba(255,255,255,0.6)", marginBottom: 3, lineHeight: 1.3 }}>{a.question_text}</div>
+                          <div style={{ color: "#00D26A", fontSize: 11 }}>{a.selected_option}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -1101,33 +1187,98 @@ ${weaknessSection}${strengthSection}
               <div>
                 {detail.quizAttempts.length === 0 ? (
                   <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 12 }}>No quiz attempts yet</div>
-                ) : detail.quizAttempts.map(a => (
-                  <div key={a.id} style={{
-                    padding: "12px 14px", marginBottom: 8,
-                    background: a.passed ? "rgba(0,210,106,0.05)" : "rgba(255,77,77,0.05)",
-                    border: `1px solid ${a.passed ? C.green : C.red}25`,
-                    borderRadius: 10,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", fontFamily: "Inter" }}>
-                        Module {a.module_id} {a.module_name ? `— ${a.module_name}` : ""}
+                ) : (
+                  <>
+                    {/* Summary header */}
+                    <div style={{
+                      display: "flex", gap: 12, marginBottom: 12,
+                      padding: "10px 14px", borderRadius: 10,
+                      background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+                    }}>
+                      <div style={{ flex: 1, textAlign: "center" }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: C.primary, fontFamily: "Inter" }}>
+                          {detail.quizAttempts.length}
+                        </div>
+                        <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.1em" }}>ATTEMPTS</div>
                       </div>
-                      <span style={{
-                        fontSize: 9, padding: "2px 8px", fontFamily: "Inter",
-                        background: a.passed ? "rgba(0,210,106,0.15)" : "rgba(255,77,77,0.15)",
-                        border: `1px solid ${a.passed ? C.green : C.red}40`,
-                        color: a.passed ? C.green : C.red, borderRadius: 10,
-                      }}>{a.passed ? "PASSED" : "FAILED"}</span>
+                      <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.07)", borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: C.green, fontFamily: "Inter" }}>
+                          {detail.quizAttempts.filter(a => a.passed).length}
+                        </div>
+                        <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.1em" }}>PASSED</div>
+                      </div>
+                      <div style={{ flex: 1, textAlign: "center" }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-secondary)", fontFamily: "Inter" }}>
+                          {detail.quizAttempts.length > 0
+                            ? Math.round(detail.quizAttempts.reduce((s, a) => s + a.pct, 0) / detail.quizAttempts.length)
+                            : 0}%
+                        </div>
+                        <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.1em" }}>AVG SCORE</div>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--text-muted)", fontFamily: "Inter" }}>
-                      <span>Score: <b style={{ color: "var(--text-secondary)" }}>{Math.round(a.pct)}%</b></span>
-                      <span>✅ {a.correct}  ❌ {a.wrong}</span>
-                      <span>{timeAgo(a.ts)}</span>
-                    </div>
-                    {/* Per-question breakdown button */}
-                    <QuizAnswerBreakdown attemptId={a.id} traineeId={detail.trainee.id} adminPw={adminPw} />
-                  </div>
-                ))}
+
+                    {detail.quizAttempts.map(a => (
+                      <div key={a.id} style={{
+                        padding: "14px", marginBottom: 10,
+                        background: a.passed ? "rgba(0,210,106,0.04)" : "rgba(255,77,77,0.04)",
+                        border: `1px solid ${a.passed ? C.green : C.red}30`,
+                        borderRadius: 12,
+                      }}>
+                        {/* Row 1: module name + pass/fail badge */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", fontFamily: "Inter" }}>
+                              {a.module_name ?? `Module ${a.module_id}`}
+                            </div>
+                            <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter", marginTop: 2 }}>
+                              Module {a.module_id}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: 9, padding: "3px 10px", fontFamily: "Inter",
+                            background: a.passed ? "rgba(0,210,106,0.15)" : "rgba(255,77,77,0.15)",
+                            border: `1px solid ${a.passed ? C.green : C.red}50`,
+                            color: a.passed ? C.green : C.red, borderRadius: 20,
+                            letterSpacing: "0.1em", fontWeight: 700, flexShrink: 0,
+                          }}>{a.passed ? "✓ PASSED" : "✗ FAILED"}</span>
+                        </div>
+
+                        {/* Row 2: Score + correct/wrong + date */}
+                        <div style={{
+                          display: "flex", gap: 0, marginBottom: 4,
+                          background: "rgba(0,0,0,0.2)", borderRadius: 8, overflow: "hidden",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                        }}>
+                          <div style={{ flex: 1, padding: "8px 10px", borderRight: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+                            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "Inter", color: a.pct >= 70 ? C.green : C.red }}>
+                              {Math.round(a.pct)}%
+                            </div>
+                            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>SCORE</div>
+                          </div>
+                          <div style={{ flex: 1, padding: "8px 10px", borderRight: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "Inter", color: "#00D26A" }}>✅ {a.correct}</div>
+                            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>CORRECT</div>
+                          </div>
+                          <div style={{ flex: 1, padding: "8px 10px", borderRight: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "Inter", color: "#FF4D4D" }}>❌ {a.wrong}</div>
+                            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>WRONG</div>
+                          </div>
+                          <div style={{ flex: 1.4, padding: "8px 10px", textAlign: "center" }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, fontFamily: "Inter", color: "var(--text-secondary)" }}>
+                              {new Date(a.ts).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+                            </div>
+                            <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "Inter", letterSpacing: "0.08em" }}>
+                              {new Date(a.ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Per-question breakdown */}
+                        <QuizAnswerBreakdown attemptId={a.id} traineeId={detail.trainee.id} adminPw={adminPw} />
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             )
 
