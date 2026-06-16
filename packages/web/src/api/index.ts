@@ -951,10 +951,64 @@ function isOnline(id: string): boolean {
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "TLS319522";
 
+// ── Rate Limiter ──────────────────────────────────────────────────────────────
+// In-memory store: ip -> { count, resetAt }
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+interface RateLimitRule {
+  windowMs: number;   // time window in ms
+  max: number;        // max requests per window
+  message?: string;
+}
+
+function getClientIp(c: any): string {
+  return (
+    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+    c.req.header("cf-connecting-ip") ??
+    c.req.header("x-real-ip") ??
+    "unknown"
+  );
+}
+
+function rateLimit(rule: RateLimitRule) {
+  return async (c: any, next: () => Promise<void>) => {
+    const ip = getClientIp(c);
+    const key = `${ip}:${c.req.path}`;
+    const now = Date.now();
+    const entry = rateLimitStore.get(key);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitStore.set(key, { count: 1, resetAt: now + rule.windowMs });
+      return next();
+    }
+
+    entry.count++;
+    if (entry.count > rule.max) {
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      return c.json(
+        { error: rule.message ?? "Too many requests — try again later", retryAfter },
+        429
+      );
+    }
+
+    return next();
+  };
+}
+
+// Clean up old entries every 10 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of rateLimitStore.entries()) {
+    if (now > val.resetAt) rateLimitStore.delete(key);
+  }
+}, 10 * 60 * 1000);
+
 // ── App ───────────────────────────────────────────────────────────────────────
 const app = new Hono()
   .basePath('api')
   .use(cors({ origin: (origin) => origin ?? "*", credentials: true, exposeHeaders: ["set-auth-token"] }))
+  // Global rate limit: 300 requests / minute per IP (anti-DDoS)
+  .use(rateLimit({ windowMs: 60 * 1000, max: 300, message: "Rate limit exceeded — slow down" }))
   .get('/ping', (c) => c.json({ message: `Pong! ${Date.now()}` }, 200))
   
   .get('/health', (c) => c.json({ status: 'ok' }, 200))
@@ -990,8 +1044,8 @@ const app = new Hono()
     return c.json({ ok: true, pending: true, requestId: id }, 200);
   })
 
-  // POST /trainee/login
-  .post('/trainee/login', async (c) => {
+  // POST /trainee/login — Rate limited: 10 attempts / 5 min per IP
+  .post('/trainee/login', rateLimit({ windowMs: 5 * 60 * 1000, max: 10, message: "Too many login attempts — wait 5 minutes" }), async (c) => {
     const body = await c.req.json().catch(() => ({})) as { id?: string; pin?: string };
     if (!body.id) return c.json({ error: 'id required' }, 400);
 
@@ -1915,7 +1969,8 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
   // ADMIN ENDPOINTS
   // ══════════════════════════════════════════════════════════════════════════
 
-  .post('/admin/verify', async (c) => {
+  // POST /admin/verify — Rate limited: 5 attempts / 15 min per IP
+  .post('/admin/verify', rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: "Too many admin login attempts — wait 15 minutes" }), async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const { password } = body as { password?: string };
     return c.json(password === ADMIN_PASSWORD ? { ok: true } : { ok: false, error: 'Invalid password' },
