@@ -18,7 +18,7 @@ function securityHeaders(extra: Record<string, string> = {}): Record<string, str
       "font-src 'self' https://fonts.gstatic.com data:; " +
       "img-src 'self' data: blob: https://storage.googleapis.com; " +
       "connect-src 'self' wss: https://api.openai.com https://*.turso.io; " +
-      "frame-src 'self' https://docs.google.com; " +
+      "frame-src 'self' https://docs.google.com https://docs.google.com/viewer; " +
       "object-src 'none';",
     ...extra,
   };

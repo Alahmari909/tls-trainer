@@ -2,6 +2,70 @@ import { useState, useEffect } from "react";
 import V2Layout, { BackButton } from "./layout";
 import { getSession } from "../../hooks/useTelegramTrack";
 
+// PDF Viewer Modal
+function PdfModal({ docId, title, onClose }: { docId: number; title: string; onClose: () => void }) {
+  const fileUrl = `${window.location.origin}/api/documents/${docId}/file`;
+  const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+  const [useGoogle, setUseGoogle] = useState(false);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column",
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0.75rem 1rem", background: "#0f172a",
+        borderBottom: "1px solid rgba(0,255,136,0.15)", flexShrink: 0,
+      }}>
+        <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.9rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          📄 {title}
+        </span>
+        <div style={{ display: "flex", gap: "0.5rem", marginLeft: "1rem" }}>
+          <button
+            onClick={() => setUseGoogle(!useGoogle)}
+            style={{
+              padding: "0.3rem 0.7rem", borderRadius: "6px", cursor: "pointer",
+              background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.3)",
+              color: "#00ff88", fontSize: "0.72rem", fontWeight: 600,
+            }}>
+            {useGoogle ? "Direct" : "Alt Viewer"}
+          </button>
+          <a
+            href={fileUrl}
+            download
+            style={{
+              padding: "0.3rem 0.7rem", borderRadius: "6px", cursor: "pointer",
+              background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)",
+              color: "#00aeef", fontSize: "0.72rem", fontWeight: 600, textDecoration: "none",
+            }}>
+            ⬇ Download
+          </a>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "0.3rem 0.7rem", borderRadius: "6px", cursor: "pointer",
+              background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)",
+              color: "#ff5555", fontSize: "0.72rem", fontWeight: 600,
+            }}>
+            ✕ Close
+          </button>
+        </div>
+      </div>
+      {/* Viewer */}
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        <iframe
+          key={useGoogle ? "google" : "direct"}
+          src={useGoogle ? googleViewerUrl : fileUrl}
+          style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#fff" }}
+          title={title}
+        />
+      </div>
+    </div>
+  );
+}
+
 const CATEGORIES = ["All", "Technical", "Installation", "Operations", "Maintenance", "Calibration", "Logistics", "ATC", "Regulatory", "Training", "Other"];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -20,6 +84,7 @@ export default function V2Documents() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [openPdf, setOpenPdf] = useState<{ id: number; title: string } | null>(null);
 
   useEffect(() => {
     const traineeId = getSession()?.id ?? "";
@@ -38,12 +103,13 @@ export default function V2Documents() {
     return matchSearch && matchCat;
   });
 
-  const openDoc = (id: number) => {
-    window.open(`/api/documents/${id}/file`, "_blank");
+  const openDoc = (id: number, title: string) => {
+    setOpenPdf({ id, title });
   };
 
   return (
     <V2Layout role="trainee">
+      {openPdf && <PdfModal docId={openPdf.id} title={openPdf.title} onClose={() => setOpenPdf(null)} />}
       <BackButton to="/v2/trainee" label="← Back" />
       <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.72rem", letterSpacing: "0.15em", color: "#00ff88", marginBottom: "0.5rem" }}>RESOURCES</div>
@@ -132,7 +198,7 @@ export default function V2Documents() {
                     {doc.pages > 0 ? `${doc.pages} pages` : doc.size > 0 ? `${(doc.size / 1024).toFixed(0)} KB` : ""}
                   </span>
                   <button
-                    onClick={() => openDoc(doc.id)}
+                    onClick={() => openDoc(doc.id, doc.title)}
                     style={{
                       padding: "0.35rem 0.9rem",
                       background: `${color}18`, border: `1px solid ${color}33`,
