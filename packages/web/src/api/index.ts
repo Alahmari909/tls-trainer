@@ -1420,7 +1420,7 @@ const app = new Hono()
   .get('/trainee/messages/:id', async (c) => {
     const id = c.req.param('id');
     const rows = await sql(
-      `SELECT id, sender_role, text, read, ts FROM trainee_messages WHERE trainee_id=? ORDER BY ts ASC LIMIT 100`, [id]
+      `SELECT id, sender_role, text, read, ts FROM trainee_messages WHERE trainee_id=? AND COALESCE(deleted,0)=0 ORDER BY ts ASC LIMIT 100`, [id]
     );
     return c.json(rows, 200);
   })
