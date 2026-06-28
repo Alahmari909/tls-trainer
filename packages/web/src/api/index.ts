@@ -1666,7 +1666,11 @@ const app = new Hono()
 
   .post('/chat/ai', async (c) => {
     const body = await c.req.json();
-    const { message, history = [], userId } = body as { message: string; userId?: string; history: { role: 'user' | 'assistant'; content: string }[] };
+    const { message, history = [], userId, fileData, fileType, fileName } = body as {
+      message: string; userId?: string;
+      history: { role: 'user' | 'assistant'; content: string }[];
+      fileData?: string; fileType?: string; fileName?: string;
+    };
 
     // ── Rate limit: 50 questions per 24h ────────────────────────────────────
     if (userId) {
@@ -1741,9 +1745,19 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
 
     try {
       const contextHistory = userId ? dbHistory : history.slice(-10);
+      // Build user content — plain text or multi-part (text + image/pdf)
+      const userContent: any = fileData
+        ? [
+            ...(fileType === 'application/pdf'
+              ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileData } }]
+              : [{ type: 'image', source: { type: 'base64', media_type: fileType ?? 'image/jpeg', data: fileData } }]
+            ),
+            { type: 'text', text: message },
+          ]
+        : message;
       const msgs = [
         ...contextHistory.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-        { role: 'user' as const, content: message },
+        { role: 'user' as const, content: userContent },
       ];
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -1754,7 +1768,7 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         },
         body: JSON.stringify({
           model: 'claude-opus-4-5',
-          max_tokens: 800,
+          max_tokens: fileData ? 1200 : 800,
           system: systemPrompt,
           messages: msgs,
         }),
@@ -1771,8 +1785,9 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
       // ── Save conversation to DB ──────────────────────────────────────────────
       if (userId) {
         const now = Date.now();
+        const savedUserContent = fileData && fileName ? `[📎 ${fileName}]\n${message}` : message;
         await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
-          [userId, 'user', message, now - 1]);
+          [userId, 'user', savedUserContent, now - 1]);
         await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
           [userId, 'assistant', text, now]);
       }
