@@ -71,7 +71,7 @@ const FALLBACK_NAV: DynNavItem[] = [
   { id:3,  label:"Quiz",          href:"/quiz",         icon:"Crosshair",     order:3,  isVisible:true },
   { id:4,  label:"Manuals",       href:"/manuals",      icon:"FileText",      order:4,  isVisible:true },
   { id:5,  label:"AI Instructor", href:"/chat",         icon:"MessageSquare", order:5,  isVisible:true },
-  { id:6,  label:"Comms",         href:"/private-chat", icon:"MessageCircle", order:6,  isVisible:true },
+  { id:6,  label:"Chat",          href:"/private-chat", icon:"MessageCircle", order:6,  isVisible:true },
   { id:7,  label:"RCU Simulator", href:"/simulator",    icon:"Monitor",       order:7,  isVisible:true },
   { id:8,  label:"Common Faults", href:"/faults",       icon:"ShieldAlert",   order:8,  isVisible:true },
   { id:9,  label:"Achievements",  href:"/achievements", icon:"Trophy",        order:9,  isVisible:true },
