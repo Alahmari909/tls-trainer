@@ -457,6 +457,15 @@ async function ensureTables() {
       created_at INTEGER NOT NULL,
       FOREIGN KEY (error_code_id) REFERENCES error_codes(id) ON DELETE CASCADE
     )`);
+    // ── AI Conversations table ─────────────────────────────────────────────────
+    await client.execute(`CREATE TABLE IF NOT EXISTS ai_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trainee_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      ts INTEGER NOT NULL
+    )`);
+
     // Ensure Error Codes nav item exists (added post-seed)
     const ecNavRow = await sql(`SELECT id FROM nav_items WHERE href='/error-codes' LIMIT 1`);
     if (ecNavRow.length === 0) {
@@ -1645,6 +1654,16 @@ const app = new Hono()
     const questionsRemaining = Math.max(0, 50 - questionsUsed);
     return c.json({ qualified: true, questionsUsed, questionsRemaining, resetsIn: 'tomorrow' }, 200);
   })
+  // GET /ai/history/:traineeId — load saved AI conversation for a trainee
+  .get('/ai/history/:traineeId', async (c) => {
+    const id = c.req.param('traineeId');
+    const rows = await sql(
+      `SELECT role, content, ts FROM ai_conversations WHERE trainee_id=? ORDER BY ts ASC LIMIT 100`,
+      [id]
+    );
+    return c.json(rows, 200);
+  })
+
   .post('/chat/ai', async (c) => {
     const body = await c.req.json();
     const { message, history = [], userId } = body as { message: string; userId?: string; history: { role: 'user' | 'assistant'; content: string }[] };
@@ -1661,6 +1680,16 @@ const app = new Hono()
       }
       await sqlRun(`INSERT INTO activity_log (trainee_id, event, detail, page, ts) VALUES (?, 'ai_question', ?, 'ai_chat', ?)`,
         [userId, message.slice(0, 120), Date.now()]);
+    }
+
+    // ── Load conversation history from DB ───────────────────────────────────
+    let dbHistory: { role: 'user' | 'assistant'; content: string }[] = [];
+    if (userId) {
+      const dbRows = await sql(
+        `SELECT role, content FROM ai_conversations WHERE trainee_id=? ORDER BY ts DESC LIMIT 20`,
+        [userId]
+      );
+      dbHistory = (dbRows as any[]).reverse();
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -1702,6 +1731,7 @@ const app = new Hono()
 3. ابدأ بالإجابة المباشرة أولاً ثم الشرح.
 4. أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
 5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ESA...).
+6. تخصصك حصراً في TLS/ILS وأنظمة الملاحة الجوية وصيانة الرادار. إذا كان السؤال خارج هذا النطاق تماماً (مثل الطبخ، الرياضة، السياسة...)، أجب بـ: "هذا السؤال خارج نطاق تخصصي في منظومة TLS. يسعدني مساعدتك في أي سؤال تقني يتعلق بـ TLS أو ILS أو أنظمة الملاحة الجوية."
 ${hasRagContent ? `
 === قاعدة المعرفة ===
 ${qaContext ? `[أسئلة وإجابات]:\n${qaContext.slice(0, 6000)}` : ''}
@@ -1710,8 +1740,9 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
 ` : ''}`;
 
     try {
+      const contextHistory = userId ? dbHistory : history.slice(-10);
       const msgs = [
-        ...history.slice(-10).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        ...contextHistory.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
         { role: 'user' as const, content: message },
       ];
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1737,6 +1768,14 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
       }
       const data = await res.json() as any;
       const text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
+      // ── Save conversation to DB ──────────────────────────────────────────────
+      if (userId) {
+        const now = Date.now();
+        await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
+          [userId, 'user', message, now - 1]);
+        await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
+          [userId, 'assistant', text, now]);
+      }
       return c.json({ reply: text }, 200);
     } catch (e: any) {
       console.error('[AI] fetch error:', e?.message);
