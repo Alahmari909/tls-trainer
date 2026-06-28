@@ -518,7 +518,7 @@ function AIInstructor() {
   const [limitMsg,  setLimitMsg]  = useState("");
   const [attachment, setAttachment] = useState<{ data: string; type: string; name: string; preview?: string } | null>(null);
   const bottomRef    = useRef<HTMLDivElement>(null);
-  const inputRef     = useRef<HTMLInputElement>(null);
+  const inputRef     = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const trainee   = getTrainee();
   const isAdmin   = isAdminSession();
@@ -751,8 +751,8 @@ File too large. Max 5MB."); return; }
         </div>
       )}
 
-      {/* Input */}
-      <div style={{ borderTop: `1px solid ${C}15`, background: "rgba(3,8,15,0.97)", padding: "10px 12px", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+      {/* Input area — textarea + bottom toolbar */}
+      <div style={{ borderTop: `1px solid ${C}15`, background: "rgba(3,8,15,0.97)", padding: "10px 12px 8px", flexShrink: 0 }}>
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -761,56 +761,77 @@ File too large. Max 5MB."); return; }
           style={{ display: "none" }}
           onChange={handleFileSelect}
         />
-        {/* Attach button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={loading}
-          title="أرفق صورة أو PDF / Attach image or PDF"
-          style={{
-            width: 42, height: 42, borderRadius: 11, flexShrink: 0,
-            background: attachment ? `rgba(0,174,239,0.15)` : "rgba(8,15,28,0.8)",
-            border: `1px solid ${attachment ? C : `${C}28`}`,
-            cursor: loading ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 18, transition: "all 0.2s",
-            boxShadow: attachment ? `0 0 8px ${C}30` : "none",
-          }}
-        >
-          📎
-        </button>
-        <input
+
+        {/* Textarea — auto-grows */}
+        <textarea
           ref={inputRef}
           value={input}
           dir="auto"
-          onChange={e => setInput(e.target.value)}
+          rows={2}
+          onChange={e => {
+            setInput(e.target.value);
+            // auto-grow: reset then set to scrollHeight
+            e.target.style.height = "auto";
+            e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
+          }}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input); } }}
-          placeholder="Ask anything about TLS, ILS, navigation systems…"
+          placeholder="اكتب سؤالك عن TLS أو ILS أو أنظمة الملاحة…"
           disabled={loading}
           style={{
-            flex: 1, background: "rgba(8,15,28,0.95)", border: `1px solid ${C}28`,
-            borderRadius: 12, padding: "11px 14px", color: "var(--text-primary)",
-            fontSize: 13, outline: "none", fontFamily: "Inter,sans-serif",
-            opacity: loading ? 0.6 : 1,
+            width: "100%", boxSizing: "border-box",
+            background: "rgba(8,15,28,0.95)", border: `1px solid ${C}28`,
+            borderRadius: 14, padding: "12px 14px",
+            color: "var(--text-primary)", fontSize: 13,
+            outline: "none", fontFamily: "Inter,sans-serif",
+            resize: "none", lineHeight: 1.6, minHeight: 52,
+            opacity: loading ? 0.6 : 1, display: "block",
           }}
         />
-        <button
-          onClick={() => ask(input)}
-          disabled={(!input.trim() && !attachment) || loading}
-          style={{
-            width: 42, height: 42, borderRadius: 11, flexShrink: 0,
-            background: (input.trim() || attachment) && !loading ? `linear-gradient(135deg,${C},#35D4FF)` : `${C}0d`,
-            border: `1px solid ${(input.trim() || attachment) && !loading ? C : `${C}20`}`,
-            cursor: (input.trim() || attachment) && !loading ? "pointer" : "not-allowed",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.2s",
-            boxShadow: (input.trim() || attachment) && !loading ? `0 0 14px ${C}40` : "none",
-          }}
-        >
-          {loading
-            ? <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${C}40`, borderTopColor: C, animation: "spin 0.7s linear infinite" }} />
-            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={(input.trim() || attachment) ? "#020810" : C} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-          }
-        </button>
+
+        {/* Bottom toolbar */}
+        <div style={{ display: "flex", alignItems: "center", marginTop: 8, gap: 8 }}>
+          {/* + button → file picker */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            title="أرفق صورة أو PDF"
+            style={{
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+              background: attachment ? `rgba(0,174,239,0.18)` : "rgba(255,255,255,0.05)",
+              border: `1px solid ${attachment ? C : "rgba(255,255,255,0.12)"}`,
+              cursor: loading ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: attachment ? C : "rgba(255,255,255,0.5)",
+              fontSize: 22, fontWeight: 300, lineHeight: 1,
+              transition: "all 0.18s",
+            }}
+          >
+            +
+          </button>
+
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Send button */}
+          <button
+            onClick={() => ask(input)}
+            disabled={(!input.trim() && !attachment) || loading}
+            style={{
+              width: 42, height: 36, borderRadius: 11, flexShrink: 0,
+              background: (input.trim() || attachment) && !loading ? `linear-gradient(135deg,${C},#35D4FF)` : `${C}0d`,
+              border: `1px solid ${(input.trim() || attachment) && !loading ? C : `${C}20`}`,
+              cursor: (input.trim() || attachment) && !loading ? "pointer" : "not-allowed",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s",
+              boxShadow: (input.trim() || attachment) && !loading ? `0 0 14px ${C}40` : "none",
+            }}
+          >
+            {loading
+              ? <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${C}40`, borderTopColor: C, animation: "spin 0.7s linear infinite" }} />
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={(input.trim() || attachment) ? "#020810" : C} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+            }
+          </button>
+        </div>
       </div>
     </div>
   );
