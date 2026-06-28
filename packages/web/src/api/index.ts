@@ -2073,6 +2073,47 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
     return c.json(result, 200);
   })
 
+
+  // GET /admin/conversations — list trainees who have private messages
+  .get('/admin/conversations', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const rows = await sql(`
+      SELECT t.id, t.name,
+        SUM(CASE WHEN tm.sender_role='trainee' AND COALESCE(tm.read,0)=0 AND COALESCE(tm.deleted,0)=0 THEN 1 ELSE 0 END) as unread,
+        MAX(CASE WHEN COALESCE(tm.deleted,0)=0 THEN tm.ts ELSE NULL END) as lastTs,
+        (SELECT tm2.text FROM trainee_messages tm2 WHERE tm2.trainee_id=t.id AND COALESCE(tm2.deleted,0)=0 ORDER BY tm2.ts DESC LIMIT 1) as lastMsg
+      FROM trainees t
+      JOIN trainee_messages tm ON tm.trainee_id = t.id
+      GROUP BY t.id
+      ORDER BY lastTs DESC
+    `, []);
+    return c.json(rows, 200);
+  })
+
+  // GET /admin/conversation/:traineeId — full conversation thread (admin view)
+  .get('/admin/conversation/:traineeId', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('traineeId');
+    // Mark trainee messages as read
+    await sqlRun(`UPDATE trainee_messages SET read=1 WHERE trainee_id=? AND sender_role='trainee'`, [id]);
+    const rows = await sql(
+      `SELECT id, sender_role, text, read, ts, COALESCE(deleted,0) as deleted FROM trainee_messages WHERE trainee_id=? ORDER BY ts ASC LIMIT 200`,
+      [id]
+    );
+    return c.json(rows, 200);
+  })
+
+  // DELETE /admin/message/private/:id — admin soft-deletes any private message
+  .delete('/admin/message/private/:id', async (c) => {
+    const pw = c.req.header('x-admin-password');
+    if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+    const msgId = c.req.param('id');
+    await sqlRun(`UPDATE trainee_messages SET deleted=1 WHERE id=?`, [msgId]);
+    return c.json({ ok: true }, 200);
+  })
+
   // GET /admin/export/trainees — Excel report: trainee summary + quiz history sheets
   .get('/admin/export/trainees', async (c) => {
     const pw = c.req.header('x-admin-password') ?? c.req.query('pw');
