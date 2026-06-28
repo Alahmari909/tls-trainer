@@ -353,9 +353,9 @@ export default function Achievements() {
           <button key={tabKey} onClick={() => setTab(tabKey)} style={{
             flex: 1, padding: "9px 0", borderRadius: 8,
             border: tab === tabKey
-              ? `1px solid ${t === "earned" ? "#FFD166" : "#FF4D4D"}50`
+              ? `1px solid ${tabKey === "earned" ? "#FFD166" : "#FF4D4D"}50`
               : "1px solid rgba(255,255,255,0.08)",
-            background: tab === t
+            background: tab === tabKey
               ? tabKey === "earned" ? "rgba(255,209,102,0.08)" : "rgba(255,77,77,0.08)"
               : "rgba(255,255,255,0.02)",
             cursor: "pointer", transition: "all 0.15s",
