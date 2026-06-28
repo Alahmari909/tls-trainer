@@ -523,6 +523,19 @@ function AIInstructor() {
 
   const VISIBLE_PRESETS = showAll ? PRESET_QUESTIONS : PRESET_QUESTIONS.slice(0, 6);
 
+  // Load conversation history from DB on mount
+  useEffect(() => {
+    if (isAdmin || !trainee.id || trainee.id === "anonymous") return;
+    fetch(`/api/chat/ai/history/${encodeURIComponent(trainee.id)}`)
+      .then(r => r.json())
+      .then((rows: any[]) => {
+        if (Array.isArray(rows) && rows.length > 0) {
+          setHistory(rows.map(r => ({ role: r.role as "user" | "assistant", content: r.content })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Load AI status on mount (trainees only)
   useEffect(() => {
     if (isAdmin || !trainee.id || trainee.id === "anonymous") return;
@@ -581,10 +594,10 @@ function AIInstructor() {
           background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.3)",
           borderRadius: 12, fontSize: 15, fontWeight: 700, color: "#FF9500", fontFamily: "Orbitron,monospace",
         }}>
-          20 / 20
+          50 / 50
         </div>
         <div style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "Inter", lineHeight: 1.7, maxWidth: 260 }}>
-          You've used all <strong style={{ color: "var(--text-primary)" }}>20 questions</strong> for today.
+          You've used all <strong style={{ color: "var(--text-primary)" }}>50 questions</strong> for today.
         </div>
         <div style={{ fontSize: 12, color: C, fontFamily: "Inter", padding: "8px 16px", background: `rgba(0,174,239,0.06)`, border: `1px solid ${C}25`, borderRadius: 10 }}>
           🕐 {limitMsg || "Resets tomorrow."}
@@ -679,10 +692,10 @@ function AIInstructor() {
       {!isAdmin && aiStatus && (
         <div style={{ flexShrink: 0, padding: "6px 14px 2px", display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, height: 3, borderRadius: 3, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(aiStatus.questionsUsed / 20) * 100}%`, background: aiStatus.questionsRemaining <= 5 ? "#FF9500" : C, borderRadius: 3, transition: "width 0.3s" }} />
+            <div style={{ height: "100%", width: `${(aiStatus.questionsUsed / 50) * 100}%`, background: aiStatus.questionsRemaining <= 5 ? "#FF9500" : C, borderRadius: 3, transition: "width 0.3s" }} />
           </div>
           <div style={{ fontSize: 10, color: aiStatus.questionsRemaining <= 5 ? "#FF9500" : "var(--text-muted)", fontFamily: "Inter", whiteSpace: "nowrap", minWidth: 80, textAlign: "right" }}>
-            {aiStatus.questionsRemaining} / 20 remaining
+            {aiStatus.questionsRemaining} / 50 remaining
           </div>
         </div>
       )}
