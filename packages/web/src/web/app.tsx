@@ -1,5 +1,5 @@
 import { Route, Switch, useLocation, Redirect } from "wouter";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { telegramTrack, getSession, clearSession } from "./hooks/useTelegramTrack";
 import type { TraineeSession } from "./hooks/useTelegramTrack";
 import NavMenu from "./components/NavMenu";
