@@ -4074,7 +4074,7 @@ function AdminPrivateChatList({ adminPw }: { adminPw: string }) {
                   borderRadius: m.sender_role === "admin" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
                   background: m.sender_role === "admin" ? "rgba(0,255,136,0.12)" : "rgba(255,255,255,0.07)",
                   border: `1px solid ${m.sender_role === "admin" ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.1)"}`,
-                  fontSize: 13, color: "#fff", lineHeight: 1.5, direction: "auto" as React.CSSProperties["direction"],
+                  fontSize: 13, color: "#fff", lineHeight: 1.5,
                 }}>
                   {m.text}
                 </div>
