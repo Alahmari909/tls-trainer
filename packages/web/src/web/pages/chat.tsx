@@ -506,7 +506,7 @@ const PRESET_QUESTIONS = [
   "Explain ESA alignment procedure",
 ];
 
-type AiMsg = { role: "user" | "assistant"; content: string };
+type AiMsg = { role: "user" | "assistant"; content: string; attachName?: string; attachType?: string; attachPreview?: string };
 
 function AIInstructor() {
   const [history,   setHistory]   = useState<AiMsg[]>([]);
@@ -516,8 +516,10 @@ function AIInstructor() {
   const [aiStatus,  setAiStatus]  = useState<{ qualified: boolean; questionsUsed: number; questionsRemaining: number; resetsIn: string } | null>(null);
   const [lockState, setLockState] = useState<"limit" | null>(null);
   const [limitMsg,  setLimitMsg]  = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLInputElement>(null);
+  const [attachment, setAttachment] = useState<{ data: string; type: string; name: string; preview?: string } | null>(null);
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const inputRef     = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const trainee   = getTrainee();
   const isAdmin   = isAdminSession();
 
@@ -551,19 +553,41 @@ function AIInstructor() {
       .catch(() => {});
   }, []);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert("الملف كبير جداً. الحد الأقصى 5MB.
+File too large. Max 5MB."); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      const base64 = result.split(',')[1];
+      setAttachment({ data: base64, type: file.type, name: file.name, preview: file.type.startsWith('image/') ? result : undefined });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const ask = async (question: string) => {
     const q = question.trim();
     if (!q || loading) return;
     setInput("");
-    const newHistory: AiMsg[] = [...history, { role: "user", content: q }];
-    setHistory(newHistory);
+    const att = attachment;
+    setAttachment(null);
+    const userMsg: AiMsg = { role: "user", content: q, ...(att ? { attachName: att.name, attachType: att.type, attachPreview: att.preview } : {}) };
+    setHistory(prev => [...prev, userMsg]);
     setLoading(true);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     try {
       const res = await fetch("/api/chat/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: q, history: history.slice(-10), userId: isAdmin ? undefined : trainee.id }),
+        body: JSON.stringify({
+          message: q,
+          history: history.slice(-10),
+          userId: isAdmin ? undefined : trainee.id,
+          ...(att ? { fileData: att.data, fileType: att.type, fileName: att.name } : {}),
+        }),
       });
       const data = await res.json() as { reply?: string; error?: string; message?: string };
       if (data.error === "limit") {
@@ -668,6 +692,19 @@ function AIInstructor() {
               fontSize: 13, color: "var(--text-primary)", fontFamily: "Inter", lineHeight: 1.65,
               whiteSpace: "pre-wrap",
             }}>
+              {/* Attachment preview inside bubble */}
+              {msg.attachName && (
+                <div style={{ marginBottom: msg.content ? 8 : 0 }}>
+                  {msg.attachPreview
+                    ? <img src={msg.attachPreview} alt={msg.attachName}
+                        style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 8, objectFit: "contain", display: "block" }} />
+                    : <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "rgba(0,0,0,0.25)", borderRadius: 8 }}>
+                        <span style={{ fontSize: 20 }}>📄</span>
+                        <span style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter", wordBreak: "break-all" }}>{msg.attachName}</span>
+                      </div>
+                  }
+                </div>
+              )}
               {msg.content}
             </div>
           </div>
@@ -700,8 +737,47 @@ function AIInstructor() {
         </div>
       )}
 
+      {/* Attachment preview bar */}
+      {attachment && (
+        <div style={{ borderTop: `1px solid ${C}18`, background: "rgba(3,8,15,0.97)", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          {attachment.preview
+            ? <img src={attachment.preview} alt={attachment.name} style={{ width: 38, height: 38, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
+            : <div style={{ width: 38, height: 38, borderRadius: 7, background: `rgba(0,174,239,0.08)`, border: `1px solid ${C}25`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>📄</div>
+          }
+          <span style={{ flex: 1, fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {attachment.name}
+          </span>
+          <button onClick={() => setAttachment(null)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, padding: "0 4px", lineHeight: 1 }}>×</button>
+        </div>
+      )}
+
       {/* Input */}
       <div style={{ borderTop: `1px solid ${C}15`, background: "rgba(3,8,15,0.97)", padding: "10px 12px", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+          style={{ display: "none" }}
+          onChange={handleFileSelect}
+        />
+        {/* Attach button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+          title="أرفق صورة أو PDF / Attach image or PDF"
+          style={{
+            width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+            background: attachment ? `rgba(0,174,239,0.15)` : "rgba(8,15,28,0.8)",
+            border: `1px solid ${attachment ? C : `${C}28`}`,
+            cursor: loading ? "not-allowed" : "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, transition: "all 0.2s",
+            boxShadow: attachment ? `0 0 8px ${C}30` : "none",
+          }}
+        >
+          📎
+        </button>
         <input
           ref={inputRef}
           value={input}
@@ -719,20 +795,20 @@ function AIInstructor() {
         />
         <button
           onClick={() => ask(input)}
-          disabled={!input.trim() || loading}
+          disabled={(!input.trim() && !attachment) || loading}
           style={{
             width: 42, height: 42, borderRadius: 11, flexShrink: 0,
-            background: input.trim() && !loading ? `linear-gradient(135deg,${C},#35D4FF)` : `${C}0d`,
-            border: `1px solid ${input.trim() && !loading ? C : `${C}20`}`,
-            cursor: input.trim() && !loading ? "pointer" : "not-allowed",
+            background: (input.trim() || attachment) && !loading ? `linear-gradient(135deg,${C},#35D4FF)` : `${C}0d`,
+            border: `1px solid ${(input.trim() || attachment) && !loading ? C : `${C}20`}`,
+            cursor: (input.trim() || attachment) && !loading ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", justifyContent: "center",
             transition: "all 0.2s",
-            boxShadow: input.trim() && !loading ? `0 0 14px ${C}40` : "none",
+            boxShadow: (input.trim() || attachment) && !loading ? `0 0 14px ${C}40` : "none",
           }}
         >
           {loading
             ? <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${C}40`, borderTopColor: C, animation: "spin 0.7s linear infinite" }} />
-            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={input.trim() ? "#020810" : C} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={(input.trim() || attachment) ? "#020810" : C} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
           }
         </button>
       </div>
