@@ -392,71 +392,151 @@ const DAILY_TIPS = [
   { cat: "Log Book",      icon: "📓", ar: "سجّل كل حادثة، عطل، أو إجراء صيانة في Log Book مع التوقيت الدقيق. السجلات دليل قانوني عند التحقيقات.", en: "Log every incident, fault, and maintenance action in the Log Book with exact timestamps. Records are legal evidence in investigations." },
 ];
 
+// Map tip categories to relevant images from /public
+const TIP_IMAGES: Record<string, string> = {
+  "ILS / LOC":     "/tls-device.png",
+  "Glide Slope":   "/tls-device.png",
+  "DDM":           "/tls-device.png",
+  "VSWR":          "/tls-device.png",
+  "ESA":           "/tls-device.png",
+  "GP vs LOC":     "/tls-device.png",
+  "GP Angle":      "/tls-device.png",
+  "ICAO":          "/tls-device.png",
+  "Bends":         "/tls-device.png",
+  "NDB":           "/tls-device.png",
+  "ILS Categories":"/tls-device.png",
+  "Marker Beacon": "/tls-device.png",
+  "Transponder":   "/tls-device.png",
+  "Temperature":   "/tls-device.png",
+  "RF Safety":     "/tls-device.png",
+  "CSB/SBO":       "/tls-device.png",
+  "RCU":           "/manual-rcu-interface.jpg",
+  "Datalink":      "/manual-rcu-interface.jpg",
+  "Integrity":     "/manual-integrity.jpg",
+  "تشغيل":         "/manual-gtu-status.jpg",
+  "Alarm Codes":   "/manual-gtu-status.jpg",
+  "Self-Test":     "/manual-gtu-status.jpg",
+  "Critical Area": "/manual-modes-flow.jpg",
+  "Sensitive Area":"/manual-modes-flow.jpg",
+  "صيانة":         "/manual-modes-flow.jpg",
+  "Power":         "/manual-modes-flow.jpg",
+  "NOTAM":         "/manual-modes-flow.jpg",
+  "Log Book":      "/manual-modes-flow.jpg",
+  "Calibration":   "/manual-modes-flow.jpg",
+  "معايرة":        "/manual-modes-flow.jpg",
+};
+
 function DailyTip() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  const tip = DAILY_TIPS[dayOfYear % DAILY_TIPS.length];
+  const tipIndex = dayOfYear % DAILY_TIPS.length;
+  const tip = DAILY_TIPS[tipIndex];
   const C = "#00AEEF";
   const [expanded, setExpanded] = useState(false);
   const lang = navigator.language?.startsWith("ar") ? "ar" : "en";
+  const tipImg = TIP_IMAGES[tip.cat] ?? "/tls-device.png";
 
   return (
-    <div style={{ padding: "0 16px 16px" }}>
-      <div style={{ fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em", color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase" }}>
-        💡 Daily TLS Tip
+    <div style={{ padding: "0 16px 20px" }}>
+      {/* ── Big header OUTSIDE the card ── */}
+      <div style={{
+        textAlign: "center", marginBottom: 14,
+      }}>
+        <div style={{
+          fontFamily: "Orbitron, monospace",
+          fontSize: 20, fontWeight: 700,
+          color: C, letterSpacing: "0.18em",
+          textShadow: `0 0 18px ${C}80`,
+        }}>
+          TODAY&apos;S TIP
+        </div>
+        <div style={{
+          fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)",
+          letterSpacing: "0.12em", marginTop: 3, textTransform: "uppercase",
+        }}>
+          💡 النصيحة التقنية اليومية
+        </div>
       </div>
+
+      {/* ── Card ── */}
       <div
         onClick={() => setExpanded(v => !v)}
         style={{
-          borderRadius: 14, padding: "16px",
-          background: "linear-gradient(135deg, rgba(0,174,239,0.07), rgba(0,174,239,0.03))",
-          border: `1px solid ${C}25`,
-          cursor: "pointer", transition: "border-color 0.2s",
-          position: "relative", overflow: "hidden",
+          borderRadius: 16, overflow: "hidden",
+          background: "linear-gradient(160deg, rgba(0,174,239,0.09), rgba(0,20,40,0.6))",
+          border: `1px solid ${C}30`,
+          cursor: "pointer",
+          boxShadow: `0 4px 24px rgba(0,174,239,0.10)`,
+          position: "relative",
         }}
       >
         {/* Top glow line */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}60, transparent)` }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}70, transparent)`, zIndex: 1 }} />
 
-        {/* Header row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <div style={{ fontSize: 26 }}>{tip.icon}</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 8, color: C, letterSpacing: "0.15em", marginBottom: 2 }}>
-              TODAY'S TIP
-            </div>
-            <div style={{
-              display: "inline-block", background: `${C}18`, border: `1px solid ${C}35`,
-              borderRadius: 6, padding: "2px 8px",
-              fontFamily: "Inter", fontSize: 10, color: C, fontWeight: 600,
-            }}>
-              {tip.cat}
-            </div>
-          </div>
-          <div style={{ color: "var(--text-muted)", fontSize: 14, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▼</div>
-        </div>
-
-        {/* Tip text */}
-        <div style={{
-          fontFamily: "Inter, sans-serif", fontSize: 13, lineHeight: 1.7,
-          color: "var(--text-secondary)", direction: "auto",
-          display: "-webkit-box", WebkitLineClamp: expanded ? 99 : 3,
-          WebkitBoxOrient: "vertical", overflow: "hidden",
-        }}>
-          {lang === "ar" ? tip.ar : tip.en}
-        </div>
-
-        {/* Day counter */}
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>
-            {expanded ? "اضغط للطي ▲" : "اضغط لقراءة المزيد ▼"}
-          </div>
+        {/* Category image */}
+        <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
+          <img
+            src={tipImg}
+            alt={tip.cat}
+            style={{
+              width: "100%", height: "100%", objectFit: "cover",
+              filter: "brightness(0.55) saturate(0.8)",
+              display: "block",
+            }}
+          />
+          {/* Gradient overlay */}
           <div style={{
-            fontFamily: "Orbitron, monospace", fontSize: 9, color: "var(--text-muted)",
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 6, padding: "2px 8px",
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to bottom, transparent 30%, rgba(0,10,20,0.85) 100%)",
+          }} />
+          {/* Category badge over image */}
+          <div style={{
+            position: "absolute", bottom: 10, left: 12,
+            display: "flex", alignItems: "center", gap: 8,
           }}>
-            TIP #{(dayOfYear % DAILY_TIPS.length) + 1} / {DAILY_TIPS.length}
+            <span style={{ fontSize: 22 }}>{tip.icon}</span>
+            <div style={{
+              background: `${C}22`, border: `1px solid ${C}50`,
+              borderRadius: 8, padding: "4px 12px",
+              fontFamily: "Inter", fontSize: 12, color: C, fontWeight: 700,
+              backdropFilter: "blur(8px)",
+            }}>{tip.cat}</div>
+          </div>
+          {/* Tip counter - top right */}
+          <div style={{
+            position: "absolute", top: 10, right: 12,
+            fontFamily: "Orbitron, monospace", fontSize: 10,
+            color: "rgba(255,255,255,0.5)",
+            background: "rgba(0,0,0,0.45)", borderRadius: 6,
+            padding: "3px 8px", backdropFilter: "blur(6px)",
+          }}>
+            {tipIndex + 1} / {DAILY_TIPS.length}
+          </div>
+        </div>
+
+        {/* Text body */}
+        <div style={{ padding: "14px 16px 12px" }}>
+          <div style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: 15, lineHeight: 1.8, fontWeight: 500,
+            color: "rgba(255,255,255,0.88)",
+            direction: "auto" as any,
+            display: "-webkit-box",
+            WebkitLineClamp: expanded ? 99 : 4,
+            WebkitBoxOrient: "vertical" as any,
+            overflow: "hidden",
+          }}>
+            {lang === "ar" ? tip.ar : tip.en}
+          </div>
+
+          {/* Expand hint */}
+          <div style={{
+            marginTop: 10, display: "flex", alignItems: "center",
+            justifyContent: "center", gap: 6,
+            fontFamily: "Inter", fontSize: 11,
+            color: `${C}99`,
+          }}>
+            <span style={{ transition: "transform 0.25s", display: "inline-block", transform: expanded ? "rotate(180deg)" : "none" }}>▼</span>
+            <span>{expanded ? "طي النص" : "اقرأ المزيد"}</span>
           </div>
         </div>
       </div>
