@@ -431,16 +431,44 @@ function DailyTip() {
   const tipIndex = dayOfYear % DAILY_TIPS.length;
   const tip = DAILY_TIPS[tipIndex];
   const C = "#00AEEF";
-  const [expanded, setExpanded] = useState(false);
+  const [imgOpen, setImgOpen] = useState(false);
   const lang = navigator.language?.startsWith("ar") ? "ar" : "en";
   const tipImg = TIP_IMAGES[tip.cat] ?? "/tls-device.png";
 
   return (
     <div style={{ padding: "0 16px 20px" }}>
+      {/* ── Lightbox overlay ── */}
+      {imgOpen && (
+        <div
+          onClick={() => setImgOpen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.92)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <img
+            src={tipImg}
+            alt={tip.cat}
+            style={{
+              maxWidth: "100%", maxHeight: "90vh",
+              borderRadius: 12, objectFit: "contain",
+              boxShadow: `0 0 40px ${C}40`,
+            }}
+          />
+          <div style={{
+            position: "absolute", top: 20, right: 20,
+            width: 36, height: 36, borderRadius: "50%",
+            background: "rgba(255,255,255,0.15)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, color: "#fff", cursor: "pointer",
+          }}>✕</div>
+        </div>
+      )}
+
       {/* ── Big header OUTSIDE the card ── */}
-      <div style={{
-        textAlign: "center", marginBottom: 14,
-      }}>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
         <div style={{
           fontFamily: "Orbitron, monospace",
           fontSize: 20, fontWeight: 700,
@@ -458,37 +486,43 @@ function DailyTip() {
       </div>
 
       {/* ── Card ── */}
-      <div
-        onClick={() => setExpanded(v => !v)}
-        style={{
-          borderRadius: 16, overflow: "hidden",
-          background: "linear-gradient(160deg, rgba(0,174,239,0.09), rgba(0,20,40,0.6))",
-          border: `1px solid ${C}30`,
-          cursor: "pointer",
-          boxShadow: `0 4px 24px rgba(0,174,239,0.10)`,
-          position: "relative",
-        }}
-      >
+      <div style={{
+        borderRadius: 16, overflow: "hidden",
+        background: "linear-gradient(160deg, rgba(0,174,239,0.09), rgba(0,20,40,0.6))",
+        border: `1px solid ${C}30`,
+        boxShadow: `0 4px 24px rgba(0,174,239,0.10)`,
+        position: "relative",
+      }}>
         {/* Top glow line */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}70, transparent)`, zIndex: 1 }} />
 
-        {/* Category image */}
-        <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
+        {/* Category image — tap to open fullscreen */}
+        <div
+          onClick={() => setImgOpen(true)}
+          style={{ position: "relative", height: 160, overflow: "hidden", cursor: "zoom-in" }}
+        >
           <img
             src={tipImg}
             alt={tip.cat}
             style={{
               width: "100%", height: "100%", objectFit: "cover",
-              filter: "brightness(0.55) saturate(0.8)",
+              filter: "brightness(0.6) saturate(0.85)",
               display: "block",
             }}
           />
           {/* Gradient overlay */}
           <div style={{
             position: "absolute", inset: 0,
-            background: "linear-gradient(to bottom, transparent 30%, rgba(0,10,20,0.85) 100%)",
+            background: "linear-gradient(to bottom, transparent 25%, rgba(0,10,20,0.80) 100%)",
           }} />
-          {/* Category badge over image */}
+          {/* Tap-to-expand hint */}
+          <div style={{
+            position: "absolute", top: 10, left: 12,
+            background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)",
+            borderRadius: 6, padding: "3px 9px",
+            fontFamily: "Inter", fontSize: 10, color: "rgba(255,255,255,0.6)",
+          }}>🔍 اضغط لتكبير</div>
+          {/* Category badge */}
           <div style={{
             position: "absolute", bottom: 10, left: 12,
             display: "flex", alignItems: "center", gap: 8,
@@ -501,7 +535,7 @@ function DailyTip() {
               backdropFilter: "blur(8px)",
             }}>{tip.cat}</div>
           </div>
-          {/* Tip counter - top right */}
+          {/* Counter */}
           <div style={{
             position: "absolute", top: 10, right: 12,
             fontFamily: "Orbitron, monospace", fontSize: 10,
@@ -513,30 +547,15 @@ function DailyTip() {
           </div>
         </div>
 
-        {/* Text body */}
-        <div style={{ padding: "14px 16px 12px" }}>
+        {/* Text body — always fully visible, no clamp */}
+        <div style={{ padding: "16px 16px 16px" }}>
           <div style={{
             fontFamily: "Inter, sans-serif",
-            fontSize: 15, lineHeight: 1.8, fontWeight: 500,
-            color: "rgba(255,255,255,0.88)",
+            fontSize: 15, lineHeight: 1.9, fontWeight: 500,
+            color: "rgba(255,255,255,0.90)",
             direction: "auto" as any,
-            display: "-webkit-box",
-            WebkitLineClamp: expanded ? 99 : 4,
-            WebkitBoxOrient: "vertical" as any,
-            overflow: "hidden",
           }}>
             {lang === "ar" ? tip.ar : tip.en}
-          </div>
-
-          {/* Expand hint */}
-          <div style={{
-            marginTop: 10, display: "flex", alignItems: "center",
-            justifyContent: "center", gap: 6,
-            fontFamily: "Inter", fontSize: 11,
-            color: `${C}99`,
-          }}>
-            <span style={{ transition: "transform 0.25s", display: "inline-block", transform: expanded ? "rotate(180deg)" : "none" }}>▼</span>
-            <span>{expanded ? "طي النص" : "اقرأ المزيد"}</span>
           </div>
         </div>
       </div>
