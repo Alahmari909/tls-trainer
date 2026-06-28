@@ -3880,51 +3880,267 @@ function AdminPasswordChange({ adminPw }: { adminPw: string }) {
 }
 
 // ─── Admin Private Chat List ──────────────────────────────────────────────────
-function AdminPrivateChatList({ adminPw }: { adminPw: string }) {
-  const [trainees, setTrainees] = useState<{ id: string; name: string }[]>([]);
-  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+
+// ─── Admin Group Chat View ────────────────────────────────────────────────────
+function AdminGroupChatView({ adminPw }: { adminPw: string }) {
+  const [msgs, setMsgs] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  const loadMsgs = useCallback(async () => {
+    const res = await fetch("/api/chat/messages?room=general&since=0&limit=300");
+    const data = await res.json().catch(() => ({ messages: [] }));
+    setMsgs((data.messages ?? []).filter((m: any) => !m.deleted));
+  }, []);
 
   useEffect(() => {
-    fetch("/api/admin/trainees", { headers: { "x-admin-password": adminPw } })
-      .then(r => r.json())
-      .then((data: any[]) => setTrainees(data.map(t => ({ id: t.id, name: t.name }))))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    loadMsgs();
+    const id = setInterval(loadMsgs, 5000);
+    return () => clearInterval(id);
+  }, [loadMsgs]);
+
+  useEffect(() => {
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "auto" }), 100);
+  }, [msgs.length]);
+
+  const deleteMsg = async (msgId: number) => {
+    if (!confirm("حذف هذه الرسالة؟")) return;
+    setDeleting(msgId);
+    await fetch("/api/chat/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+      body: JSON.stringify({ messageId: msgId, room: "general" }),
+    });
+    setDeleting(null);
+    loadMsgs();
+  };
+
+  const sendMsg = async () => {
+    if (!input.trim() || sending) return;
+    setSending(true);
+    await fetch("/api/chat/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senderId: "admin", senderName: "Instructor", senderRole: "admin", text: input.trim(), room: "general" }),
+    });
+    setInput("");
+    setSending(false);
+    loadMsgs();
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 100px)" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {msgs.length === 0 && (
+          <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 12, marginTop: 40 }}>No messages yet</div>
+        )}
+        {msgs.map(m => (
+          <div key={m.id} style={{ display: "flex", flexDirection: "column" as const, alignItems: m.sender_role === "admin" ? "flex-end" : "flex-start" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, maxWidth: "80%" }}>
+              {m.sender_role === "admin" && (
+                <button onClick={() => deleteMsg(m.id)} disabled={deleting === m.id} title="Delete"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,68,68,0.55)", fontSize: 14, padding: "2px 4px", opacity: deleting === m.id ? 0.3 : 1, flexShrink: 0 }}>🗑</button>
+              )}
+              <div style={{
+                padding: "8px 13px",
+                borderRadius: m.sender_role === "admin" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                background: m.sender_role === "admin" ? "rgba(0,255,136,0.12)" : "rgba(255,255,255,0.07)",
+                border: `1px solid ${m.sender_role === "admin" ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.1)"}`,
+                fontSize: 13, color: "#fff", lineHeight: 1.5,
+              }}>
+                {m.text}
+              </div>
+              {m.sender_role !== "admin" && (
+                <button onClick={() => deleteMsg(m.id)} disabled={deleting === m.id} title="Delete"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,68,68,0.55)", fontSize: 14, padding: "2px 4px", opacity: deleting === m.id ? 0.3 : 1, flexShrink: 0 }}>🗑</button>
+              )}
+            </div>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 2, paddingLeft: 4, paddingRight: 4 }}>
+              {m.sender_role === "admin" ? "👨‍💼 Instructor" : `👤 ${m.sender_name ?? m.sender_id}`} · {new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
+      <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(0,255,136,0.1)", display: "flex", gap: 8, flexShrink: 0, background: "#071207" }}>
+        <input
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } }}
+          placeholder="Broadcast to group chat… (Enter to send)"
+          style={{ flex: 1, padding: "9px 12px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "#fff", fontSize: 13, fontFamily: "Inter", outline: "none" }}
+        />
+        <button onClick={sendMsg} disabled={sending || !input.trim()}
+          style={{ padding: "8px 18px", background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.35)", borderRadius: 8, color: "#00FF88", fontFamily: "Inter", fontSize: 11, letterSpacing: "0.08em", cursor: "pointer", opacity: (sending || !input.trim()) ? 0.4 : 1 }}>
+          {sending ? "…" : "SEND"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AdminPrivateChatList({ adminPw }: { adminPw: string }) {
+  const [convos, setConvos] = useState<{ id: string; name: string; unread: number; lastMsg: string; lastTs: number }[]>([]);
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
+  const [msgs, setMsgs] = useState<{ id: number; sender_role: string; text: string; read: number; ts: number; deleted: number }[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loadingList, setLoadingList] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  const loadConvos = useCallback(async () => {
+    setLoadingList(true);
+    const res = await fetch("/api/admin/conversations", { headers: { "x-admin-password": adminPw } });
+    const data = await res.json().catch(() => []);
+    setConvos(Array.isArray(data) ? data : []);
+    setLoadingList(false);
   }, [adminPw]);
+
+  const loadThread = useCallback(async (traineeId: string) => {
+    const res = await fetch(`/api/admin/conversation/${traineeId}`, { headers: { "x-admin-password": adminPw } });
+    const data = await res.json().catch(() => []);
+    setMsgs(Array.isArray(data) ? data.filter((m: any) => !m.deleted) : []);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }, [adminPw]);
+
+  useEffect(() => { loadConvos(); }, [loadConvos]);
+
+  useEffect(() => {
+    if (!selected) return;
+    loadThread(selected.id);
+    const id = setInterval(() => loadThread(selected.id), 5000);
+    return () => clearInterval(id);
+  }, [selected, loadThread]);
+
+  const sendMsg = async () => {
+    if (!input.trim() || !selected || sending) return;
+    setSending(true);
+    await fetch(`/api/admin/trainee/${selected.id}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+      body: JSON.stringify({ text: input.trim() }),
+    });
+    setInput("");
+    setSending(false);
+    loadThread(selected.id);
+  };
+
+  const deleteMsg = async (msgId: number) => {
+    if (!confirm("حذف هذه الرسالة؟")) return;
+    setDeleting(msgId);
+    await fetch(`/api/admin/message/private/${msgId}`, {
+      method: "DELETE",
+      headers: { "x-admin-password": adminPw },
+    });
+    setDeleting(null);
+    if (selected) loadThread(selected.id);
+  };
 
   if (selected) {
     return (
-      <div>
-        <button
-          onClick={() => setSelected(null)}
-          style={{ margin: "12px 16px", padding: "6px 12px", background: "rgba(0,255,136,0.07)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 8, color: "#00FF88", fontSize: 11, fontFamily: "Inter", cursor: "pointer" }}
-        >← Back to list</button>
-        <div style={{ padding: "0 16px 8px", fontFamily: "Orbitron, monospace", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Private: {selected.name}</div>
-        <PrivateChat />
+      <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 100px)" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid rgba(0,255,136,0.12)", background: "#071207", flexShrink: 0 }}>
+          <button
+            onClick={() => { setSelected(null); setMsgs([]); loadConvos(); }}
+            style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 8, color: "#00FF88", fontSize: 12, padding: "5px 12px", cursor: "pointer", fontFamily: "Inter" }}
+          >← Back</button>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 11, color: "#00FF88", letterSpacing: "0.1em" }}>
+            🔒 {selected.name}
+          </div>
+          <div style={{ marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "Inter" }}>Private Chat</div>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {msgs.length === 0 && (
+            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 12, marginTop: 40 }}>No messages yet</div>
+          )}
+          {msgs.map(m => (
+            <div key={m.id} style={{ display: "flex", flexDirection: "column" as const, alignItems: m.sender_role === "admin" ? "flex-end" : "flex-start" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, maxWidth: "80%" }}>
+                {m.sender_role === "admin" && (
+                  <button
+                    onClick={() => deleteMsg(m.id)}
+                    disabled={deleting === m.id}
+                    title="Delete message"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,68,68,0.55)", fontSize: 14, padding: "2px 4px", opacity: deleting === m.id ? 0.3 : 1, flexShrink: 0 }}
+                  >🗑</button>
+                )}
+                <div style={{
+                  padding: "8px 13px",
+                  borderRadius: m.sender_role === "admin" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                  background: m.sender_role === "admin" ? "rgba(0,255,136,0.12)" : "rgba(255,255,255,0.07)",
+                  border: `1px solid ${m.sender_role === "admin" ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.1)"}`,
+                  fontSize: 13, color: "#fff", lineHeight: 1.5, direction: "auto" as React.CSSProperties["direction"],
+                }}>
+                  {m.text}
+                </div>
+                {m.sender_role !== "admin" && (
+                  <button
+                    onClick={() => deleteMsg(m.id)}
+                    disabled={deleting === m.id}
+                    title="Delete message"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,68,68,0.55)", fontSize: 14, padding: "2px 4px", opacity: deleting === m.id ? 0.3 : 1, flexShrink: 0 }}
+                  >🗑</button>
+                )}
+              </div>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 2, paddingLeft: 4, paddingRight: 4 }}>
+                {m.sender_role === "admin" ? "👨‍💼 Instructor" : `👤 ${selected.name}`} · {new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </div>
+            </div>
+          ))}
+          <div ref={endRef} />
+        </div>
+
+        {/* Compose */}
+        <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(0,255,136,0.1)", display: "flex", gap: 8, flexShrink: 0, background: "#071207" }}>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } }}
+            placeholder="Type instructor message… (Enter to send)"
+            style={{ flex: 1, padding: "9px 12px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 8, color: "#fff", fontSize: 13, fontFamily: "Inter", outline: "none" }}
+          />
+          <button
+            onClick={sendMsg}
+            disabled={sending || !input.trim()}
+            style={{ padding: "8px 18px", background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.35)", borderRadius: 8, color: "#00FF88", fontFamily: "Inter", fontSize: 11, letterSpacing: "0.08em", cursor: "pointer", opacity: (sending || !input.trim()) ? 0.4 : 1 }}
+          >{sending ? "…" : "SEND"}</button>
+        </div>
       </div>
     );
   }
 
+  // Trainee list
   return (
     <div style={{ padding: "16px" }}>
-      <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>SELECT TRAINEE</div>
-      {loading && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontFamily: "Inter" }}>Loading…</div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {trainees.map(t => (
+      <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.2em", color: "rgba(0,255,136,0.5)", marginBottom: 12 }}>
+        PRIVATE CONVERSATIONS {loadingList && "· Loading…"}
+        {!loadingList && convos.length === 0 && (
+          <div style={{ marginTop: 40, textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 12, fontFamily: "Inter", fontWeight: 400, letterSpacing: 0 }}>No conversations yet</div>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {convos.map(t => (
           <button
             key={t.id}
-            onClick={() => setSelected(t)}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "12px 14px", background: "rgba(0,255,136,0.04)",
-              border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10,
-              cursor: "pointer", textAlign: "left",
-            }}
+            onClick={() => setSelected({ id: t.id, name: t.name })}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10, cursor: "pointer", textAlign: "left", width: "100%" }}
           >
-            <span style={{ fontSize: 18 }}>👤</span>
-            <span style={{ color: "#fff", fontSize: 12, fontFamily: "Inter" }}>{t.name}</span>
-            <span style={{ marginLeft: "auto", color: "rgba(0,255,136,0.5)", fontSize: 10, fontFamily: "Inter" }}>Open →</span>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>👤</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: "#fff", fontFamily: "Inter", fontWeight: 600 }}>{t.name}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "Inter", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {t.lastMsg || "No messages"}
+              </div>
+            </div>
+            {(t.unread as unknown as number) > 0 && (
+              <div style={{ background: "#FF4444", color: "#fff", borderRadius: "50%", minWidth: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, flexShrink: 0, padding: "0 4px" }}>{t.unread}</div>
+            )}
+            <span style={{ color: "rgba(0,255,136,0.4)", fontSize: 14, flexShrink: 0 }}>→</span>
           </button>
         ))}
       </div>
@@ -4979,7 +5195,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               >{tab === "general" ? "💬 General Chat" : "🔒 Private Chat"}</button>
             ))}
           </div>
-          {chatSubTab === "general" && <Chat />}
+          {chatSubTab === "general" && <AdminGroupChatView adminPw={adminPw} />}
           {chatSubTab === "private" && <AdminPrivateChatList adminPw={adminPw} />}
         </div>
       )}
