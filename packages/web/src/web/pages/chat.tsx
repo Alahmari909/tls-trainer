@@ -556,8 +556,7 @@ function AIInstructor() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert("الملف كبير جداً. الحد الأقصى 5MB.
-File too large. Max 5MB."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("الملف كبير جداً. الحد الأقصى 5MB.\nFile too large. Max 5MB."); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
