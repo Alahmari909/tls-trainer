@@ -357,6 +357,113 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
   );
 }
 
+
+/* ─── Daily TLS Tip data ─────────────────────────────────────────────────── */
+const DAILY_TIPS = [
+  { cat: "ILS / LOC",     icon: "📡", ar: "الـ Localizer يعمل على تردد بين 108.10 و 111.95 MHz، ويُرسل إشارتين (CSB و SBO) لتحديد انحراف الطائرة يميناً أو يساراً عن المنتصف.", en: "Localizer operates between 108.10–111.95 MHz, transmitting CSB & SBO signals to detect aircraft lateral deviation." },
+  { cat: "Glide Slope",   icon: "📐", ar: "زاوية انحدار الـ Glide Slope في TLS هي 3 درجات، ويُحدِّد DDM=0 نقطة المسار الصحيح بدقة 0.175 DDM عند الحدين.", en: "TLS glide slope angle is 3°. DDM=0 defines the correct path, with limits at ±0.175 DDM." },
+  { cat: "DDM",           icon: "🔢", ar: "DDM (Difference in Depth of Modulation) يقيس الفرق بين 90Hz و 150Hz. DDM=0 يعني مركز المسار تماماً.", en: "DDM measures the difference between 90Hz & 150Hz modulation depths. DDM=0 = exact path center." },
+  { cat: "VSWR",          icon: "⚡", ar: "VSWR (Voltage Standing Wave Ratio) يجب ألا يتجاوز 1.5:1 في أنظمة TLS. القيمة المثالية هي 1:1 (لا انعكاس للطاقة).", en: "VSWR must not exceed 1.5:1 in TLS systems. Ideal value is 1:1 (no reflected power)." },
+  { cat: "ESA",           icon: "📶", ar: "هوائي ESA (Electronically Steered Array) يتحكم في شعاع الإشارة إلكترونياً دون حركة ميكانيكية، مما يزيد الدقة والاستجابة.", en: "ESA (Electronically Steered Array) controls beam direction electronically without mechanical movement, improving accuracy and response time." },
+  { cat: "صيانة",        icon: "🔧", ar: "تحقق دائماً من مستوى الإشارة RF قبل وبعد أي تعديل على الهوائي. أي تغيير يؤثر مباشرةً على معايرة DDM.", en: "Always check RF signal level before and after any antenna adjustment — any change directly affects DDM calibration." },
+  { cat: "ILS Categories",icon: "🛫", ar: "CAT I: رؤية ≥800m. CAT II: رؤية ≥400m. CAT III: رؤية أقل من 200m أو صفر. كل فئة تتطلب معايير دقة أعلى.", en: "CAT I: visibility ≥800m. CAT II: ≥400m. CAT III: <200m or zero. Each category demands higher accuracy standards." },
+  { cat: "Integrity",     icon: "🛡️", ar: "مراقب النزاهة (Integrity Monitor) في TLS يكتشف أي انحراف في الإشارة خلال 6 ثواني ويُوقف الإرسال تلقائياً.", en: "TLS Integrity Monitor detects signal deviation within 6 seconds and automatically halts transmission." },
+  { cat: "Marker Beacon", icon: "🔔", ar: "نقاط الـ Marker Beacon الثلاث: Outer (400Hz/أزرق)، Middle (1300Hz/أصفر)، Inner (3000Hz/أبيض). تُحدد مراحل الاقتراب.", en: "Three marker beacons: Outer (400Hz/blue), Middle (1300Hz/amber), Inner (3000Hz/white). They mark approach phases." },
+  { cat: "GP vs LOC",     icon: "↕️", ar: "الـ Glide Path يعمل على UHF (329–335 MHz)، بينما الـ Localizer يعمل على VHF (108–112 MHz). كلاهما مقترنان تلقائياً.", en: "Glide Path operates on UHF (329–335 MHz), while Localizer uses VHF (108–112 MHz). They are automatically paired." },
+  { cat: "معايرة",        icon: "🎯", ar: "معايرة TLS تتطلب طائرة معايرة (Flight Inspection) معتمدة. لا تُعدِّل الجهاز بدون موافقة فريق ANPC الفني.", en: "TLS calibration requires a certified Flight Inspection aircraft. Never adjust equipment without ANPC technical team approval." },
+  { cat: "RCU",           icon: "🖥️", ar: "RCU (Remote Control Unit) يُتيح التحكم الكامل في منظومة TLS عن بُعد، بما في ذلك تشغيل/إيقاف وقراءة المنبهات.", en: "RCU (Remote Control Unit) enables full remote control of the TLS system, including power, alarms, and status monitoring." },
+  { cat: "CSB/SBO",       icon: "📻", ar: "CSB (Carrier + Sideband) يحمل الإشارة الرئيسية. SBO (Sideband Only) يُنشئ نمط DDM. التوازن بينهما يُحدد دقة المسار.", en: "CSB (Carrier+Sideband) carries the main signal. SBO (Sideband Only) creates the DDM pattern. Their balance defines path accuracy." },
+  { cat: "Critical Area",  icon: "🚧", ar: "المنطقة الحساسة (Critical Area) يجب أن تكون خالية من المركبات والطائرات أثناء العمليات. أي اختراق يُشوّه الإشارة.", en: "The Critical Area must be clear of vehicles and aircraft during operations. Any intrusion distorts the signal." },
+  { cat: "Sensitive Area", icon: "⚠️", ar: "المنطقة الحساسة (Sensitive Area) أوسع من Critical Area وتتأثر بالطائرات الكبيرة. تُراقَب بصرياً وراداراً.", en: "The Sensitive Area is wider than the Critical Area and is affected by large aircraft. Monitored visually and by radar." },
+  { cat: "تشغيل",         icon: "▶️", ar: "تسلسل التشغيل: 1-تشغيل RCU 2-التحقق من Datalink 3-Self-Test 4-انتظار READY 5-الإرسال. لا تتخطَّ أي خطوة.", en: "Startup sequence: 1-Power RCU 2-Verify Datalink 3-Self-Test 4-Await READY 5-Transmit. Never skip a step." },
+  { cat: "Alarm Codes",   icon: "🚨", ar: "كود الخطأ 702 يشير إلى فقدان إشارة RF. كود 501 يعني فشل Self-Test. راجع دليل RCU لقائمة الأكواد الكاملة.", en: "Error 702 = RF signal loss. Error 501 = Self-Test failure. Refer to the RCU manual for the complete alarm code list." },
+  { cat: "Transponder",   icon: "✈️", ar: "Mode C Transponder يُرسل ارتفاع الطائرة تلقائياً كل 1/8 ثانية. الكود 7700 للطوارئ، 7600 لفقدان الاتصال.", en: "Mode C Transponder auto-transmits altitude every 1/8 second. Code 7700=emergency, 7600=comms failure." },
+  { cat: "Power",         icon: "🔌", ar: "TLS يعمل على طاقة ثنائية (Primary + UPS). تحقق من مستوى البطارية شهرياً ومن نتائج اختبار Load Test ربع سنوياً.", en: "TLS operates on dual power (Primary + UPS). Check battery level monthly and Load Test results quarterly." },
+  { cat: "Temperature",   icon: "🌡️", ar: "درجة حرارة تشغيل TLS: -20°C إلى +55°C. تجاوز هذه الحدود يُسبب انجراف التردد وانتهاك معايير ICAO.", en: "TLS operating temperature: -20°C to +55°C. Exceeding these limits causes frequency drift and ICAO standard violations." },
+  { cat: "ICAO",          icon: "🌐", ar: "معيار ICAO Annex 10 يُلزم دقة Localizer ≤10.5m عند عتبة المدرج. TLS يُحقق هذه الدقة بفضل ESA.", en: "ICAO Annex 10 requires Localizer accuracy ≤10.5m at runway threshold. TLS achieves this via ESA technology." },
+  { cat: "Bends",         icon: "〰️", ar: "الـ Bends (تموجات في الإشارة) تُسببها انعكاسات من المباني أو الطائرات. تُقلَّص بتحديد المناطق الحساسة وحمايتها.", en: "Signal bends are caused by reflections from buildings or aircraft. Minimized by defining and protecting sensitive areas." },
+  { cat: "NDB",           icon: "📍", ar: "NDB (Non-Directional Beacon) يعمل على LF/MF (190–1750 kHz) ويُستخدم كنقطة مرجعية. دقته أقل من ILS/TLS.", en: "NDB operates on LF/MF (190–1750 kHz) and serves as a reference point. Its accuracy is lower than ILS/TLS." },
+  { cat: "GP Angle",      icon: "📏", ar: "تغيير زاوية Glide Path بمقدار 0.1 درجة يُغيّر نقطة الهبوط بنحو 30–40 متراً. الدقة في الضبط حرجة جداً.", en: "Changing GP angle by 0.1° shifts the touchdown point by 30–40 meters. Precision adjustment is critical." },
+  { cat: "Datalink",      icon: "🔗", ar: "Datalink بين RCU والأجهزة الطرفية يعمل على RS-422 أو Ethernet. اعطال Datalink تُوقف العمليات فوراً.", en: "Datalink between RCU and remote units uses RS-422 or Ethernet. Datalink failures immediately halt operations." },
+  { cat: "NOTAM",         icon: "📋", ar: "أي عطل في TLS يجب الإبلاغ عنه فوراً لإصدار NOTAM (إشعار للطيارين). تأخير الإبلاغ يُعرّض سلامة الرحلات للخطر.", en: "Any TLS malfunction must be reported immediately for a NOTAM issuance. Delayed reporting endangers flight safety." },
+  { cat: "Self-Test",     icon: "🧪", ar: "Self-Test اليومي يفحص 47 نقطة في النظام خلال 90 ثانية. فشل أكثر من 3 نقاط يستلزم إشعار الفريق الفني فوراً.", en: "Daily Self-Test checks 47 system points in 90 seconds. Failure of 3+ points requires immediate technical team notification." },
+  { cat: "Calibration",   icon: "⚖️", ar: "معايرة الـ DDM تُنفَّذ كل 6 أشهر أو بعد أي تعديل هيكلي. تُوثَّق كل جلسة معايرة في سجل الجهاز.", en: "DDM calibration is performed every 6 months or after any structural modification. Each session is logged in the equipment record." },
+  { cat: "RF Safety",     icon: "🔴", ar: "لا تقف أمام هوائي LOC أو GP أثناء الإرسال. مستوى RF يتجاوز حدود ICNIRP على مسافة أقل من 10 أمتار.", en: "Never stand in front of LOC or GP antenna during transmission. RF levels exceed ICNIRP limits within 10 meters." },
+  { cat: "Log Book",      icon: "📓", ar: "سجّل كل حادثة، عطل، أو إجراء صيانة في Log Book مع التوقيت الدقيق. السجلات دليل قانوني عند التحقيقات.", en: "Log every incident, fault, and maintenance action in the Log Book with exact timestamps. Records are legal evidence in investigations." },
+];
+
+function DailyTip() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const tip = DAILY_TIPS[dayOfYear % DAILY_TIPS.length];
+  const C = "#00AEEF";
+  const [expanded, setExpanded] = useState(false);
+  const lang = navigator.language?.startsWith("ar") ? "ar" : "en";
+
+  return (
+    <div style={{ padding: "0 16px 16px" }}>
+      <div style={{ fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em", color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase" }}>
+        💡 Daily TLS Tip
+      </div>
+      <div
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          borderRadius: 14, padding: "16px",
+          background: "linear-gradient(135deg, rgba(0,174,239,0.07), rgba(0,174,239,0.03))",
+          border: `1px solid ${C}25`,
+          cursor: "pointer", transition: "border-color 0.2s",
+          position: "relative", overflow: "hidden",
+        }}
+      >
+        {/* Top glow line */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}60, transparent)` }} />
+
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <div style={{ fontSize: 26 }}>{tip.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 8, color: C, letterSpacing: "0.15em", marginBottom: 2 }}>
+              TODAY'S TIP
+            </div>
+            <div style={{
+              display: "inline-block", background: `${C}18`, border: `1px solid ${C}35`,
+              borderRadius: 6, padding: "2px 8px",
+              fontFamily: "Inter", fontSize: 10, color: C, fontWeight: 600,
+            }}>
+              {tip.cat}
+            </div>
+          </div>
+          <div style={{ color: "var(--text-muted)", fontSize: 14, transition: "transform 0.2s", transform: expanded ? "rotate(180deg)" : "none" }}>▼</div>
+        </div>
+
+        {/* Tip text */}
+        <div style={{
+          fontFamily: "Inter, sans-serif", fontSize: 13, lineHeight: 1.7,
+          color: "var(--text-secondary)", direction: "auto",
+          display: "-webkit-box", WebkitLineClamp: expanded ? 99 : 3,
+          WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>
+          {lang === "ar" ? tip.ar : tip.en}
+        </div>
+
+        {/* Day counter */}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>
+            {expanded ? "اضغط للطي ▲" : "اضغط لقراءة المزيد ▼"}
+          </div>
+          <div style={{
+            fontFamily: "Orbitron, monospace", fontSize: 9, color: "var(--text-muted)",
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 6, padding: "2px 8px",
+          }}>
+            TIP #{(dayOfYear % DAILY_TIPS.length) + 1} / {DAILY_TIPS.length}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: () => void }) {
   const [modules, setModules]   = useState<Module[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
@@ -718,6 +825,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           })()}
         </div>
       </div>
+
+      {/* ── DAILY TIP ── */}
+      <DailyTip />
 
       {/* ── LOGOUT (bottom) ── */}
       <div style={{ padding: "0 16px 32px", textAlign: "center" }}>
