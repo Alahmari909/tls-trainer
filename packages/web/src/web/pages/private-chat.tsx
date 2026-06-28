@@ -27,10 +27,24 @@ function StatusTick({ read }: { read: number }) {
   return <span style={{ marginLeft: 4, fontSize: 10, color }}>{read ? "✓✓" : "✓"}</span>;
 }
 
-function MsgBubble({ msg }: { msg: Msg }) {
+function MsgBubble({ msg, onDelete }: { msg: Msg; onDelete?: () => void }) {
   const isMe = msg.sender_role === "trainee";
+  const [showMenu, setShowMenu] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startPress = () => {
+    if (!isMe || !onDelete) return;
+    timerRef.current = setTimeout(() => setShowMenu(true), 480);
+  };
+  const cancelPress = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
+
   return (
-    <div style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", marginBottom: 10 }}>
+    <div
+      style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", marginBottom: 10 }}
+      onClick={() => { if (showMenu) setShowMenu(false); }}
+    >
       {!isMe && (
         <div style={{
           width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
@@ -41,18 +55,54 @@ function MsgBubble({ msg }: { msg: Msg }) {
           marginRight: 8, marginTop: 2,
         }}>A</div>
       )}
-      <div style={{ maxWidth: "74%" }}>
-        <div style={{
-          padding: "10px 13px",
-          borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-          background: isMe
-            ? `linear-gradient(135deg, ${C.cyan}, #0057b8)`
-            : "rgba(255,255,255,0.06)",
-          border: isMe ? "none" : `1px solid ${C.cyan}20`,
-          fontSize: 13, color: "var(--text-primary)", lineHeight: 1.6,
-          direction: "auto" as any,
-          boxShadow: isMe ? `0 4px 16px ${C.cyan}30` : "none",
-        }}>
+      <div style={{ maxWidth: "74%", position: "relative" }}>
+        {/* Context menu on long-press */}
+        {showMenu && isMe && onDelete && (
+          <div style={{
+            position: "absolute", right: 0, bottom: "calc(100% + 4px)",
+            background: "#0d1117", border: "1px solid rgba(255,68,68,0.35)",
+            borderRadius: 10, zIndex: 200, boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+            overflow: "hidden", minWidth: 140,
+          }}>
+            <button
+              onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setShowMenu(false); onDelete(); }}
+              onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "10px 16px", background: "none", border: "none",
+                color: "#FF4D4D", cursor: "pointer", fontSize: 13,
+                fontFamily: "Inter", width: "100%", whiteSpace: "nowrap",
+              }}
+            >
+              <span>🗑</span> Delete
+            </button>
+          </div>
+        )}
+        {/* Message bubble */}
+        <div
+          onTouchStart={startPress}
+          onTouchEnd={cancelPress}
+          onTouchMove={cancelPress}
+          onMouseDown={startPress}
+          onMouseUp={cancelPress}
+          onMouseLeave={cancelPress}
+          style={{
+            padding: "10px 13px",
+            borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+            background: isMe
+              ? `linear-gradient(135deg, ${C.cyan}, #0057b8)`
+              : "rgba(255,255,255,0.06)",
+            border: isMe ? "none" : `1px solid ${C.cyan}20`,
+            fontSize: 13, color: "var(--text-primary)", lineHeight: 1.6,
+            direction: "auto" as any,
+            boxShadow: isMe ? `0 4px 16px ${C.cyan}30` : "none",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            cursor: isMe && onDelete ? "pointer" : "default",
+            outline: showMenu ? `2px solid rgba(255,68,68,0.4)` : "none",
+            transition: "outline 0.15s",
+          }}
+        >
           {msg.text}
         </div>
         <div style={{
@@ -74,11 +124,11 @@ export default function PrivateChat() {
   const traineeId = session?.id ?? "";
   const traineeName = session?.name ?? "Trainee";
 
-  const [msgs, setMsgs]     = useState<Msg[]>([]);
-  const [input, setInput]   = useState("");
+  const [msgs, setMsgs]       = useState<Msg[]>([]);
+  const [input, setInput]     = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError]   = useState("");
-  const bottomRef           = useRef<HTMLDivElement>(null);
+  const [error, setError]     = useState("");
+  const bottomRef             = useRef<HTMLDivElement>(null);
   const [inputBarBottom, setInputBarBottom] = useState(0);
 
   // iPhone keyboard fix
@@ -113,7 +163,7 @@ export default function PrivateChat() {
     }
   }, [load, traineeId]);
 
-  // Poll every 5s for new admin messages (silent)
+  // Poll every 5s
   useEffect(() => {
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
@@ -129,7 +179,6 @@ export default function PrivateChat() {
     if (!text || sending || !traineeId) return;
     setSending(true);
     setError("");
-    // Optimistic
     const optimistic: Msg = { id: Date.now(), sender_role: "trainee", text, read: 0, ts: Date.now() };
     setMsgs(prev => [...prev, optimistic]);
     setInput("");
@@ -144,7 +193,6 @@ export default function PrivateChat() {
         setMsgs(prev => prev.filter(m => m.id !== optimistic.id));
         setInput(text);
       } else {
-        // Reload to get real id/ts from server
         setTimeout(load, 600);
       }
     } catch {
@@ -154,6 +202,17 @@ export default function PrivateChat() {
     }
     setSending(false);
   };
+
+  // Delete trainee's own message
+  const deleteMsg = useCallback(async (msgId: number) => {
+    if (!traineeId) return;
+    setMsgs(prev => prev.filter(m => m.id !== msgId));
+    await fetch("/api/trainee/notifications/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ traineeId, id: msgId, kind: "message" }),
+    }).catch(() => {});
+  }, [traineeId]);
 
   if (!traineeId) {
     return (
@@ -219,7 +278,11 @@ export default function PrivateChat() {
           </div>
         )}
         {msgs.map(msg => (
-          <MsgBubble key={msg.id} msg={msg} />
+          <MsgBubble
+            key={msg.id}
+            msg={msg}
+            onDelete={msg.sender_role === "trainee" ? () => deleteMsg(msg.id) : undefined}
+          />
         ))}
         {error && (
           <div style={{ textAlign: "center", fontSize: 11, color: "#FF4D4D", fontFamily: "Inter", padding: "4px 0" }}>{error}</div>
