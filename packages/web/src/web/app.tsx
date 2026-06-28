@@ -8,6 +8,56 @@ import { Provider } from "./components/provider";
 import { unlockAudio, _toastListeners, showToast } from "./lib/audio";
 import type { ToastItem } from "./lib/audio";
 
+// ── PWA Loading Fallback ──────────────────────────────────────────────────────
+const PWAFallback = (
+  <div style={{
+    background: '#03080f', minHeight: '100vh',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12
+  }}>
+    <div style={{
+      width: 32, height: 32, border: '2px solid rgba(0,174,239,0.2)',
+      borderTop: '2px solid #00AEEF', borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite'
+    }} />
+    <style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style>
+    <div style={{ color: 'rgba(0,174,239,0.5)', fontSize: 11, letterSpacing: '0.1em', fontFamily: 'Inter' }}>LOADING</div>
+  </div>
+);
+
+// ── Error Boundary ────────────────────────────────────────────────────────────
+class RouteErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+  componentDidCatch() {}
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ background: '#03080f', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24 }}>
+          <div style={{ fontSize: 40 }}>⚠️</div>
+          <div style={{ color: '#FF4D4D', fontFamily: 'Inter', fontSize: 14, textAlign: 'center' }}>
+            Page failed to load
+          </div>
+          <button
+            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            style={{ background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.3)', borderRadius: 8, color: '#00AEEF', padding: '10px 24px', cursor: 'pointer', fontFamily: 'Inter', fontSize: 13 }}
+          >
+            ↺ Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
+
 // Lazy-loaded pages — split into separate chunks to reduce initial bundle size
 const Index = lazy(() => import("./pages/index"));
 
@@ -278,7 +328,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return <>{children}</>;
     }
     // Guest tried a locked page — go back to guest home
-    return <Suspense fallback={null}><Index /></Suspense>;
+    return <Suspense fallback={PWAFallback}><Index /></Suspense>;
   }
 
   // Not logged in — show Index (which renders LoginScreen internally)
@@ -287,7 +337,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (location !== "/") {
       localStorage.setItem("tls_intended", location);
     }
-    return <Suspense fallback={null}><Index /></Suspense>;
+    return <Suspense fallback={PWAFallback}><Index /></Suspense>;
   }
 
   return <>{children}</>;
@@ -430,7 +480,8 @@ function App() {
         <div className="app-content">
           <NavMenu />
           <AuthGate>
-            <Suspense fallback={null}>
+            <RouteErrorBoundary>
+            <Suspense fallback={PWAFallback}>
               <Switch>
                 <Route path="/" component={Index} />
                 <Route path="/basics" component={Basics} />
@@ -458,6 +509,7 @@ function App() {
                 <Route path="/modules">{() => <Redirect to="/" />}</Route>
               </Switch>
             </Suspense>
+            </RouteErrorBoundary>
           </AuthGate>
         </div>
       </div>
