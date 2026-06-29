@@ -15,7 +15,7 @@ const CSS = `
 
 /* progress bar */
 @keyframes prog { from{width:0} to{width:100%} }
-.pbar { animation: prog var(--dur,10s) linear forwards; }
+.pbar { animation: prog 10s linear forwards; }
 
 /* ── Step 1: green cone from TLS to aircraft ─── */
 @keyframes cone-pulse {
@@ -456,7 +456,7 @@ export default function TLSAnimation() {
         }}>{step.en}</div>
         <div style={{
           fontFamily:"Inter,sans-serif", fontSize:10.5, lineHeight:1.5,
-          color:`${step.color}99`, marginTop:3, direction:"rtl" as any,
+          color:`${step.color}99`, marginTop:3, direction:"rtl",
         }}>{step.ar}</div>
       </div>
 
