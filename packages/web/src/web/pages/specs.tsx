@@ -171,7 +171,7 @@ export default function TLSSpecs() {
         </SectionBox>
 
         {/* Monitoring */}
-        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Monitoring</div>
+        <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em", textTransform: "uppercase", margin: "18px 0 8px 2px", borderLeft: "3px solid rgba(0,174,239,0.45)", paddingLeft: 8 }}>Monitoring</div>
         <SectionBox>
           <GroupHeader label="Localizer/Glide Slope" />
           <DualRow label="RF-level stability"      loc="±2.0%"       gs="±2.00%" />
@@ -180,7 +180,7 @@ export default function TLSSpecs() {
         </SectionBox>
 
         {/* Environmental */}
-        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Environmental Conditions</div>
+        <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em", textTransform: "uppercase", margin: "18px 0 8px 2px", borderLeft: "3px solid rgba(0,174,239,0.45)", paddingLeft: 8 }}>Environmental Conditions</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 4 }}>
           {/* Indoor */}
           <div style={{ borderRadius: 12, border: "1px solid rgba(0,174,239,0.14)", background: "rgba(0,10,25,0.55)", overflow: "hidden" }}>
@@ -225,7 +225,7 @@ export default function TLSSpecs() {
         </div>
 
         {/* Power supply */}
-        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Power Supply</div>
+        <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em", textTransform: "uppercase", margin: "18px 0 8px 2px", borderLeft: "3px solid rgba(0,174,239,0.45)", paddingLeft: 8 }}>Power Supply</div>
         <SectionBox>
           <Row label="Input voltage"       value="85–265 VAC, 47–63 Hz" />
           <Row label="Power consumption"   value="3 kW" />
@@ -233,7 +233,7 @@ export default function TLSSpecs() {
         </SectionBox>
 
         {/* Safety */}
-        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Safety</div>
+        <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em", textTransform: "uppercase", margin: "18px 0 8px 2px", borderLeft: "3px solid rgba(0,174,239,0.45)", paddingLeft: 8 }}>Safety</div>
         <SectionBox>
           <GroupHeader label="Localizer/Glide Slope" />
           <DualRow label="Mean time between outage" loc="9,000 hrs"  gs="9,000 hrs" />
