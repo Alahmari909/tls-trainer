@@ -465,7 +465,6 @@ export default function TLSAnimation() {
         <div key={tick} className="pbar" style={{
           height:"100%",
           background:`linear-gradient(90deg,${step.color},${step.color}88)`,
-          ("--dur" as any): `${STEP_DUR}ms`,
           borderRadius:2,
         }}/>
       </div>
