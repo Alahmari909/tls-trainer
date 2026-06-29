@@ -33,17 +33,23 @@ function SubHeader({ children }: { children: string }) {
 function Row({ label, sub, value }: { label: string; sub?: string; value: string }) {
   return (
     <div style={{
-      display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-      padding: "9px 12px",
-      borderBottom: "1px solid rgba(255,255,255,0.04)",
+      display: "grid",
+      gridTemplateColumns: sub ? "1fr 1fr 1fr" : "1fr 1fr",
+      padding: "10px 12px",
+      borderBottom: "1px solid rgba(255,255,255,0.05)",
+      alignItems: "center", gap: 4,
     }}>
-      <div>
-        <div style={{ fontFamily: "Inter", fontSize: 13, color: "rgba(255,255,255,0.75)" }}>{label}</div>
-        {sub && <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>{sub}</div>}
+      <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 500, color: label ? "rgba(255,255,255,0.82)" : "transparent" }}>
+        {label || "·"}
       </div>
+      {sub && (
+        <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: C, letterSpacing: "0.03em", textAlign: "center" }}>
+          {sub}
+        </div>
+      )}
       <div style={{
-        fontFamily: "Inter, monospace", fontSize: 13, fontWeight: 600,
-        color: "rgba(255,255,255,0.92)", textAlign: "right", maxWidth: "52%",
+        fontFamily: "Inter, monospace", fontSize: 13, fontWeight: 700,
+        color: "rgba(255,255,255,0.95)", textAlign: "right",
       }}>{value}</div>
     </div>
   );
@@ -136,7 +142,7 @@ export default function TLSSpecs() {
           <Row label="Probability of detection" value=">99%" />
           <Row label="False targets" value="<0.1%" />
           <Row label="Service volume" sub="Range" value="60 NM" />
-          <Row label="Accuracy" sub="100 meter footprint" value="2 deg azimuth" />
+          <Row label="Accuracy" sub="100 NM footprint" value="2° azimuth" />
           <Row label="Altitude" value="Mode C" />
         </SectionBox>
 
@@ -148,9 +154,9 @@ export default function TLSSpecs() {
           <Row label="Probability of detection" value=">99.99%" />
           <Row label="False targets" value="<1×10⁻⁷" />
           <Row label="Service volume" sub="Range" value="60 NM" />
-          <Row label="" sub="Azimuth" value="70° — runway centerline" />
+          <Row label="Service volume" sub="Azimuth" value="70° — runway centerline" />
           <Row label="Accuracy" sub="Elevation" value="0.02 deg" />
-          <Row label="" sub="Azimuth" value="0.02 deg" />
+          <Row label="Accuracy" sub="Azimuth" value="0.02 deg" />
           <Row label="Frequency" value="1030 MHz Interrog. / 1090 MHz Reply" />
         </SectionBox>
 
