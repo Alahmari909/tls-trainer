@@ -59,16 +59,16 @@ function DualRow({ label, sub, loc, gs }: { label: string; sub?: string; loc: st
   return (
     <div style={{
       display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
-      padding: "9px 12px",
-      borderBottom: "1px solid rgba(255,255,255,0.04)",
-      gap: 4, alignItems: "start",
+      padding: "10px 12px",
+      borderBottom: "1px solid rgba(255,255,255,0.05)",
+      gap: 4, alignItems: "center",
     }}>
       <div>
-        <div style={{ fontFamily: "Inter", fontSize: 12, color: "rgba(255,255,255,0.70)" }}>{label}</div>
-        {sub && <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>{sub}</div>}
+        {label && <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>{label}</div>}
+        {sub && <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: C, marginTop: label ? 2 : 0 }}>{sub}</div>}
       </div>
-      <div style={{ fontFamily: "Inter, monospace", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.90)", textAlign: "center" }}>{loc}</div>
-      <div style={{ fontFamily: "Inter, monospace", fontSize: 12, fontWeight: 600, color: gs ? GRN : "transparent", textAlign: "right" }}>{gs ?? "—"}</div>
+      <div style={{ fontFamily: "Inter, monospace", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.95)", textAlign: "center" }}>{loc}</div>
+      <div style={{ fontFamily: "Inter, monospace", fontSize: 13, fontWeight: 700, color: gs ? GRN : "transparent", textAlign: "right" }}>{gs ?? "—"}</div>
     </div>
   );
 }
@@ -193,11 +193,11 @@ export default function TLSSpecs() {
             <div style={{ background: "rgba(0,174,239,0.08)", padding: "7px 12px", fontFamily: "Inter", fontSize: 10, fontWeight: 700, color: C, letterSpacing: "0.06em" }}>INDOOR</div>
             <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Ambient temp.</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Ambient temp.</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>-10°C to 55°C</div>
               </div>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Rel. humidity</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Rel. humidity</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>Max 90%</div>
               </div>
             </div>
@@ -207,23 +207,23 @@ export default function TLSSpecs() {
             <div style={{ background: "rgba(0,210,106,0.08)", padding: "7px 12px", fontFamily: "Inter", fontSize: 10, fontWeight: 700, color: GRN, letterSpacing: "0.06em" }}>OUTDOOR</div>
             <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Ambient temp.</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Ambient temp.</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>-50°C to +70°C</div>
               </div>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Rel. humidity</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Rel. humidity</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>Max 100%</div>
               </div>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Wind — Operational</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Wind — Operational</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>160 km/h</div>
               </div>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Wind — Survivability</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Wind — Survivability</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>200 km/h</div>
               </div>
               <div>
-                <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)" }}>Ice</div>
+                <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.70)" }}>Ice</div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>Up to 1.25 cm</div>
               </div>
             </div>
