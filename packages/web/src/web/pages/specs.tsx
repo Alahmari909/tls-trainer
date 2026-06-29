@@ -9,11 +9,11 @@ const GRN  = "#00D26A";
 function SectionTitle({ children }: { children: string }) {
   return (
     <div style={{
-      fontFamily: "Orbitron, monospace", fontSize: 15,
-      letterSpacing: "0.12em", color: C2,
+      fontFamily: "'Rajdhani', sans-serif", fontSize: 17,
+      fontWeight: 700, letterSpacing: "0.16em", color: GOLD,
       textTransform: "uppercase", marginBottom: 12, marginTop: 28,
-      paddingBottom: 8, borderBottom: `2px solid ${C}35`,
-      textShadow: `0 0 12px ${C2}60`,
+      paddingBottom: 8, borderBottom: `2px solid ${GOLD}40`,
+      textShadow: `0 0 14px ${GOLD}55`,
     }}>{children}</div>
   );
 }
@@ -24,8 +24,8 @@ function SubHeader({ children }: { children: string }) {
       background: `linear-gradient(90deg, ${C}28 0%, transparent 100%)`,
       borderLeft: `4px solid ${C}`,
       padding: "10px 14px", marginBottom: 2,
-      fontFamily: "Inter, sans-serif", fontWeight: 600, fontSize: 14,
-      color: "rgba(255,255,255,0.92)", letterSpacing: "0.01em",
+      fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: 15,
+      color: C2, letterSpacing: "0.06em", textTransform: "uppercase",
     }}>{children}</div>
   );
 }
