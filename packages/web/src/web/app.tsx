@@ -82,6 +82,7 @@ const Simulator = lazy(() => import("./pages/simulator"));
 const ErrorCodes = lazy(() => import("./pages/error-codes"));
 const TLSSpecs = lazy(() => import("./pages/specs"));
 const TLSAnimation = lazy(() => import("./pages/tls-animation"));
+const Specs = lazy(() => import("./pages/specs"));
 
 // ── V2 Pages (new kimi-style UI) ──────────────────────────────────────────────
 const V2Home = lazy(() => import("./pages/v2/index"));
@@ -506,6 +507,7 @@ function App() {
                 <Route path="/specs" component={TLSSpecs} />
                 <Route path="/simulator" component={Simulator} />
                 <Route path="/tls-animation" component={TLSAnimation} />
+                <Route path="/specs" component={Specs} />
                 {/* Redirect legacy/deep-link routes to dashboard */}
                 <Route path="/menu">{() => <Redirect to="/" />}</Route>
                 <Route path="/modules">{() => <Redirect to="/" />}</Route>
