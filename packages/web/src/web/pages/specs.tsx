@@ -9,10 +9,11 @@ const GRN  = "#00D26A";
 function SectionTitle({ children }: { children: string }) {
   return (
     <div style={{
-      fontFamily: "Orbitron, monospace", fontSize: 10,
-      letterSpacing: "0.2em", color: C2,
-      textTransform: "uppercase", marginBottom: 12, marginTop: 24,
-      paddingBottom: 6, borderBottom: `1px solid ${C}20`,
+      fontFamily: "Orbitron, monospace", fontSize: 15,
+      letterSpacing: "0.12em", color: C2,
+      textTransform: "uppercase", marginBottom: 12, marginTop: 28,
+      paddingBottom: 8, borderBottom: `2px solid ${C}35`,
+      textShadow: `0 0 12px ${C2}60`,
     }}>{children}</div>
   );
 }
@@ -20,11 +21,11 @@ function SectionTitle({ children }: { children: string }) {
 function SubHeader({ children }: { children: string }) {
   return (
     <div style={{
-      background: `linear-gradient(90deg, ${C}22 0%, transparent 100%)`,
-      borderLeft: `3px solid ${C}`,
-      padding: "7px 12px", marginBottom: 2,
-      fontFamily: "Inter", fontWeight: 700, fontSize: 11,
-      color: C2, letterSpacing: "0.05em",
+      background: `linear-gradient(90deg, ${C}28 0%, transparent 100%)`,
+      borderLeft: `4px solid ${C}`,
+      padding: "10px 14px", marginBottom: 2,
+      fontFamily: "Inter, sans-serif", fontWeight: 600, fontSize: 14,
+      color: "rgba(255,255,255,0.92)", letterSpacing: "0.01em",
     }}>{children}</div>
   );
 }
@@ -75,8 +76,8 @@ function GroupHeader({ label }: { label: string }) {
       borderBottom: "1px solid rgba(0,174,239,0.15)",
     }}>
       <div />
-      <div style={{ fontFamily: "Inter", fontSize: 10, fontWeight: 700, color: C, textAlign: "center", letterSpacing: "0.06em" }}>{label.split("/")[0]}</div>
-      <div style={{ fontFamily: "Inter", fontSize: 10, fontWeight: 700, color: GRN, textAlign: "right", letterSpacing: "0.06em" }}>{label.split("/")[1]}</div>
+      <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 700, color: C, textAlign: "center", letterSpacing: "0.04em" }}>{label.split("/")[0]}</div>
+      <div style={{ fontFamily: "Inter", fontSize: 13, fontWeight: 700, color: GRN, textAlign: "right", letterSpacing: "0.04em" }}>{label.split("/")[1]}</div>
     </div>
   );
 }
@@ -170,7 +171,7 @@ export default function TLSSpecs() {
         </SectionBox>
 
         {/* Monitoring */}
-        <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", margin: "12px 0 6px 2px" }}>Monitoring</div>
+        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Monitoring</div>
         <SectionBox>
           <GroupHeader label="Localizer/Glide Slope" />
           <DualRow label="RF-level stability"      loc="±2.0%"       gs="±2.00%" />
@@ -179,7 +180,7 @@ export default function TLSSpecs() {
         </SectionBox>
 
         {/* Environmental */}
-        <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", margin: "12px 0 6px 2px" }}>Environmental Conditions</div>
+        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Environmental Conditions</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 4 }}>
           {/* Indoor */}
           <div style={{ borderRadius: 12, border: "1px solid rgba(0,174,239,0.14)", background: "rgba(0,10,25,0.55)", overflow: "hidden" }}>
@@ -224,7 +225,7 @@ export default function TLSSpecs() {
         </div>
 
         {/* Power supply */}
-        <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", margin: "12px 0 6px 2px" }}>Power Supply</div>
+        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Power Supply</div>
         <SectionBox>
           <Row label="Input voltage"       value="85–265 VAC, 47–63 Hz" />
           <Row label="Power consumption"   value="3 kW" />
@@ -232,7 +233,7 @@ export default function TLSSpecs() {
         </SectionBox>
 
         {/* Safety */}
-        <div style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", margin: "12px 0 6px 2px" }}>Safety</div>
+        <div style={{ fontFamily: "Orbitron, monospace", fontSize: 13, color: C2, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px 2px" }}>Safety</div>
         <SectionBox>
           <GroupHeader label="Localizer/Glide Slope" />
           <DualRow label="Mean time between outage" loc="9,000 hrs"  gs="9,000 hrs" />
