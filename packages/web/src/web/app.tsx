@@ -80,6 +80,7 @@ const Leaderboard = lazy(() => import("./pages/leaderboard"));
 const Faults = lazy(() => import("./pages/faults"));
 const Simulator = lazy(() => import("./pages/simulator"));
 const ErrorCodes = lazy(() => import("./pages/error-codes"));
+const TLSSpecs = lazy(() => import("./pages/specs"));
 const TLSAnimation = lazy(() => import("./pages/tls-animation"));
 
 // ── V2 Pages (new kimi-style UI) ──────────────────────────────────────────────
@@ -502,6 +503,7 @@ function App() {
                 <Route path="/leaderboard" component={Leaderboard} />
                 <Route path="/faults" component={Faults} />
                 <Route path="/error-codes" component={ErrorCodes} />
+                <Route path="/specs" component={TLSSpecs} />
                 <Route path="/simulator" component={Simulator} />
                 <Route path="/tls-animation" component={TLSAnimation} />
                 {/* Redirect legacy/deep-link routes to dashboard */}
