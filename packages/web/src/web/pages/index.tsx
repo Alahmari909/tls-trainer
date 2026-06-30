@@ -402,189 +402,91 @@ function DailyTip() {
   const tipIndex = dayOfYear % DAILY_TIPS.length;
   const tip = DAILY_TIPS[tipIndex];
   const C = "#00AEEF";
-  const [imgOpen, setImgOpen] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const lastDist = { current: 0 };
-  const lastPan  = { current: { x: 0, y: 0 } };
   const lang = navigator.language?.startsWith("ar") ? "ar" : "en";
-  const tipImg = TIP_IMAGES[tip.cat] ?? "/tls-device.png";
-
-  const openLightbox = () => { setZoom(1); setPan({ x: 0, y: 0 }); setImgOpen(true); };
-  const closeLightbox = () => setImgOpen(false);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      lastDist.current = Math.sqrt(dx * dx + dy * dy);
-    } else if (e.touches.length === 1) {
-      lastPan.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    e.stopPropagation();
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (lastDist.current > 0) {
-        const delta = dist / lastDist.current;
-        setZoom(z => Math.min(8, Math.max(1, z * delta)));
-      }
-      lastDist.current = dist;
-    } else if (e.touches.length === 1) {
-      const nx = e.touches[0].clientX;
-      const ny = e.touches[0].clientY;
-      setPan(p => ({ x: p.x + nx - lastPan.current.x, y: p.y + ny - lastPan.current.y }));
-      lastPan.current = { x: nx, y: ny };
-    }
-  };
-
-  const onTouchEnd = () => { lastDist.current = 0; };
 
   return (
-    <div style={{ padding: "0 16px 20px" }}>
-      {/* ── Lightbox with pinch-to-zoom ── */}
-      {imgOpen && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(0,0,0,0.95)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden", touchAction: "none",
-          }}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          <img
-            src={tipImg}
-            alt={tip.cat}
-            draggable={false}
-            style={{
-              maxWidth: "100vw", maxHeight: "100vh",
-              objectFit: "contain", userSelect: "none",
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "center center",
-              transition: "none",
-            }}
-          />
-          {/* Close */}
-          <div
-            onClick={closeLightbox}
-            style={{
-              position: "absolute", top: 20, right: 20,
-              width: 40, height: 40, borderRadius: "50%",
-              background: "rgba(255,255,255,0.18)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 20, color: "#fff", cursor: "pointer", zIndex: 10,
-            }}>✕</div>
-          {/* Reset zoom hint */}
-          {zoom > 1 && (
-            <div
-              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-              style={{
-                position: "absolute", bottom: 28,
-                background: "rgba(255,255,255,0.15)", borderRadius: 20,
-                padding: "6px 16px", fontFamily: "Inter", fontSize: 12,
-                color: "#fff", cursor: "pointer",
-              }}>↺ إعادة ضبط الحجم</div>
-          )}
-          {zoom === 1 && (
-            <div style={{
-              position: "absolute", bottom: 28,
-              fontFamily: "Inter", fontSize: 11,
-              color: "rgba(255,255,255,0.35)",
-            }}>↔ إصبعان للتكبير</div>
-          )}
-        </div>
-      )}
-
-      {/* ── Big header OUTSIDE the card ── */}
-      <div style={{ textAlign: "center", marginBottom: 14 }}>
+    <div style={{ padding: "0 16px 24px" }}>
+      {/* ── Header ── */}
+      <div style={{ textAlign: "center", marginBottom: 16 }}>
         <div style={{
           fontFamily: "Orbitron, monospace",
-          fontSize: 20, fontWeight: 700,
+          fontSize: 18, fontWeight: 700,
           color: C, letterSpacing: "0.18em",
           textShadow: `0 0 18px ${C}80`,
         }}>
           TODAY&apos;S TIP
         </div>
         <div style={{
-          fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)",
+          fontFamily: "Inter", fontSize: 10, color: "rgba(255,255,255,0.4)",
           letterSpacing: "0.12em", marginTop: 3, textTransform: "uppercase",
         }}>
-          💡 النصيحة التقنية اليومية
+          النصيحة التقنية اليومية
         </div>
       </div>
 
       {/* ── Card ── */}
       <div style={{
-        borderRadius: 16, overflow: "hidden",
-        background: "linear-gradient(160deg, rgba(0,174,239,0.09), rgba(0,20,40,0.6))",
-        border: `1px solid ${C}30`,
-        boxShadow: `0 4px 24px rgba(0,174,239,0.10)`,
+        borderRadius: 18,
+        background: "linear-gradient(145deg, rgba(0,174,239,0.08) 0%, rgba(0,10,30,0.70) 100%)",
+        border: `1px solid ${C}28`,
+        boxShadow: `0 8px 32px rgba(0,174,239,0.08), inset 0 1px 0 rgba(0,174,239,0.12)`,
         position: "relative",
+        overflow: "hidden",
       }}>
         {/* Top glow line */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}70, transparent)`, zIndex: 1 }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}80, transparent)` }} />
 
-        {/* Category image */}
-        <div
-          onClick={openLightbox}
-          style={{ position: "relative", height: 160, overflow: "hidden", cursor: "pointer" }}
-        >
-          <img
-            src={tipImg}
-            alt={tip.cat}
-            style={{
-              width: "100%", height: "100%", objectFit: "cover",
-              filter: "brightness(0.65) saturate(0.85)",
-              display: "block",
-            }}
-          />
+        {/* Icon + Category row */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "18px 18px 14px",
+          borderBottom: `1px solid rgba(0,174,239,0.10)`,
+        }}>
+          {/* Icon circle */}
           <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(to bottom, transparent 25%, rgba(0,10,20,0.80) 100%)",
-          }} />
-          {/* Category badge */}
-          <div style={{
-            position: "absolute", bottom: 10, left: 12,
-            display: "flex", alignItems: "center", gap: 8,
+            width: 48, height: 48, borderRadius: "50%",
+            background: `radial-gradient(circle, ${C}22, ${C}08)`,
+            border: `1px solid ${C}40`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 24, flexShrink: 0,
+            boxShadow: `0 0 16px ${C}30`,
           }}>
-            <span style={{ fontSize: 22 }}>{tip.icon}</span>
+            {tip.icon}
+          </div>
+          <div style={{ flex: 1 }}>
             <div style={{
-              background: `${C}22`, border: `1px solid ${C}50`,
-              borderRadius: 8, padding: "4px 12px",
-              fontFamily: "Inter", fontSize: 12, color: C, fontWeight: 700,
-              backdropFilter: "blur(8px)",
+              fontFamily: "Inter", fontSize: 13, fontWeight: 700,
+              color: C, letterSpacing: "0.06em",
             }}>{tip.cat}</div>
+            <div style={{
+              fontFamily: "Orbitron, monospace", fontSize: 9,
+              color: "rgba(255,255,255,0.30)", marginTop: 2,
+              letterSpacing: "0.1em",
+            }}>TIP {tipIndex + 1} / {DAILY_TIPS.length}</div>
           </div>
-          {/* Counter */}
+          {/* Pulse dot */}
           <div style={{
-            position: "absolute", top: 10, right: 12,
-            fontFamily: "Orbitron, monospace", fontSize: 10,
-            color: "rgba(255,255,255,0.5)",
-            background: "rgba(0,0,0,0.45)", borderRadius: 6,
-            padding: "3px 8px", backdropFilter: "blur(6px)",
-          }}>
-            {tipIndex + 1} / {DAILY_TIPS.length}
-          </div>
+            width: 8, height: 8, borderRadius: "50%",
+            background: C,
+            boxShadow: `0 0 8px ${C}`,
+            animation: "pulse 2s ease-in-out infinite",
+          }} />
         </div>
 
         {/* Text body */}
-        <div style={{ padding: "16px" }}>
+        <div style={{ padding: "16px 18px 20px" }}>
           <div style={{
             fontFamily: "Inter, sans-serif",
-            fontSize: 15, lineHeight: 1.9, fontWeight: 500,
-            color: "rgba(255,255,255,0.90)",
+            fontSize: 14, lineHeight: 1.85, fontWeight: 400,
+            color: "rgba(255,255,255,0.85)",
             direction: "auto" as any,
           }}>
             {lang === "ar" ? tip.ar : tip.en}
           </div>
         </div>
+
+        {/* Bottom accent */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C}30, transparent)` }} />
       </div>
     </div>
   );
