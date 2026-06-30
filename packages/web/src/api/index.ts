@@ -28,6 +28,10 @@ async function sqlRun(query: string, args: unknown[] = []): Promise<void> {
   await client.execute({ sql: query, args });
 }
 
+async function logAudit(action: string, detail = '') {
+  await sqlRun('INSERT INTO audit_log (action, detail, ts) VALUES (?, ?, ?)', [action, detail, Date.now()]).catch(() => {});
+}
+
 // One-time, resumable, idempotent migration: move base64 file_data out of the
 // documents table into document_files, so list/metadata queries never traverse
 // the blob's overflow-page chain (root cause of the documents 502 timeout).
@@ -569,6 +573,12 @@ async function ensureTables() {
     )`).catch(() => {});
     // Index on created_at so ORDER BY is fast without touching blob overflow pages
     await client.execute(`CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC)`).catch(() => {});
+    await client.execute(`CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      action TEXT NOT NULL,
+      detail TEXT DEFAULT '',
+      ts INTEGER NOT NULL
+    )`).catch(() => {});
     console.log('[ensureTables] All tables ready');
     // Background, non-blocking: move existing blobs out of documents (idempotent).
     migrateDocumentBlobs().catch((e) => console.error('[documents:migration] error:', e));
@@ -4039,6 +4049,32 @@ app.get('/documents/:id/file', async (c) => {
   });
 });
 
+// GET /api/admin/stats — quick system overview for admin settings
+app.get('/admin/stats', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const [traineesRow, docsRow, msgsRow, onlineRow] = await Promise.all([
+    sql('SELECT COUNT(*) as n FROM trainees'),
+    sql('SELECT COUNT(*) as n FROM documents'),
+    sql('SELECT COUNT(*) as n FROM messages WHERE created_at > ?', [Date.now() - 86400000]),
+    sql('SELECT COUNT(*) as n FROM trainees WHERE is_online=1'),
+  ]);
+  return c.json({
+    totalTrainees: Number((traineesRow[0] as any)?.n ?? 0),
+    totalDocuments: Number((docsRow[0] as any)?.n ?? 0),
+    messagesToday: Number((msgsRow[0] as any)?.n ?? 0),
+    onlineNow: Number((onlineRow[0] as any)?.n ?? 0),
+  });
+});
+
+// GET /api/admin/audit — last 60 audit entries
+app.get('/admin/audit', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql('SELECT action, detail, ts FROM audit_log ORDER BY ts DESC LIMIT 60');
+  return c.json(rows);
+});
+
 // GET /api/admin/documents — admin: list all docs
 app.get('/admin/documents', async (c) => {
   const pw = c.req.header('x-admin-password');
@@ -4121,6 +4157,7 @@ app.post('/admin/documents', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, mess
       await sqlRun('INSERT OR IGNORE INTO document_shares (document_id, trainee_id) VALUES (?,?)', [docId, tid]).catch(() => {});
     }
   }
+  await logAudit('document_upload', `id=${docId} title="${title}" size=${file.size}`);
   return c.json({ ok: true, id: docId }, 201);
 });
 
@@ -4155,6 +4192,7 @@ app.delete('/admin/documents/:id', rateLimit({ windowMs: 60 * 60 * 1000, max: 20
   await sqlRun('DELETE FROM document_shares WHERE document_id=?', [id]);
   await sqlRun('DELETE FROM document_files WHERE document_id=?', [id]);
   await sqlRun('DELETE FROM documents WHERE id=?', [id]);
+  await logAudit('document_delete', `id=${id}`);
   return c.json({ ok: true }, 200);
 });
 

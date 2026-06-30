@@ -3862,6 +3862,108 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
 }
 
 // ─── Admin Password Change ────────────────────────────────────────────────────
+function SystemStats({ adminPw }: { adminPw: string }) {
+  const [stats, setStats] = React.useState<{
+    totalTrainees: number; totalDocuments: number;
+    messagesToday: number; onlineNow: number; loaded: boolean;
+  }>({ totalTrainees: 0, totalDocuments: 0, messagesToday: 0, onlineNow: 0, loaded: false });
+
+  React.useEffect(() => {
+    fetch('/api/admin/stats', { headers: { 'x-admin-password': adminPw } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setStats({ ...d, loaded: true }))
+      .catch(() => {});
+  }, [adminPw]);
+
+  const cards = [
+    { label: 'TRAINEES', value: stats.totalTrainees, color: '#00FF88', icon: '👥' },
+    { label: 'DOCUMENTS', value: stats.totalDocuments, color: '#00AEEF', icon: '📁' },
+    { label: 'MSG TODAY', value: stats.messagesToday, color: '#FFD700', icon: '💬' },
+    { label: 'ONLINE NOW', value: stats.onlineNow, color: '#00FF88', icon: '🟢' },
+  ];
+
+  return (
+    <div style={{ marginBottom: 16, padding: '16px', background: 'rgba(0,255,136,0.04)', border: '1px solid rgba(0,255,136,0.15)', borderRadius: 12 }}>
+      <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 10, color: 'rgba(0,255,136,0.6)', marginBottom: 12, letterSpacing: '0.15em' }}>SYSTEM STATISTICS</div>
+      {!stats.loaded ? (
+        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center', padding: 8 }}>Loading...</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {cards.map(card => (
+            <div key={card.label} style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${card.color}22`, borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 18, marginBottom: 4 }}>{card.icon}</div>
+              <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 22, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontFamily: 'Orbitron', letterSpacing: '0.1em', marginTop: 5 }}>{card.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditLog({ adminPw }: { adminPw: string }) {
+  const [entries, setEntries] = React.useState<{ action: string; detail: string; ts: number }[]>([]);
+  const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  function load() {
+    setLoading(true);
+    fetch('/api/admin/audit', { headers: { 'x-admin-password': adminPw } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setEntries(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }
+
+  function toggle() { if (!open) load(); setOpen(o => !o); }
+
+  const LABELS: Record<string, string> = {
+    document_upload: '📤 Document uploaded',
+    document_delete: '🗑️ Document deleted',
+  };
+
+  return (
+    <div style={{ marginBottom: 16, background: 'rgba(0,255,136,0.03)', border: '1px solid rgba(0,255,136,0.12)', borderRadius: 12, overflow: 'hidden' }}>
+      <button onClick={toggle} style={{
+        width: '100%', padding: '14px 16px', background: 'none', border: 'none',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+      }}>
+        <span style={{ fontFamily: 'Orbitron, monospace', fontSize: 10, color: 'rgba(0,255,136,0.6)', letterSpacing: '0.15em' }}>📋 AUDIT LOG</span>
+        <span style={{ color: 'rgba(0,255,136,0.4)', fontSize: 12 }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 14px 14px' }}>
+          {loading ? (
+            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center', padding: 12 }}>Loading...</div>
+          ) : entries.length === 0 ? (
+            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center', padding: 12 }}>No entries yet</div>
+          ) : (
+            <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+              {entries.map((e, i) => (
+                <div key={i} style={{ padding: '8px 10px', borderBottom: '1px solid rgba(0,255,136,0.06)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 11, color: '#00FF88', fontFamily: 'Inter' }}>{LABELS[e.action] ?? e.action}</span>
+                    {e.detail && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>{e.detail}</span>}
+                  </div>
+                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.22)', whiteSpace: 'nowrap', fontFamily: 'Inter' }}>
+                    {new Date(Number(e.ts)).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={load} disabled={loading} style={{
+            marginTop: 10, width: '100%', padding: '7px',
+            background: 'rgba(0,255,136,0.06)', border: '1px solid rgba(0,255,136,0.15)',
+            borderRadius: 6, color: 'rgba(0,255,136,0.6)', fontSize: 10,
+            fontFamily: 'Orbitron', cursor: loading ? 'not-allowed' : 'pointer',
+          }}>↻ REFRESH</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPasswordChange({ adminPw }: { adminPw: string }) {
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -5126,11 +5228,17 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 8 }}>SYSTEM</div>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>SETTINGS</div>
 
+          {/* System Statistics */}
+          <SystemStats adminPw={adminPw} />
+
           {/* Change Admin Password */}
           <AdminPasswordChange adminPw={adminPw} />
 
           <BackupPanel adminPw={adminPw} />
           <TelegramPanel adminPw={adminPw} />
+
+          {/* Audit Log */}
+          <AuditLog adminPw={adminPw} />
 
           {/* Theme toggle */}
           <div style={{ marginTop: 16, padding: "16px", background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12 }}>

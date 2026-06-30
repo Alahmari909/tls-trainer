@@ -142,6 +142,15 @@ export default function Settings() {
   const [pinSuccess, setPinSuccess] = useState(false);
   const [pinSaving, setPinSaving] = useState(false);
 
+  // Weekly training goal
+  const [weeklyGoal, setWeeklyGoal] = useState<number>(() => parseInt(localStorage.getItem('tls_weekly_goal') ?? '5', 10));
+  const [weeklyDone, setWeeklyDone] = useState(0);
+  const [goalEditing, setGoalEditing] = useState(false);
+  const [goalInput, setGoalInput] = useState('5');
+
+  // Achievements
+  const [achievements, setAchievements] = useState<{ key: string; name: string; icon: string; earned: boolean }[]>([]);
+
   // Theme always dark
 
   // Load profile data (avatar + extra fields)
@@ -181,6 +190,30 @@ export default function Settings() {
       const avg      = scores.length ? Math.round(scores.reduce((s: number, v: number) => s + v, 0) / scores.length) : 0;
       setStats({ totalXp, streak, quizzesPassed: passed, avgScore: avg, level, loaded: true });
     });
+  }, [session?.id]);
+
+  // Weekly quiz count (from Monday 00:00 this week)
+  useEffect(() => {
+    if (!session) return;
+    fetch(`/api/quiz-attempts/${session.id}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((attempts: any[]) => {
+        const now = new Date();
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        monday.setHours(0, 0, 0, 0);
+        setWeeklyDone(attempts.filter((a: any) => Number(a.completed_at ?? a.createdAt ?? 0) > monday.getTime()).length);
+      })
+      .catch(() => {});
+  }, [session?.id]);
+
+  // Load achievements
+  useEffect(() => {
+    if (!session) return;
+    fetch(`/api/achievements/user/${session.id}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setAchievements(Array.isArray(d) ? d : []))
+      .catch(() => {});
   }, [session?.id]);
 
   function showSaved() { setSaved(true); setTimeout(() => setSaved(false), 2200); }
@@ -545,6 +578,70 @@ export default function Settings() {
           </div>
         </Section>
 
+        {/* ── WEEKLY TRAINING GOAL ─────────────────────────────────── */}
+        <Section title="🎯 Weekly Training Goal">
+          <div style={{ padding: '16px 18px' }}>
+            {!goalEditing ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                  <span style={{ fontSize: 13, color: C.dim }}>Quizzes this week</span>
+                  <span style={{ fontSize: 13, color: C.cyan, fontWeight: 600 }}>{weeklyDone} / {weeklyGoal}</span>
+                </div>
+                <div style={{ height: 8, background: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.min(100, weeklyGoal > 0 ? Math.round((weeklyDone / weeklyGoal) * 100) : 0)}%`,
+                    background: weeklyDone >= weeklyGoal
+                      ? `linear-gradient(90deg, ${C.green}, #00d26a)`
+                      : `linear-gradient(90deg, ${C.cyan}, ${C.blue})`,
+                    borderRadius: 4, transition: 'width 0.5s ease',
+                  }} />
+                </div>
+                {weeklyDone >= weeklyGoal && (
+                  <div style={{ textAlign: 'center', color: C.green, fontSize: 13, marginBottom: 10 }}>
+                    🏆 Goal achieved this week!
+                  </div>
+                )}
+                <button onClick={() => { setGoalInput(String(weeklyGoal)); setGoalEditing(true); }} style={{
+                  width: '100%', padding: '9px',
+                  background: 'rgba(0,174,239,0.07)', border: '1px solid rgba(0,174,239,0.25)',
+                  borderRadius: 8, color: C.cyan, fontSize: 12, cursor: 'pointer', fontFamily: 'Rajdhani',
+                }}>Change Goal</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 9, color: 'rgba(0,174,239,0.5)', marginBottom: 6, fontFamily: 'Orbitron', letterSpacing: '0.12em' }}>
+                  TARGET QUIZZES PER WEEK
+                </div>
+                <input
+                  type="number" min={1} max={50} className="field-input"
+                  value={goalInput}
+                  onChange={e => setGoalInput(e.target.value)}
+                  style={{ ...inputStyle, marginBottom: 10 }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => {
+                    const n = Math.max(1, Math.min(50, parseInt(goalInput, 10) || 5));
+                    setWeeklyGoal(n);
+                    localStorage.setItem('tls_weekly_goal', String(n));
+                    setGoalEditing(false);
+                    showSaved();
+                  }} style={{
+                    flex: 1, padding: '9px',
+                    background: 'rgba(0,210,106,0.1)', border: '1px solid rgba(0,210,106,0.3)',
+                    borderRadius: 8, color: C.green, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Rajdhani',
+                  }}>Save</button>
+                  <button onClick={() => setGoalEditing(false)} style={{
+                    padding: '9px 14px',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8, color: C.dim, fontSize: 13, cursor: 'pointer', fontFamily: 'Rajdhani',
+                  }}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+
         {/* ── NOTIFICATIONS ────────────────────────────────────────── */}
         <Section title={t("notification_sound")}>
           <SettingRow label="Quiz Results" desc="Notify when quiz is graded">
@@ -567,6 +664,33 @@ export default function Settings() {
             <Toggle on={settings.notificationSound} onChange={() => toggle("notificationSound")} />
           </SettingRow>
         </Section>
+
+        {/* ── MY ACHIEVEMENTS ──────────────────────────────────────── */}
+        {achievements.length > 0 && (
+          <Section title="🏆 My Achievements">
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {achievements.map(a => (
+                  <div key={a.key} title={a.name} style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '10px 6px', borderRadius: 10,
+                    background: a.earned ? 'rgba(0,174,239,0.1)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${a.earned ? 'rgba(0,174,239,0.35)' : 'rgba(255,255,255,0.07)'}`,
+                    opacity: a.earned ? 1 : 0.38,
+                    transition: 'opacity 0.2s',
+                    cursor: 'default',
+                  }}>
+                    <span style={{ fontSize: 22 }}>{a.icon || '🏅'}</span>
+                    <span style={{ fontSize: 9, color: a.earned ? '#fff' : C.dim, textAlign: 'center', marginTop: 5, fontFamily: 'Inter', lineHeight: 1.3 }}>{a.name}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: C.dim, textAlign: 'center', fontFamily: 'Inter' }}>
+                {achievements.filter(a => a.earned).length} / {achievements.length} earned
+              </div>
+            </div>
+          </Section>
+        )}
 
         {/* ── CHANGE PIN ───────────────────────────────────────────── */}
         <Section title="Change PIN">
