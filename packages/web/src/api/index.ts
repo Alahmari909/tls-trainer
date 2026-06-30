@@ -4046,16 +4046,22 @@ app.get('/admin/documents', async (c) => {
       FROM documents d ORDER BY d.created_at DESC
     `);
     const docs = await Promise.race([docsPromise, dbTimeout]);
-    // For each doc with share_mode='specific', get shared trainee ids
-    const result = [];
-    for (const doc of docs as any[]) {
-      let sharedWith: string[] = [];
-      if (doc.share_mode === 'specific') {
-        const shares = await sql('SELECT trainee_id FROM document_shares WHERE document_id=?', [doc.id]);
-        sharedWith = (shares as any[]).map(s => s.trainee_id);
-      }
-      result.push({ ...doc, sharedWith });
+    // Fetch ALL shares in one query (avoids N+1 round-trips to Turso), then group.
+    const sharesRows = (await Promise.race([
+      sql('SELECT document_id, trainee_id FROM document_shares'),
+      dbTimeout,
+    ])) as any[];
+    const sharesByDoc = new Map<string, string[]>();
+    for (const s of sharesRows) {
+      const k = String(s.document_id);
+      const arr = sharesByDoc.get(k);
+      if (arr) arr.push(s.trainee_id);
+      else sharesByDoc.set(k, [s.trainee_id]);
     }
+    const result = (docs as any[]).map((doc) => ({
+      ...doc,
+      sharedWith: doc.share_mode === 'specific' ? (sharesByDoc.get(String(doc.id)) || []) : [],
+    }));
     return c.json(result, 200);
   } catch (e: any) {
     const msg = e?.message === 'DB_TIMEOUT' ? 'Database timeout — please retry' : String(e?.message || e);
