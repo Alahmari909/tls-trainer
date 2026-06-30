@@ -3580,7 +3580,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
     setLoading(false);
   };
 
-  useEffect(() => { if (adminPw) load(); }, [adminPw]);
+  useEffect(() => { load(); }, [adminPw]);
 
   const handleUpload = async () => {
     if (!uFile || !uTitle.trim()) { setError("Title and file are required"); return; }
@@ -3782,10 +3782,23 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
 
       {/* Documents List */}
       {loading ? (
-        <div style={{ textAlign: "center", color: C.muted, padding: "40px 0", fontSize: 13 }}>Loading documents...</div>
+        <div style={{ textAlign: "center", padding: "60px 0" }}>
+          <div style={{ fontSize: 28, marginBottom: 12 }}>⏳</div>
+          <div style={{ color: C.green, fontSize: 14, fontWeight: 600 }}>Loading documents...</div>
+        </div>
       ) : docs.length === 0 ? (
-        <div style={{ textAlign: "center", color: C.muted, padding: "60px 0", fontSize: 13 }}>
-          No documents yet. Click "+ Upload Document" to add the first one.
+        <div style={{
+          textAlign: "center", padding: "50px 20px",
+          border: `1px dashed ${C.green}40`, borderRadius: 14,
+          background: "rgba(0,255,136,0.03)",
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.85)", marginBottom: 8 }}>No Documents Yet</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>Upload your first PDF using the button above</div>
+          <button
+            onClick={() => setShowUpload(true)}
+            style={{ padding: "10px 24px", background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.4)", borderRadius: 8, color: C.green, fontSize: 13, cursor: "pointer", fontWeight: 700 }}
+          >+ Upload Document</button>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
