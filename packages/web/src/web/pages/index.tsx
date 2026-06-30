@@ -572,6 +572,17 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   const [, navigate] = useLocation();
   const clock = useLiveClock();
   const { t } = useLanguage();
+  const [arSubtitles, setArSubtitles] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const toggleSubtitles = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const next = !arSubtitles;
+    setArSubtitles(next);
+    for (let i = 0; i < video.textTracks.length; i++) {
+      video.textTracks[i].mode = next ? "showing" : "hidden";
+    }
+  };
 
   const quickActions = [
     { labelKey: "nav_modules" as const,  icon: "📡", path: "/modules",  color: "#00AEEF" },
@@ -816,10 +827,33 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
       {/* ── INTRO VIDEO ── */}
       <div style={{ padding: "18px 16px 0" }}>
-        <div style={{
-          fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
-          color: "var(--text-muted)", marginBottom: 10,
-        }}>{t("system_intro")}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{
+            fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
+            color: "var(--text-muted)",
+          }}>{t("system_intro")}</div>
+          <button
+            onClick={toggleSubtitles}
+            style={{
+              background: arSubtitles ? "rgba(0,174,239,0.2)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${arSubtitles ? "#00AEEF" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 6,
+              color: arSubtitles ? "#00AEEF" : "rgba(255,255,255,0.45)",
+              fontFamily: "Inter",
+              fontSize: 9,
+              letterSpacing: "0.08em",
+              padding: "4px 10px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "all 0.2s",
+            }}
+          >
+            <span style={{ fontSize: 11 }}>CC</span>
+            <span>ترجمة</span>
+          </button>
+        </div>
         <div style={{
           borderRadius: 12,
           overflow: "hidden",
@@ -828,6 +862,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           boxShadow: "0 0 24px rgba(0,174,239,0.08)",
         }}>
           <video
+            ref={videoRef}
             src="/tls-intro.webm"
             controls
             autoPlay
@@ -835,7 +870,14 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             playsInline
             preload="auto"
             style={{ width: "100%", height: "100%", display: "block", objectFit: "cover", aspectRatio: "16/9" }}
-          />
+          >
+            <track
+              kind="subtitles"
+              src="/tls-video-ar.vtt"
+              srcLang="ar"
+              label="العربية"
+            />
+          </video>
         </div>
       </div>
 
