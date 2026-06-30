@@ -573,15 +573,31 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   const clock = useLiveClock();
   const { t } = useLanguage();
   const [arSubtitles, setArSubtitles] = useState(false);
+  const [subtitleText, setSubtitleText] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
-  const toggleSubtitles = () => {
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    const attach = () => {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        const track = video.textTracks[i];
+        track.mode = "hidden";
+        track.oncuechange = () => {
+          const cue = track.activeCues?.[0] as VTTCue | undefined;
+          setSubtitleText(cue ? cue.text.replace(/<[^>]+>/g, "") : "");
+        };
+      }
+    };
+    if (video.readyState >= 1) attach();
+    else video.addEventListener("loadedmetadata", attach, { once: true });
+    return () => { video.removeEventListener("loadedmetadata", attach); };
+  }, []);
+
+  const toggleSubtitles = () => {
     const next = !arSubtitles;
     setArSubtitles(next);
-    for (let i = 0; i < video.textTracks.length; i++) {
-      video.textTracks[i].mode = next ? "showing" : "hidden";
-    }
+    if (!next) setSubtitleText("");
   };
 
   const quickActions = [
@@ -860,6 +876,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           border: "1px solid rgba(0,174,239,0.2)",
           background: "#000",
           boxShadow: "0 0 24px rgba(0,174,239,0.08)",
+          position: "relative",
         }}>
           <video
             ref={videoRef}
@@ -878,6 +895,33 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
               label="العربية"
             />
           </video>
+          {/* Custom subtitle overlay — stays inside video box */}
+          {arSubtitles && subtitleText && (
+            <div style={{
+              position: "absolute",
+              bottom: "10%",
+              left: "5%",
+              right: "5%",
+              textAlign: "center",
+              pointerEvents: "none",
+              direction: "rtl",
+            }}>
+              <span style={{
+                display: "inline-block",
+                background: "rgba(0,0,0,0.72)",
+                color: "#fff",
+                fontSize: "clamp(11px, 2.8vw, 15px)",
+                fontFamily: "Tajawal, Arial, sans-serif",
+                fontWeight: 500,
+                lineHeight: 1.5,
+                padding: "4px 10px",
+                borderRadius: 6,
+                maxWidth: "100%",
+              }}>
+                {subtitleText}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
