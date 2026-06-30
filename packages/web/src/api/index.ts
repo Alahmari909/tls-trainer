@@ -4078,7 +4078,7 @@ app.get('/admin/documents', async (c) => {
 });
 
 // POST /api/admin/documents — upload new document
-app.post('/admin/documents', bodyLimit({ maxSize: 25 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 25MB)' }, 413) }), async (c) => {
+app.post('/admin/documents', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: "Too many upload attempts — wait an hour" }), bodyLimit({ maxSize: 25 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 25MB)' }, 413) }), async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   const formData = await c.req.formData().catch(() => null);
@@ -4125,7 +4125,7 @@ app.post('/admin/documents', bodyLimit({ maxSize: 25 * 1024 * 1024, onError: (c)
 });
 
 // PUT /api/admin/documents/:id — update metadata + sharing
-app.put('/admin/documents/:id', async (c) => {
+app.put('/admin/documents/:id', rateLimit({ windowMs: 60 * 60 * 1000, max: 30, message: "Too many update attempts — wait an hour" }), async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
@@ -4148,7 +4148,7 @@ app.put('/admin/documents/:id', async (c) => {
 });
 
 // DELETE /api/admin/documents/:id
-app.delete('/admin/documents/:id', async (c) => {
+app.delete('/admin/documents/:id', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: "Too many delete attempts — wait an hour" }), async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
