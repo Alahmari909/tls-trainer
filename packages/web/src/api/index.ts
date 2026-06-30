@@ -28,6 +28,43 @@ async function sqlRun(query: string, args: unknown[] = []): Promise<void> {
   await client.execute({ sql: query, args });
 }
 
+// One-time, resumable, idempotent migration: move base64 file_data out of the
+// documents table into document_files, so list/metadata queries never traverse
+// the blob's overflow-page chain (root cause of the documents 502 timeout).
+async function migrateDocumentBlobs() {
+  // id-only read (no blob/trailing-column access): docs whose blob isn't copied yet.
+  const pending = await sql(
+    `SELECT d.id AS id FROM documents d
+     LEFT JOIN document_files f ON f.document_id = d.id
+     WHERE f.document_id IS NULL`
+  );
+  let copied = 0;
+  for (const r of pending as any[]) {
+    const id = (r as any).id;
+    try {
+      await client.execute({
+        sql: `INSERT OR IGNORE INTO document_files (document_id, file_data)
+              SELECT id, file_data FROM documents WHERE id=?`,
+        args: [id],
+      });
+      await client.execute({ sql: `UPDATE documents SET file_data='' WHERE id=?`, args: [id] });
+      copied++;
+      console.log(`[documents:migration] moved blob for id ${id}`);
+    } catch (e) {
+      console.error(`[documents:migration] failed id ${id}:`, e);
+    }
+  }
+  // Crash-recovery: clear documents.file_data for any doc already copied (no blob read).
+  try {
+    await client.execute({
+      sql: `UPDATE documents SET file_data='' WHERE id IN (SELECT document_id FROM document_files)`,
+    });
+  } catch (e) {
+    console.error('[documents:migration] cleanup pass failed:', e);
+  }
+  if (copied) console.log(`[documents:migration] done: moved ${copied} document blob(s)`);
+}
+
 // ── Ensure new tables exist ───────────────────────────────────────────────────
 async function ensureTables() {
   try {
@@ -524,7 +561,15 @@ async function ensureTables() {
       trainee_id TEXT NOT NULL,
       UNIQUE(document_id, trainee_id)
     )`).catch(() => {});
+    // document_files: blob storage separated from documents metadata so list
+    // queries never scan giant base64 PDFs (see migrateDocumentBlobs).
+    await client.execute(`CREATE TABLE IF NOT EXISTS document_files (
+      document_id INTEGER PRIMARY KEY,
+      file_data TEXT NOT NULL DEFAULT ''
+    )`).catch(() => {});
     console.log('[ensureTables] All tables ready');
+    // Background, non-blocking: move existing blobs out of documents (idempotent).
+    migrateDocumentBlobs().catch((e) => console.error('[documents:migration] error:', e));
     // Reset all is_online flags on startup — in-memory heartbeats are the source of truth
     await sqlRun(`UPDATE trainees SET is_online=0`);
     console.log('[startup] Cleared stale is_online flags');
@@ -3967,10 +4012,14 @@ app.get('/documents', async (c) => {
 // GET /api/documents/:id/file — serve the PDF file
 app.get('/documents/:id/file', async (c) => {
   const id = c.req.param('id');
-  const rows = await sql('SELECT file_data, mime_type, filename FROM documents WHERE id=?', [id]);
+  const rows = await sql('SELECT mime_type, filename, file_data FROM documents WHERE id=?', [id]);
   if (!(rows as any[]).length) return c.json({ error: 'Not found' }, 404);
   const row = (rows as any[])[0];
-  const buf = Buffer.from(row.file_data, 'base64');
+  // Blob lives in document_files after migration; fall back to documents.file_data
+  // for any not-yet-migrated row.
+  const fileRows = await sql('SELECT file_data FROM document_files WHERE document_id=?', [id]);
+  const b64 = ((fileRows as any[])[0]?.file_data) || row.file_data || '';
+  const buf = Buffer.from(b64, 'base64');
   return new Response(buf, {
     headers: {
       'Content-Type': row.mime_type || 'application/pdf',
@@ -4023,11 +4072,14 @@ app.post('/admin/documents', bodyLimit({ maxSize: 100 * 1024 * 1024, onError: (c
   const fileData = Buffer.from(arrayBuf).toString('base64');
   const now = Date.now();
 
-  const res = await sqlRun(
-    'INSERT INTO documents (title, filename, category, description, pages, file_data, mime_type, size, share_mode, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-    [title, file.name, category, description, pages, fileData, file.type || 'application/pdf', file.size, share_mode, now, now]
-  );
-  const docId = (res as any).lastInsertRowid ?? (res as any).insertId;
+  // Store metadata in documents with file_data='' (keeps rows small so list
+  // queries stay fast); the blob goes into document_files.
+  const res = await client.execute({
+    sql: 'INSERT INTO documents (title, filename, category, description, pages, file_data, mime_type, size, share_mode, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    args: [title, file.name, category, description, pages, '', file.type || 'application/pdf', file.size, share_mode, now, now],
+  });
+  const docId = Number(res.lastInsertRowid);
+  await sqlRun('INSERT INTO document_files (document_id, file_data) VALUES (?,?)', [docId, fileData]);
 
   // Add per-trainee shares if specific
   if (share_mode === 'specific' && sharedWith) {
@@ -4068,6 +4120,7 @@ app.delete('/admin/documents/:id', async (c) => {
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
   await sqlRun('DELETE FROM document_shares WHERE document_id=?', [id]);
+  await sqlRun('DELETE FROM document_files WHERE document_id=?', [id]);
   await sqlRun('DELETE FROM documents WHERE id=?', [id]);
   return c.json({ ok: true }, 200);
 });
