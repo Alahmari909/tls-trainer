@@ -1091,34 +1091,53 @@ const app = new Hono()
 
   // POST /trainee/login — Rate limited: 10 attempts / 5 min per IP
   .post('/trainee/login', rateLimit({ windowMs: 5 * 60 * 1000, max: 10, message: "Too many login attempts — wait 5 minutes" }), async (c) => {
-    const body = await c.req.json().catch(() => ({})) as { id?: string; pin?: string };
-    if (!body.id) return c.json({ error: 'id required' }, 400);
+    const body = await c.req.json().catch(() => ({})) as { id?: string; name?: string; pin?: string };
 
-    const rows = await sql(
-      `SELECT id, name, rank, unit, pin, login_count, status FROM trainees WHERE id=?`, [body.id]
-    );
-    if (!rows.length) return c.json({ error: 'Trainee not found' }, 404);
-    const t = rows[0] as { id: string; name: string; rank: string | null; unit: string | null; pin: string | null; login_count: number; status: string | null };
+    type TraineeRow = { id: string; name: string; rank: string | null; unit: string | null; pin: string | null; login_count: number; status: string | null };
+
+    let rows: TraineeRow[];
+    if (body.id) {
+      rows = await sql(
+        `SELECT id, name, rank, unit, pin, login_count, status FROM trainees WHERE id=?`, [body.id]
+      ) as TraineeRow[];
+    } else if (body.name && body.name.trim()) {
+      rows = await sql(
+        `SELECT id, name, rank, unit, pin, login_count, status FROM trainees WHERE LOWER(TRIM(name))=LOWER(TRIM(?))`, [body.name.trim()]
+      ) as TraineeRow[];
+    } else {
+      return c.json({ error: 'الاسم مطلوب' }, 400);
+    }
+    if (!rows.length) return c.json({ error: 'الاسم أو رمز الدخول غير صحيح' }, 404);
+
+    // If several trainees share the same name, disambiguate by PIN
+    let t: TraineeRow;
+    if (rows.length === 1) {
+      t = rows[0];
+    } else {
+      const match = rows.find(r => r.pin && r.pin === body.pin);
+      if (!match) return c.json({ error: 'الاسم أو رمز الدخول غير صحيح' }, 401);
+      t = match;
+    }
 
     // Block gate — blocked trainees cannot log in
     if (t.status === 'blocked') return c.json({ error: 'blocked', message: 'تم إيقاف حسابك. تواصل مع المدرب.' }, 403);
     if (t.status === 'suspended') return c.json({ error: 'suspended', message: 'حسابك معلّق مؤقتاً. تواصل مع المدرب.' }, 403);
 
     // PIN check only if PIN was set
-    if (t.pin && body.pin !== t.pin) return c.json({ error: 'Wrong PIN' }, 401);
+    if (t.pin && body.pin !== t.pin) return c.json({ error: 'رمز الدخول غير صحيح' }, 401);
 
     const now = Date.now();
     await sqlRun(
       `UPDATE trainees SET last_login_at=?, login_count=login_count+1, is_online=1, last_active_at=? WHERE id=?`,
-      [now, now, body.id]
+      [now, now, t.id]
     );
-    onlineHeartbeats.set(body.id, now);
-    await logActivity(body.id, 'login');
-    if (canSendTelegram(body.id, "login")) {
-      markTelegramSent(body.id, "login");
-      markTelegramSent(body.id, "site_open"); // reset site_open cooldown too on real login
-      markTelegramSent(body.id, "status_change_online");
-      sendTelegram({ type: "login", traineeId: body.id, traineeName: t.name });
+    onlineHeartbeats.set(t.id, now);
+    await logActivity(t.id, 'login');
+    if (canSendTelegram(t.id, "login")) {
+      markTelegramSent(t.id, "login");
+      markTelegramSent(t.id, "site_open"); // reset site_open cooldown too on real login
+      markTelegramSent(t.id, "status_change_online");
+      sendTelegram({ type: "login", traineeId: t.id, traineeName: t.name });
     }
 
     return c.json({ ok: true, id: t.id, name: t.name, rank: t.rank, unit: t.unit }, 200);

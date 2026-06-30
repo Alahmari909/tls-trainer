@@ -62,7 +62,6 @@ function XpBar({ xp }: { xp: number }) {
 ───────────────────────────────────────────────────────── */
 function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
   const [mode, setMode] = useState<"pick"|"register"|"login"|"pending">("pick");
-  const [trainees, setTrainees] = useState<TraineeListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,14 +82,8 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
   const [pendingName, setPendingName] = useState("");
 
   // Login
-  const [selectedId, setSelectedId] = useState("");
+  const [loginName, setLoginName] = useState("");
   const [loginPin, setLoginPin] = useState("");
-
-  useEffect(() => {
-    if (mode === "login") {
-      fetch("/api/trainee/list").then(r=>r.json()).then((rows:TraineeListItem[])=>setTrainees(rows)).catch(()=>{});
-    }
-  }, [mode]);
 
   const doRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,12 +113,12 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     unlockAudio();
-    if (!selectedId) { setError("Please select your name from the list"); return; }
+    if (!loginName.trim()) { setError("الرجاء كتابة اسمك"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/login", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ id:selectedId, pin:loginPin.trim()||undefined }),
+        body: JSON.stringify({ name:loginName.trim(), pin:loginPin.trim()||undefined }),
       });
       const data = await res.json() as { ok:boolean; id?:string; name?:string; rank?:string|null; unit?:string|null; error?:string; message?:string };
       if (res.status===403 && data.error==='blocked')    { setError(data.message ?? 'Your account is blocked. Contact your instructor.'); return; }
@@ -301,37 +294,11 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>دخول المتدرب</div>
             </div>
 
-            <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>اختر اسمك</div>
-            {trainees.length===0 ? (
-              <div style={{ color:"rgba(255,255,255,0.3)",fontSize:12,textAlign:"center",padding:"16px 0",marginBottom:14 }}>
-                لا يوجد متدربين مسجّلين بعد
-              </div>
-            ) : (
-              <div style={{ marginBottom:14,maxHeight:200,overflowY:"auto" }}>
-                {trainees.map(t=>(
-                  <div key={t.id} onClick={()=>setSelectedId(t.id)} style={{
-                    padding:"10px 12px",marginBottom:6,borderRadius:8,
-                    border:selectedId===t.id?"1px solid #00AEEF":"1px solid rgba(255,255,255,0.08)",
-                    background:selectedId===t.id?"rgba(0,174,239,0.12)":"rgba(255,255,255,0.03)",
-                    cursor:"pointer",display:"flex",alignItems:"center",gap:10,
-                  }}>
-                    <div style={{
-                      width:32,height:32,borderRadius:"50%",flexShrink:0,
-                      background:"linear-gradient(135deg,#00AEEF,#35D4FF)",
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontFamily:"Inter",fontSize:11,fontWeight:700,color:"#fff",
-                    }}>
-                      {(t.name||"?").split(" ").map((w:string)=>w[0]).slice(0,2).join("")}
-                    </div>
-                    <div>
-                      <div style={{ fontSize:13,fontWeight:600,color:"var(--text-primary)" }}>{t.name}</div>
-                      {(t.rank||t.unit)&&<div style={{ fontSize:10,color:"var(--text-muted)" }}>{[t.rank,t.unit].filter(Boolean).join(" · ")}</div>}
-                    </div>
-                    {selectedId===t.id&&<div style={{ marginLeft:"auto",color:"#00AEEF",fontSize:16 }}>✓</div>}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>اسمك</div>
+              <input type="text" value={loginName} onChange={e=>setLoginName(e.target.value)}
+                placeholder="اكتب اسمك" autoComplete="off" style={inputStyle} />
+            </div>
 
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>رمز الدخول</div>
@@ -341,11 +308,11 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
 
             {error && <div style={{ color:"#FF4D4D",fontSize:12,marginBottom:12,textAlign:"center",lineHeight:1.5 }}>{error}</div>}
 
-            <button type="submit" disabled={loading||!selectedId} style={{
+            <button type="submit" disabled={loading||!loginName.trim()} style={{
               width:"100%",padding:"14px 0",
-              background:(!selectedId||loading)?"rgba(0,174,239,0.15)":"linear-gradient(135deg,#00AEEF,#35D4FF)",
-              border:"none",borderRadius:10,cursor:(!selectedId||loading)?"not-allowed":"pointer",
-              color:(!selectedId||loading)?"rgba(255,255,255,0.35)":"#fff",
+              background:(!loginName.trim()||loading)?"rgba(0,174,239,0.15)":"linear-gradient(135deg,#00AEEF,#35D4FF)",
+              border:"none",borderRadius:10,cursor:(!loginName.trim()||loading)?"not-allowed":"pointer",
+              color:(!loginName.trim()||loading)?"rgba(255,255,255,0.35)":"#fff",
               fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",fontWeight:700,
             }}>
               {loading?"جاري الدخول...":"دخول"}
