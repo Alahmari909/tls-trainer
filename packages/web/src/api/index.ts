@@ -4027,7 +4027,9 @@ app.get('/documents/:id/file', async (c) => {
   // RFC 5987 UTF-8 filename* for correct display.
   const rawName = row.filename || 'document.pdf';
   const asciiName = rawName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '');
-  const utf8Name = encodeURIComponent(rawName);
+  // RFC 5987: encodeURIComponent leaves ' ( ) * unescaped, which are not valid
+  // attr-chars in a filename* value, so percent-encode them too.
+  const utf8Name = encodeURIComponent(rawName).replace(/['()*]/g, (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase());
   return new Response(buf, {
     headers: {
       'Content-Type': row.mime_type || 'application/pdf',
@@ -4076,7 +4078,7 @@ app.get('/admin/documents', async (c) => {
 });
 
 // POST /api/admin/documents — upload new document
-app.post('/admin/documents', bodyLimit({ maxSize: 100 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 100MB)' }, 413) }), async (c) => {
+app.post('/admin/documents', bodyLimit({ maxSize: 25 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 25MB)' }, 413) }), async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   const formData = await c.req.formData().catch(() => null);
