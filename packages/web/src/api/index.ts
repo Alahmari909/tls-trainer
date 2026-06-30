@@ -4069,6 +4069,45 @@ app.get('/admin/documents', async (c) => {
   }
 });
 
+// GET /api/admin/documents-diag — diagnostic: confirms deploy + prod blob state (no blobs returned)
+app.get('/admin/documents-diag', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  try {
+    const t0 = Date.now();
+    const agg = (await sql(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN length(file_data) > 100 THEN 1 ELSE 0 END) AS big_blobs,
+              MAX(length(file_data)) AS max_len
+       FROM documents`
+    )) as any[];
+    const aggMs = Date.now() - t0;
+    const t1 = Date.now();
+    const files = (await sql(`SELECT COUNT(*) AS n FROM document_files`)) as any[];
+    const t2 = Date.now();
+    const listProbe = (await sql(
+      `SELECT d.id FROM documents d ORDER BY d.created_at DESC`
+    )) as any[];
+    const listMs = Date.now() - t2;
+    return c.json(
+      {
+        version: 'diag-2',
+        total: agg[0]?.total,
+        big_blobs_remaining: agg[0]?.big_blobs,
+        max_file_data_len: agg[0]?.max_len,
+        document_files_count: files[0]?.n,
+        agg_query_ms: aggMs,
+        files_query_ms: t2 - t1,
+        list_query_ms: listMs,
+        list_rows: listProbe.length,
+      },
+      200
+    );
+  } catch (e: any) {
+    return c.json({ error: String(e?.message || e) }, 500);
+  }
+});
+
 // POST /api/admin/documents — upload new document
 app.post('/admin/documents', bodyLimit({ maxSize: 100 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 100MB)' }, 413) }), async (c) => {
   const pw = c.req.header('x-admin-password');
