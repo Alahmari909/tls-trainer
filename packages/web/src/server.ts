@@ -32,17 +32,22 @@ const adminPath = `${distDir}/admin.html`;
 const server = Bun.serve({
   port,
   async fetch(request) {
+    const url = new URL(request.url);
+
     // ── Layer 4: Request size limit (anti-payload DDoS) ──────────────────────
+    // Document uploads (PDF slides) need a larger ceiling; every other endpoint
+    // stays tight. 25MB keeps stored files within the size Turso can serve.
+    const isDocUpload =
+      request.method === "POST" && url.pathname === "/api/admin/documents";
+    const maxBody = isDocUpload ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > 10 * 1024 * 1024) {
+    if (contentLength > maxBody) {
       return new Response(JSON.stringify({ error: "Payload too large" }), {
         status: 413,
         headers: { "Content-Type": "application/json" },
       });
     }
     // ─────────────────────────────────────────────────────────────────────────
-
-    const url = new URL(request.url);
 
     if (url.pathname.startsWith("/api")) {
       return app.fetch(request);

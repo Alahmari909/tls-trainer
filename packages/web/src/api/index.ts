@@ -4022,10 +4022,16 @@ app.get('/documents/:id/file', async (c) => {
   const fileRows = await sql('SELECT file_data FROM document_files WHERE document_id=?', [id]);
   const b64 = ((fileRows as any[])[0]?.file_data) || row.file_data || '';
   const buf = Buffer.from(b64, 'base64');
+  // Filenames may contain non-Latin1 characters (e.g. Arabic). A raw non-Latin1
+  // value in an HTTP header throws (→ 500), so send an ASCII fallback plus an
+  // RFC 5987 UTF-8 filename* for correct display.
+  const rawName = row.filename || 'document.pdf';
+  const asciiName = rawName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '');
+  const utf8Name = encodeURIComponent(rawName);
   return new Response(buf, {
     headers: {
       'Content-Type': row.mime_type || 'application/pdf',
-      'Content-Disposition': `inline; filename="${row.filename}"`,
+      'Content-Disposition': `inline; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`,
       'Cache-Control': 'public, max-age=86400',
     },
   });
@@ -4097,7 +4103,14 @@ app.post('/admin/documents', bodyLimit({ maxSize: 100 * 1024 * 1024, onError: (c
     args: [title, file.name, category, description, pages, '', file.type || 'application/pdf', file.size, share_mode, now, now],
   });
   const docId = Number(res.lastInsertRowid);
-  await sqlRun('INSERT INTO document_files (document_id, file_data) VALUES (?,?)', [docId, fileData]);
+  try {
+    await sqlRun('INSERT INTO document_files (document_id, file_data) VALUES (?,?)', [docId, fileData]);
+  } catch (e: any) {
+    // No transaction across libsql HTTP calls: if blob storage fails, remove the
+    // orphan metadata row so it can't show up as a broken/empty document.
+    await sqlRun('DELETE FROM documents WHERE id=?', [docId]).catch(() => {});
+    return c.json({ error: 'Failed to store file: ' + String(e?.message || e) }, 500);
+  }
 
   // Add per-trainee shares if specific
   if (share_mode === 'specific' && sharedWith) {
