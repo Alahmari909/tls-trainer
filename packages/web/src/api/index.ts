@@ -4108,6 +4108,55 @@ app.get('/admin/documents-diag', async (c) => {
   }
 });
 
+// GET /api/admin/documents-repair — targeted repair for oversized inline blobs
+//   ?action=list           list rows not yet moved to document_files (no blob read)
+//   ?action=copy&id=N      try to copy one row's blob into document_files, then empty it
+//   ?action=empty&id=N     last resort: empty documents.file_data for one row (destructive)
+app.get('/admin/documents-repair', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const action = c.req.query('action') || 'list';
+  const idStr = c.req.query('id');
+  const id = idStr ? Number(idStr) : null;
+  try {
+    if (action === 'list') {
+      const rows = (await sql(
+        `SELECT d.id, d.title, d.filename, d.category, d.size, d.mime_type
+         FROM documents d LEFT JOIN document_files f ON f.document_id = d.id
+         WHERE f.document_id IS NULL`
+      )) as any[];
+      return c.json({ version: 'repair-1', unmigrated: rows }, 200);
+    }
+    if (action === 'copy') {
+      if (!id) return c.json({ error: 'id required' }, 400);
+      const t0 = Date.now();
+      await client.execute({
+        sql: `INSERT OR IGNORE INTO document_files (document_id, file_data)
+              SELECT id, file_data FROM documents WHERE id=?`,
+        args: [id],
+      });
+      const copyMs = Date.now() - t0;
+      const chk = (await sql(`SELECT COUNT(*) AS n FROM document_files WHERE document_id=?`, [id])) as any[];
+      const copied = (chk[0]?.n ?? 0) > 0;
+      let emptied = false;
+      if (copied) {
+        await client.execute({ sql: `UPDATE documents SET file_data='' WHERE id=?`, args: [id] });
+        emptied = true;
+      }
+      return c.json({ version: 'repair-1', action, id, copied, emptied, copy_ms: copyMs }, 200);
+    }
+    if (action === 'empty') {
+      if (!id) return c.json({ error: 'id required' }, 400);
+      const t0 = Date.now();
+      await client.execute({ sql: `UPDATE documents SET file_data='' WHERE id=?`, args: [id] });
+      return c.json({ version: 'repair-1', action, id, emptied: true, ms: Date.now() - t0 }, 200);
+    }
+    return c.json({ error: 'unknown action' }, 400);
+  } catch (e: any) {
+    return c.json({ error: String(e?.message || e), action, id }, 500);
+  }
+});
+
 // POST /api/admin/documents — upload new document
 app.post('/admin/documents', bodyLimit({ maxSize: 100 * 1024 * 1024, onError: (c) => c.json({ error: 'File too large (max 100MB)' }, 413) }), async (c) => {
   const pw = c.req.header('x-admin-password');
