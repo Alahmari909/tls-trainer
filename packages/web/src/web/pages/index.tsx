@@ -381,9 +381,77 @@ function DailyTip() {
   const C = "#00AEEF";
   const lang = navigator.language?.startsWith("ar") ? "ar" : "en";
   const tipImg = TIP_IMAGES[tip.cat] ?? null;
+  const [imgOpen, setImgOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const lastDist = { current: 0 };
+  const lastPan  = { current: { x: 0, y: 0 } };
+
+  const openLightbox  = () => { setZoom(1); setPan({ x: 0, y: 0 }); setImgOpen(true); };
+  const closeLightbox = () => setImgOpen(false);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastDist.current = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
+      lastPan.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (lastDist.current > 0) setZoom(z => Math.min(8, Math.max(1, z * (dist / lastDist.current))));
+      lastDist.current = dist;
+    } else if (e.touches.length === 1) {
+      const nx = e.touches[0].clientX; const ny = e.touches[0].clientY;
+      setPan(p => ({ x: p.x + nx - lastPan.current.x, y: p.y + ny - lastPan.current.y }));
+      lastPan.current = { x: nx, y: ny };
+    }
+  };
+  const onTouchEnd = () => { lastDist.current = 0; };
 
   return (
     <div style={{ padding: "0 16px 24px" }}>
+
+      {/* ── Lightbox ── */}
+      {imgOpen && tipImg && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.96)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            overflow: "hidden", touchAction: "none" }}
+          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+          onClick={e => { if (e.target === e.currentTarget) closeLightbox(); }}
+        >
+          <img src={tipImg} alt={tip.cat} draggable={false}
+            style={{ maxWidth: "100vw", maxHeight: "100vh", objectFit: "contain",
+              userSelect: "none",
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center center", transition: "none" }} />
+          <div onClick={closeLightbox}
+            style={{ position: "absolute", top: 20, right: 20, width: 40, height: 40,
+              borderRadius: "50%", background: "rgba(255,255,255,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 20, color: "#fff", cursor: "pointer" }}>✕</div>
+          {zoom > 1 && (
+            <div onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+              style={{ position: "absolute", bottom: 28, background: "rgba(255,255,255,0.15)",
+                borderRadius: 20, padding: "6px 16px", fontSize: 12, color: "#fff", cursor: "pointer" }}>
+              ↺ إعادة الحجم
+            </div>
+          )}
+          {zoom === 1 && (
+            <div style={{ position: "absolute", bottom: 28, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+              إصبعان للتكبير
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div style={{ textAlign: "center", marginBottom: 16 }}>
         <div style={{
@@ -451,9 +519,10 @@ function DailyTip() {
           }} />
         </div>
 
-        {/* Illustration image — only shown for tips that have one */}
+        {/* Illustration image — tap to open lightbox */}
         {tipImg && (
-          <div style={{ padding: "0", overflow: "hidden", maxHeight: 180 }}>
+          <div onClick={openLightbox}
+            style={{ padding: "0", overflow: "hidden", maxHeight: 180, cursor: "zoom-in", position: "relative" }}>
             <img
               src={tipImg}
               alt={tip.cat}
@@ -466,6 +535,14 @@ function DailyTip() {
                 filter: "brightness(0.88) saturate(0.95)",
               }}
             />
+            {/* Tap hint */}
+            <div style={{
+              position: "absolute", bottom: 8, right: 10,
+              background: "rgba(0,0,0,0.55)", borderRadius: 10,
+              padding: "3px 10px", fontSize: 10,
+              color: "rgba(255,255,255,0.6)",
+              backdropFilter: "blur(4px)",
+            }}>🔍 اضغط للتكبير</div>
           </div>
         )}
 
