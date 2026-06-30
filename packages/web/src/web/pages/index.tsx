@@ -359,42 +359,19 @@ const DAILY_TIPS = [
   { cat: "Log Book",      icon: "📓", ar: "سجّل كل حادثة، عطل، أو إجراء صيانة في Log Book مع التوقيت الدقيق. السجلات دليل قانوني عند التحقيقات.", en: "Log every incident, fault, and maintenance action in the Log Book with exact timestamps. Records are legal evidence in investigations." },
 ];
 
-// Map tip categories to relevant images from /public
+// Map tip categories to illustrated technical diagrams
 const TIP_IMAGES: Record<string, string> = {
-  // Signal & frequency → GTU status manual
-  "ILS / LOC":     "/manual-gtu-status.jpg",
-  "Glide Slope":   "/manual-gtu-status.jpg",
-  "DDM":           "/manual-gtu-status.jpg",
-  "VSWR":          "/manual-gtu-status.jpg",
-  "CSB/SBO":       "/manual-gtu-status.jpg",
-  "GP vs LOC":     "/manual-gtu-status.jpg",
-  "NDB":           "/manual-gtu-status.jpg",
-  "Bends":         "/manual-gtu-status.jpg",
-  // Accuracy & standards → integrity manual
-  "Integrity":     "/manual-integrity.jpg",
-  "ICAO":          "/manual-integrity.jpg",
-  "GP Angle":      "/manual-integrity.jpg",
-  "Calibration":   "/manual-integrity.jpg",
-  "معايرة":        "/manual-integrity.jpg",
-  "ILS Categories":"/manual-integrity.jpg",
-  "Marker Beacon": "/manual-integrity.jpg",
-  // Operational procedures → modes-flow manual
-  "تشغيل":         "/manual-modes-flow.jpg",
-  "Alarm Codes":   "/manual-modes-flow.jpg",
-  "Self-Test":     "/manual-modes-flow.jpg",
-  "Critical Area": "/manual-modes-flow.jpg",
-  "Sensitive Area":"/manual-modes-flow.jpg",
-  "صيانة":         "/manual-modes-flow.jpg",
-  "NOTAM":         "/manual-modes-flow.jpg",
-  "Log Book":      "/manual-modes-flow.jpg",
-  // Hardware & equipment → RCU interface manual
-  "RCU":           "/manual-rcu-interface.jpg",
-  "Datalink":      "/manual-rcu-interface.jpg",
-  "ESA":           "/manual-rcu-interface.jpg",
-  "Transponder":   "/manual-rcu-interface.jpg",
-  "Power":         "/manual-rcu-interface.jpg",
-  "Temperature":   "/manual-rcu-interface.jpg",
-  "RF Safety":     "/manual-rcu-interface.jpg",
+  "Glide Slope":   "/tip-glide-slope.png",
+  "DDM":           "/tip-ddm.png",
+  "ILS / LOC":     "/tip-loc.png",
+  "ILS Categories":"/tip-ils-cat.png",
+  "Marker Beacon": "/tip-marker.png",
+  "Critical Area": "/tip-critical-area.png",
+  "Sensitive Area":"/tip-critical-area.png",
+  "Self-Test":     "/tip-self-test.png",
+  "RF Safety":     "/tip-rf-safety.png",
+  "VSWR":          "/tip-vswr.png",
+  "تشغيل":         "/tip-startup.png",
 };
 
 function DailyTip() {
@@ -403,6 +380,7 @@ function DailyTip() {
   const tip = DAILY_TIPS[tipIndex];
   const C = "#00AEEF";
   const lang = navigator.language?.startsWith("ar") ? "ar" : "en";
+  const tipImg = TIP_IMAGES[tip.cat] ?? null;
 
   return (
     <div style={{ padding: "0 16px 24px" }}>
@@ -472,6 +450,24 @@ function DailyTip() {
             animation: "pulse 2s ease-in-out infinite",
           }} />
         </div>
+
+        {/* Illustration image — only shown for tips that have one */}
+        {tipImg && (
+          <div style={{ padding: "0", overflow: "hidden", maxHeight: 180 }}>
+            <img
+              src={tipImg}
+              alt={tip.cat}
+              style={{
+                width: "100%",
+                height: 180,
+                objectFit: "cover",
+                objectPosition: "center",
+                display: "block",
+                filter: "brightness(0.88) saturate(0.95)",
+              }}
+            />
+          </div>
+        )}
 
         {/* Text body */}
         <div style={{ padding: "16px 18px 20px" }}>
