@@ -3566,7 +3566,14 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/admin/documents", { headers: { "x-admin-password": adminPw } });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000); // 12s client-side timeout
+      let r: Response;
+      try {
+        r = await fetch("/api/admin/documents", { headers: { "x-admin-password": adminPw }, signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       if (!r.ok) {
         const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
         setError(`Load failed: ${e.error || r.status}`);
@@ -3576,7 +3583,13 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       }
       const data = await r.json();
       setDocs(Array.isArray(data) ? data : []);
-    } catch (err: any) { setError(`Failed to load documents: ${err?.message || err}`); }
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        setError("Request timed out — database may be slow. Tap Retry.");
+      } else {
+        setError(`Failed to load documents: ${err?.message || err}`);
+      }
+    }
     setLoading(false);
   };
 
@@ -3680,7 +3693,12 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       </div>
 
       {/* Alerts */}
-      {error && <div style={{ padding: "10px 14px", background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: 8, color: "#ff6b6b", fontSize: 12, marginBottom: 12 }}>{error}</div>}
+      {error && !editDoc && (
+        <div style={{ padding: "12px 16px", background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: 8, color: "#ff6b6b", fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span>⚠️ {error}</span>
+          <button onClick={() => { setError(""); load(); }} style={{ padding: "5px 14px", background: "rgba(255,100,100,0.15)", border: "1px solid rgba(255,100,100,0.4)", borderRadius: 6, color: "#ff9090", fontSize: 11, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>↻ Retry</button>
+        </div>
+      )}
       {success && <div style={{ padding: "10px 14px", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 8, color: C.green, fontSize: 12, marginBottom: 12 }}>{success}</div>}
 
       {/* Upload Form */}
@@ -3786,7 +3804,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
           <div style={{ fontSize: 28, marginBottom: 12 }}>⏳</div>
           <div style={{ color: C.green, fontSize: 14, fontWeight: 600 }}>Loading documents...</div>
         </div>
-      ) : docs.length === 0 ? (
+      ) : docs.length === 0 && !error ? (
         <div style={{
           textAlign: "center", padding: "50px 20px",
           border: `1px dashed ${C.green}40`, borderRadius: 14,

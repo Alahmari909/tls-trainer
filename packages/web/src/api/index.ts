@@ -567,6 +567,8 @@ async function ensureTables() {
       document_id INTEGER PRIMARY KEY,
       file_data TEXT NOT NULL DEFAULT ''
     )`).catch(() => {});
+    // Index on created_at so ORDER BY is fast without touching blob overflow pages
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC)`).catch(() => {});
     console.log('[ensureTables] All tables ready');
     // Background, non-blocking: move existing blobs out of documents (idempotent).
     migrateDocumentBlobs().catch((e) => console.error('[documents:migration] error:', e));
@@ -4033,22 +4035,32 @@ app.get('/documents/:id/file', async (c) => {
 app.get('/admin/documents', async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
-  const docs = await sql(`
-    SELECT d.id, d.title, d.filename, d.category, d.description, d.pages,
-           d.size, d.mime_type, d.share_mode, d.created_at, d.updated_at
-    FROM documents d ORDER BY CAST(d.created_at AS INTEGER) DESC, d.created_at DESC
-  `);
-  // For each doc with share_mode='specific', get shared trainee ids
-  const result = [];
-  for (const doc of docs as any[]) {
-    let sharedWith: string[] = [];
-    if (doc.share_mode === 'specific') {
-      const shares = await sql('SELECT trainee_id FROM document_shares WHERE document_id=?', [doc.id]);
-      sharedWith = (shares as any[]).map(s => s.trainee_id);
+  try {
+    // 8-second timeout so the handler always responds even if Turso is slow
+    const dbTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('DB_TIMEOUT')), 8000)
+    );
+    const docsPromise = sql(`
+      SELECT d.id, d.title, d.filename, d.category, d.description, d.pages,
+             d.size, d.mime_type, d.share_mode, d.created_at, d.updated_at
+      FROM documents d ORDER BY d.created_at DESC
+    `);
+    const docs = await Promise.race([docsPromise, dbTimeout]);
+    // For each doc with share_mode='specific', get shared trainee ids
+    const result = [];
+    for (const doc of docs as any[]) {
+      let sharedWith: string[] = [];
+      if (doc.share_mode === 'specific') {
+        const shares = await sql('SELECT trainee_id FROM document_shares WHERE document_id=?', [doc.id]);
+        sharedWith = (shares as any[]).map(s => s.trainee_id);
+      }
+      result.push({ ...doc, sharedWith });
     }
-    result.push({ ...doc, sharedWith });
+    return c.json(result, 200);
+  } catch (e: any) {
+    const msg = e?.message === 'DB_TIMEOUT' ? 'Database timeout — please retry' : String(e?.message || e);
+    return c.json({ error: msg }, 500);
   }
-  return c.json(result, 200);
 });
 
 // POST /api/admin/documents — upload new document
