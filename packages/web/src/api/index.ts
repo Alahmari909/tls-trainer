@@ -4036,9 +4036,9 @@ app.get('/admin/documents', async (c) => {
   const pw = c.req.header('x-admin-password');
   if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
   try {
-    // 8-second timeout so the handler always responds even if Turso is slow
+    // 25-second timeout so the handler always responds even if Turso is slow
     const dbTimeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('DB_TIMEOUT')), 8000)
+      setTimeout(() => reject(new Error('DB_TIMEOUT')), 25000)
     );
     const docsPromise = sql(`
       SELECT d.id, d.title, d.filename, d.category, d.description, d.pages,

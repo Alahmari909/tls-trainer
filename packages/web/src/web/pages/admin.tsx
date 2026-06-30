@@ -3563,11 +3563,12 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
   const [eShareMode, setEShareMode] = useState<"all"|"specific">("all");
   const [eSharedWith, setESharedWith] = useState<string[]>([]);
 
-  const load = async () => {
+  const load = async (attempt = 1) => {
     setLoading(true);
+    setError("");
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000); // 12s client-side timeout
+      const timer = setTimeout(() => ctrl.abort(), 30000); // 30s client-side timeout
       let r: Response;
       try {
         r = await fetch("/api/admin/documents", { headers: { "x-admin-password": adminPw }, signal: ctrl.signal });
@@ -3576,7 +3577,9 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       }
       if (!r.ok) {
         const e = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
-        setError(`Load failed: ${e.error || r.status}`);
+        const errMsg = e.error || String(r.status);
+        if (attempt === 1 && errMsg.toLowerCase().includes("timeout")) return load(2);
+        setError(`Load failed: ${errMsg}`);
         setDocs([]);
         setLoading(false);
         return;
@@ -3585,7 +3588,8 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       setDocs(Array.isArray(data) ? data : []);
     } catch (err: any) {
       if (err?.name === "AbortError") {
-        setError("Request timed out — database may be slow. Tap Retry.");
+        if (attempt === 1) return load(2);
+        setError("Database is slow — please tap Retry.");
       } else {
         setError(`Failed to load documents: ${err?.message || err}`);
       }
