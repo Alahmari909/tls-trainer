@@ -895,28 +895,34 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
               label="العربية"
             />
           </video>
-          {/* Custom subtitle overlay — stays inside video box */}
+          {/* Custom subtitle overlay — constrained to bottom 28% of video */}
           {arSubtitles && subtitleText && (
             <div style={{
               position: "absolute",
-              bottom: "10%",
-              left: "5%",
-              right: "5%",
+              bottom: "3%",
+              left: "4%",
+              right: "4%",
+              maxHeight: "28%",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
               textAlign: "center",
               pointerEvents: "none",
               direction: "rtl",
             }}>
               <span style={{
                 display: "inline-block",
-                background: "rgba(0,0,0,0.72)",
+                background: "rgba(0,0,0,0.80)",
                 color: "#fff",
-                fontSize: "clamp(11px, 2.8vw, 15px)",
+                fontSize: "clamp(9px, 1.9vw, 12px)",
                 fontFamily: "Tajawal, Arial, sans-serif",
                 fontWeight: 500,
-                lineHeight: 1.5,
-                padding: "4px 10px",
-                borderRadius: 6,
+                lineHeight: 1.4,
+                padding: "3px 8px",
+                borderRadius: 4,
                 maxWidth: "100%",
+                wordBreak: "break-word",
               }}>
                 {subtitleText}
               </span>
