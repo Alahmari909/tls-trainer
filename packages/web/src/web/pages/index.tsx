@@ -565,202 +565,177 @@ function DailyTip() {
   );
 }
 
-/* ─── HomeBanner (bilingual rotating banner, unique animation per card) ─── */
-const BANNER_DURATION = 120000;
-const BANNER_FADE     = 380;
+/* ─── HomeBanner (welcome → intro → rotating service slides) ─── */
+const BANNER_FADE = 420;
 
-function HomeBanner({ name }: { name: string }) {
+function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) => void }) {
   const firstName = (name || "").split(/[\s·,]+/)[0] || name;
-  const [idx,      setIdx]      = useState(0);
-  const [visible,  setVisible]  = useState(true);
-  const [timerKey, setTimerKey] = useState(0);
+  const [idx,     setIdx]     = useState(0);
+  const [visible, setVisible] = useState(true);
 
-  const cards = [
+  const services = [
     {
-      icon:"🤖", color:"#00AEEF", anim:"banner-shake",
-      en:{ label:"AI INSTRUCTOR",  title:"AI Instructor",           sub:"Ask anything about the TTLS system and get an instant answer" },
-      ar:{ title:"المدرب الذكي — AI Instructor",          sub:"اسأل عن جهاز TTLS واحصل على إجابة فورية" },
+      icon:"🤖", color:"#00AEEF", path:"/chat",
+      en:{ label:"AI INSTRUCTOR", title:"AI Instructor", sub:"Ask anything about the TTLS system and get an instant, clear answer." },
+      ar:{ title:"المدرب الذكي", sub:"اسأل عن جهاز TTLS واحصل على إجابة فورية وواضحة." },
     },
     {
-      icon:"🕹️", color:"#00FF88", anim:"banner-glitch",
-      en:{ label:"RCU SIMULATOR", title:"RCU Simulator",            sub:"Train on a real-like control panel with live aircraft codes" },
-      ar:{ title:"محاكي واجهة RCU",  sub:"تدرّب على شاشة التحكم وتتبّع الطائرات" },
+      icon:"🕹️", color:"#00FF88", path:"/simulator",
+      en:{ label:"RCU SIMULATOR", title:"RCU Simulator", sub:"Train on a real-like control panel and track live aircraft codes." },
+      ar:{ title:"محاكي واجهة RCU", sub:"تدرّب على شاشة تحكم واقعية وتتبّع أكواد الطائرات مباشرة." },
     },
     {
-      icon:"🏆", color:"#FFD166", anim:"banner-drop",
-      en:{ label:"QUIZ",      title:"Quiz",                    sub:"Test your knowledge and top the leaderboard" },
-      ar:{ title:"اختبر وتنافس",      sub:"اختبر معرفتك وتصدّر قائمة المتميّزين" },
+      icon:"🏆", color:"#FFD166", path:"/quiz",
+      en:{ label:"QUIZ", title:"Quiz", sub:"Test your knowledge and climb to the top of the leaderboard." },
+      ar:{ title:"الاختبار", sub:"اختبر معرفتك وتصدّر قائمة المتميّزين." },
     },
     {
-      icon:"📚", color:"#C9A66B", anim:"banner-split",
-      en:{ label:"TLS BASIC", title:"TLS Basic",               sub:"Start from the foundations — setup, systems, and operations" },
-      ar:{ title:"أساسيات TLS",      sub:"ابدأ من الأساسيات — الإعداد والأنظمة والتشغيل" },
+      icon:"📚", color:"#C9A66B", path:"/basics",
+      en:{ label:"TLS BASIC", title:"TLS Basic", sub:"Start from the foundations — setup, systems, and operations." },
+      ar:{ title:"أساسيات TLS", sub:"ابدأ من الأساسيات — الإعداد والأنظمة والتشغيل." },
     },
   ] as const;
 
+  // Slide plan: 0 = welcome, 1 = intro, 2.. = services
+  const WELCOME = 15000, INTRO = 15000, SERVICE = 30000;
+  const totalSlides = 2 + services.length;
+  const durationFor = (i: number) => (i === 0 ? WELCOME : i === 1 ? INTRO : SERVICE);
+
   useEffect(() => {
-    const t1 = setTimeout(() => setVisible(false), BANNER_DURATION - BANNER_FADE);
+    const dur = durationFor(idx);
+    const t1 = setTimeout(() => setVisible(false), dur - BANNER_FADE);
     const t2 = setTimeout(() => {
-      setIdx(i => (i + 1) % 4);
-      setTimerKey(k => k + 1);
+      setIdx(i => (i + 1) % totalSlides);
       setVisible(true);
-    }, BANNER_DURATION);
+    }, dur);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [idx]);
 
-  const card = cards[idx];
+  const accent = idx >= 2 ? services[idx - 2].color : "#00AEEF";
 
-  return (
+  const shell = (children: React.ReactNode) => (
     <div style={{ padding:"0 16px", marginBottom:4 }}>
       <style>{`
-        @keyframes banner-shake {
-          0%,100%{transform:translateX(0)}
-          10%{transform:translateX(-6px)}
-          25%{transform:translateX(6px)}
-          40%{transform:translateX(-4px)}
-          55%{transform:translateX(4px)}
-          70%{transform:translateX(-2px)}
-          85%{transform:translateX(2px)}
+        @keyframes welcome-zoom {
+          0%   {transform:scale(.55);opacity:0}
+          28%  {transform:scale(1.22);opacity:1}
+          48%  {transform:scale(1.22);opacity:1}
+          70%  {transform:scale(1);opacity:1}
+          100% {transform:scale(1);opacity:1}
         }
-        @keyframes banner-glitch {
-          0%  {transform:translateX(-9px) skewX(4deg);opacity:.4;filter:hue-rotate(90deg) brightness(1.8)}
-          14% {transform:translateX(8px) skewX(-4deg);opacity:.65;filter:hue-rotate(-60deg)}
-          28% {transform:translateX(-5px) skewX(2deg);opacity:.8;filter:hue-rotate(30deg)}
-          45% {transform:translateX(3px);opacity:.92;filter:none}
-          65% {transform:translateX(-1px)}
-          100%{transform:translateX(0);opacity:1;filter:none}
-        }
-        @keyframes banner-drop {
-          0%  {transform:translateY(-30px);opacity:0}
-          42% {transform:translateY(6px);opacity:1}
-          62% {transform:translateY(-3px)}
-          80% {transform:translateY(2px)}
-          100%{transform:translateY(0);opacity:1}
-        }
-        @keyframes banner-split {
-          0%  {transform:scaleX(.35);opacity:0;filter:blur(10px)}
-          42% {transform:scaleX(1.07);opacity:.9;filter:blur(1px)}
-          68% {transform:scaleX(.97);filter:blur(0)}
-          100%{transform:scaleX(1);opacity:1;filter:blur(0)}
-        }
-        @keyframes banner-shimmer {
-          0%  {background-position:-250% center}
-          100%{background-position:250% center}
-        }
-        @keyframes banner-pulse {
-          0%,100%{opacity:1;filter:brightness(1)}
-          50%    {opacity:.86;filter:brightness(1.6)}
-        }
-        @keyframes banner-timer{from{width:0%}to{width:100%}}
+        @keyframes hb-shimmer { 0%{background-position:-250% center} 100%{background-position:250% center} }
+        @keyframes hb-pulse { 0%,100%{opacity:1;filter:brightness(1)} 50%{opacity:.86;filter:brightness(1.55)} }
+        @keyframes hb-rise { 0%{transform:translateY(14px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+        @keyframes hb-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
+        @keyframes hb-timer { from{width:0%} to{width:100%} }
       `}</style>
-
       <div style={{
-        background:`linear-gradient(145deg,rgba(4,16,31,.97) 0%,${card.color}0C 100%)`,
-        border:`1px solid ${card.color}22`,
-        borderRadius:18, padding:"16px 16px 0",
-        position:"relative", overflow:"hidden",
-        boxShadow:`0 8px 40px ${card.color}08`,
+        background:`linear-gradient(145deg,rgba(4,16,31,.97) 0%,${accent}0C 100%)`,
+        border:`1px solid ${accent}22`,
+        borderRadius:18, padding:"20px 18px",
+        position:"relative", overflow:"hidden", minHeight:190,
+        boxShadow:`0 8px 40px ${accent}0A`,
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(-5px)",
+        transform: visible ? "translateY(0)" : "translateY(-6px)",
         transition:`opacity ${BANNER_FADE}ms ease,transform ${BANNER_FADE}ms ease`,
       }}>
-        {/* Ambient glow */}
         <div style={{position:"absolute",top:-60,right:-40,width:180,height:180,
-          borderRadius:"50%",background:`${card.color}06`,filter:"blur(55px)",pointerEvents:"none"}} />
-
-        {/* key=idx forces remount → per-card animation restarts */}
-        <div key={idx} style={{display:"flex",gap:14,alignItems:"flex-start"}}>
-          {/* Logo icon */}
-          <div style={{
-            width:58,height:58,borderRadius:16,flexShrink:0,
-            background:`${card.color}10`,border:`1px solid ${card.color}28`,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:28,boxShadow:`0 4px 22px ${card.color}20`,
-            animation:"banner-pulse 2.6s ease infinite",
-          }}>{card.icon}</div>
-
-          <div style={{flex:1,minWidth:0}}>
-            {/* English */}
-            <span style={{
-              fontSize:8,fontFamily:"Orbitron",letterSpacing:"0.15em",
-              background:`${card.color}14`,color:card.color,
-              border:`1px solid ${card.color}35`,borderRadius:4,
-              padding:"2px 8px",display:"inline-block",marginBottom:5,
-            }}>{card.en.label}</span>
-
-            <div style={{
-              fontSize:15,fontWeight:700,fontFamily:"Orbitron",letterSpacing:"0.02em",
-              marginBottom:4,lineHeight:1.2,
-              background:`linear-gradient(90deg,${card.color} 0%,#fff 30%,${card.color}CC 55%,#fff 75%,${card.color} 100%)`,
-              backgroundSize:"280% auto",
-              WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-              animation:`${card.anim} .75s cubic-bezier(.22,1,.36,1) forwards,banner-shimmer 7s linear infinite`,
-            } as React.CSSProperties}>{card.en.title}</div>
-
-            <div style={{fontSize:11,color:"rgba(255,255,255,.38)",fontFamily:"Rajdhani",lineHeight:1.55,marginBottom:10}}>
-              {card.en.sub}
-            </div>
-
-            {/* Divider */}
-            <div style={{height:1,background:`${card.color}12`,marginBottom:10}} />
-
-            {/* Arabic */}
-            <div style={{direction:"rtl"}}>
-              <div style={{
-                fontSize:15,fontWeight:700,fontFamily:"Tajawal,sans-serif",
-                marginBottom:4,lineHeight:1.3,
-                background:`linear-gradient(90deg,${card.color} 0%,#fff 30%,${card.color}CC 55%,#fff 75%,${card.color} 100%)`,
-                backgroundSize:"280% auto",
-                WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-                animation:"banner-shimmer 8s linear infinite",
-              } as React.CSSProperties}>{card.ar.title}</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,.38)",fontFamily:"Tajawal,sans-serif",lineHeight:1.65}}>
-                {card.ar.sub}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Greeting + dots */}
-        <div style={{padding:"12px 0 14px"}}>
-          <div style={{marginBottom:8,textAlign:"center"}}>
-            <div style={{fontSize:8,fontFamily:"Orbitron",letterSpacing:"0.18em",color:"rgba(255,255,255,.3)",marginBottom:4}}>
-              WELCOME BACK · أهلاً وسهلاً
-            </div>
-            <div style={{
-              fontSize:28,fontWeight:800,fontFamily:"Orbitron",letterSpacing:"0.06em",lineHeight:1,
-              background:`linear-gradient(90deg,${card.color} 0%,#fff 40%,${card.color}CC 65%,#fff 85%,${card.color} 100%)`,
-              backgroundSize:"250% auto",
-              WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-              animation:"banner-shimmer 6s linear infinite",
-            } as React.CSSProperties}>{firstName.toUpperCase()}</div>
-            <div style={{fontSize:16,fontFamily:"Tajawal,sans-serif",fontWeight:700,
-              color:"rgba(255,255,255,.7)",marginTop:3,letterSpacing:"0.02em"}}>
-              مرحباً يا {firstName}
-            </div>
-          </div>
-          <div style={{display:"flex",justifyContent:"center",gap:5}}>
-            {(cards as typeof cards).map((_c,i)=>(
-              <div key={i}
-                onClick={()=>{setVisible(false);setTimeout(()=>{setIdx(i);setTimerKey(k=>k+1);setVisible(true);},BANNER_FADE);}}
-                style={{
-                  width:i===idx?20:5,height:5,borderRadius:3,
-                  background:i===idx?card.color:"rgba(255,255,255,.18)",
-                  transition:"all .35s ease",cursor:"pointer",
-                }}/>
-            ))}
-          </div>
-        </div>
-
-        {/* Timer bar */}
+          borderRadius:"50%",background:`${accent}08`,filter:"blur(55px)",pointerEvents:"none"}} />
+        {children}
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"rgba(255,255,255,.05)"}}>
-          <div key={timerKey} style={{
-            height:"100%",
-            background:`linear-gradient(90deg,${card.color},${card.color}88)`,
-            animation:"banner-timer 30s linear forwards",
-          }}/>
+          <div key={idx} style={{height:"100%",
+            background:`linear-gradient(90deg,${accent},${accent}88)`,
+            animation:`hb-timer ${durationFor(idx)}ms linear forwards`}}/>
         </div>
       </div>
+    </div>
+  );
+
+  // ── Slide 0: Welcome ──
+  if (idx === 0) {
+    return shell(
+      <div key="welcome" style={{textAlign:"center",padding:"16px 0 20px"}}>
+        <div style={{fontSize:11,fontFamily:"Poppins,sans-serif",fontWeight:600,letterSpacing:"0.28em",
+          color:"rgba(255,255,255,.5)",marginBottom:12}}>WELCOME BACK</div>
+        <div style={{
+          fontSize:40,fontWeight:800,fontFamily:"Poppins,sans-serif",lineHeight:1.05,
+          color:"#fff",textShadow:`0 0 22px ${accent}66`,
+          animation:"welcome-zoom 1.7s cubic-bezier(.22,1,.36,1) forwards",
+        }}>Mr. {firstName}</div>
+        <div style={{fontSize:22,fontFamily:"Cairo,sans-serif",fontWeight:700,
+          color:accent,marginTop:12,direction:"rtl"}}>
+          مرحباً يا {firstName}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Slide 1: Intro ──
+  if (idx === 1) {
+    return shell(
+      <div key="intro" style={{textAlign:"center",padding:"18px 0 22px",
+        animation:"hb-rise .6s ease forwards"}}>
+        <div style={{fontSize:36,marginBottom:10,animation:"hb-pulse 2.6s ease infinite"}}>🧭</div>
+        <div style={{
+          fontSize:22,fontWeight:700,fontFamily:"Poppins,sans-serif",lineHeight:1.25,
+          color:"#fff",marginBottom:8}}>
+          Let's explore our<br/>new menus &amp; tools
+        </div>
+        <div style={{fontSize:18,fontFamily:"Cairo,sans-serif",fontWeight:700,
+          color:accent,direction:"rtl",lineHeight:1.55}}>
+          تعال نتعرّف على<br/>قوائمنا وخدماتنا الجديدة
+        </div>
+      </div>
+    );
+  }
+
+  // ── Slides 2+: Services ──
+  const s = services[idx - 2];
+  return shell(
+    <div key={idx} style={{animation:"hb-rise .55s ease forwards"}}>
+      <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:14}}>
+        <div style={{
+          width:60,height:60,borderRadius:16,flexShrink:0,
+          background:`${s.color}12`,border:`1px solid ${s.color}30`,
+          display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:30,boxShadow:`0 4px 22px ${s.color}22`,
+          animation:"hb-pulse 2.6s ease infinite"}}>{s.icon}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <span style={{
+            fontSize:9,fontFamily:"Poppins,sans-serif",fontWeight:600,letterSpacing:"0.16em",
+            background:`${s.color}16`,color:s.color,border:`1px solid ${s.color}38`,
+            borderRadius:5,padding:"3px 9px",display:"inline-block",marginBottom:8}}>{s.en.label}</span>
+          <div onClick={()=>navigate(s.path)} style={{
+            fontSize:20,fontWeight:700,fontFamily:"Poppins,sans-serif",cursor:"pointer",
+            marginBottom:5,lineHeight:1.2,
+            background:`linear-gradient(90deg,${s.color} 0%,#fff 35%,${s.color}CC 60%,#fff 80%,${s.color} 100%)`,
+            backgroundSize:"280% auto",
+            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
+            animation:"hb-shimmer 7s linear infinite",
+          } as React.CSSProperties}>{s.en.title}</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:"Poppins,sans-serif",lineHeight:1.5,marginBottom:10}}>
+            {s.en.sub}
+          </div>
+          <div style={{direction:"rtl"}}>
+            <div onClick={()=>navigate(s.path)} style={{
+              fontSize:18,fontWeight:700,fontFamily:"Cairo,sans-serif",cursor:"pointer",
+              color:s.color,marginBottom:4,lineHeight:1.3}}>{s.ar.title}</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:"Cairo,sans-serif",lineHeight:1.6}}>
+              {s.ar.sub}
+            </div>
+          </div>
+        </div>
+      </div>
+      <button onClick={()=>navigate(s.path)} style={{
+        width:"100%",padding:"12px 16px",borderRadius:12,cursor:"pointer",
+        background:`linear-gradient(90deg,${s.color}22,${s.color}10)`,
+        border:`1px solid ${s.color}44`,
+        display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+        color:"#fff",fontSize:14,fontWeight:700}}>
+        <span style={{fontFamily:"Cairo,sans-serif"}}>للدخول اضغط هنا</span>
+        <span style={{fontFamily:"Poppins,sans-serif",opacity:.85}}>· Enter</span>
+        <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
+      </button>
     </div>
   );
 }
@@ -943,7 +918,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
 
       {/* ── BANNER ── */}
-      <HomeBanner name={session.name} />
+      <HomeBanner name={session.name} navigate={navigate} />
 
       {/* ── CONTINUE TRAINING CTA ── */}
       {(() => {
