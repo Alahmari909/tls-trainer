@@ -565,63 +565,44 @@ function DailyTip() {
   );
 }
 
-/* ─── HomeBanner (welcome → intro → rotating service slides) ─── */
-const BANNER_FADE = 420;
+/* ─── HomeBanner — slide-from-right ticker ─── */
+const SLIDE_DUR = 7000; // 7 s per slide
 
 function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) => void }) {
   const firstName = (name || "").split(/[\s·,]+/)[0] || name;
-  const [idx,     setIdx]     = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [idx, setIdx] = useState(0);
 
   const services = [
-    {
-      icon:"🤖", color:"#00AEEF", path:"/chat",
-      en:{ label:"AI INSTRUCTOR", title:"AI Instructor", sub:"Ask anything about the TTLS system and get an instant, clear answer." },
-    },
-    {
-      icon:"🕹️", color:"#00FF88", path:"/simulator",
-      en:{ label:"RCU SIMULATOR", title:"RCU Simulator", sub:"Train on a real-like control panel and track live aircraft codes." },
-    },
-    {
-      icon:"🏆", color:"#FFD166", path:"/quiz",
-      en:{ label:"QUIZ", title:"Quiz", sub:"Test your knowledge and climb to the top of the leaderboard." },
-    },
-    {
-      icon:"📚", color:"#C9A66B", path:"/basics",
-      en:{ label:"TLS BASIC", title:"TLS Basic", sub:"Start from the foundations — setup, systems, and operations." },
-    },
+    { icon:"🤖", color:"#00AEEF", path:"/chat",      en:{ label:"AI INSTRUCTOR", title:"AI Instructor", sub:"Ask anything about TLS — instant answers." } },
+    { icon:"🕹️", color:"#00FF88", path:"/simulator", en:{ label:"RCU SIMULATOR", title:"RCU Simulator", sub:"Train on a real-like control panel. Track live codes." } },
+    { icon:"🏆", color:"#FFD166", path:"/quiz",       en:{ label:"QUIZ",          title:"Quiz",         sub:"Test your knowledge. Climb the leaderboard." } },
+    { icon:"📚", color:"#C9A66B", path:"/basics",     en:{ label:"TLS BASIC",     title:"TLS Basic",    sub:"Start from the foundations — setup, systems, ops." } },
   ] as const;
 
-  // Slide plan: 0 = welcome, 1 = intro, 2.. = services
-  const WELCOME = 15000, INTRO = 15000, SERVICE = 30000;
   const totalSlides = 2 + services.length;
-  const durationFor = (i: number) => (i === 0 ? WELCOME : i === 1 ? INTRO : SERVICE);
 
   useEffect(() => {
-    const dur = durationFor(idx);
-    const t1 = setTimeout(() => setVisible(false), dur - BANNER_FADE);
-    const t2 = setTimeout(() => {
-      setIdx(i => (i + 1) % totalSlides);
-      setVisible(true);
-    }, dur);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t = setTimeout(() => setIdx(i => (i + 1) % totalSlides), SLIDE_DUR);
+    return () => clearTimeout(t);
   }, [idx]);
 
   const accent = idx >= 2 ? services[idx - 2].color : "#00AEEF";
 
-  const shell = (children: React.ReactNode) => (
+  return (
     <div style={{ padding:"0 16px", marginBottom:4 }}>
       <style>{`
-        @keyframes welcome-zoom {
-          0%   {transform:scale(.55);opacity:0}
-          28%  {transform:scale(1.22);opacity:1}
-          48%  {transform:scale(1.22);opacity:1}
-          70%  {transform:scale(1);opacity:1}
-          100% {transform:scale(1);opacity:1}
+        @keyframes slide-rtl {
+          0%   { transform:translateX(64px); opacity:0; filter:blur(3px); }
+          14%  { transform:translateX(0);    opacity:1; filter:blur(0);   }
+          78%  { transform:translateX(0);    opacity:1;                   }
+          100% { transform:translateX(-46px); opacity:0;                  }
         }
-        @keyframes hb-shimmer { 0%{background-position:-250% center} 100%{background-position:250% center} }
-        @keyframes hb-pulse { 0%,100%{opacity:1;filter:brightness(1)} 50%{opacity:.86;filter:brightness(1.55)} }
-        @keyframes hb-rise { 0%{transform:translateY(14px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+        @keyframes hb-scan {
+          0%   { left:-120%; opacity:0;   }
+          45%  { opacity:.9;              }
+          100% { left: 120%; opacity:0;   }
+        }
+        @keyframes hb-pulse { 0%,100%{opacity:1} 50%{opacity:.78;filter:brightness(1.5)} }
         @keyframes hb-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
         @keyframes hb-timer { from{width:0%} to{width:100%} }
       `}</style>
@@ -629,92 +610,94 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
         background:`linear-gradient(145deg,rgba(4,16,31,.97) 0%,${accent}0C 100%)`,
         border:`1px solid ${accent}22`,
         borderRadius:18, padding:"20px 18px",
-        position:"relative", overflow:"hidden", minHeight:190,
-        boxShadow:`0 8px 40px ${accent}0A`,
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(-6px)",
-        transition:`opacity ${BANNER_FADE}ms ease,transform ${BANNER_FADE}ms ease`,
+        position:"relative", overflow:"hidden",
+        boxShadow:`0 8px 40px ${accent}08`,
       }}>
-        <div style={{position:"absolute",top:-60,right:-40,width:180,height:180,
-          borderRadius:"50%",background:`${accent}08`,filter:"blur(55px)",pointerEvents:"none"}} />
-        {children}
+        {/* Ambient glow blob */}
+        <div style={{position:"absolute",top:-50,right:-30,width:160,height:160,
+          borderRadius:"50%",background:`${accent}08`,filter:"blur(50px)",pointerEvents:"none"}} />
+
+        {/* Scan-line flash on every new slide */}
+        <div key={`scan-${idx}`} style={{
+          position:"absolute",top:0,bottom:0,width:"38%",zIndex:2,
+          background:`linear-gradient(90deg,transparent,${accent}22,transparent)`,
+          animation:"hb-scan 0.6s ease-out forwards",
+          pointerEvents:"none",
+        }} />
+
+        {/* Slide content — remounts on idx change, restarting animation */}
+        <div key={idx} style={{
+          animation:`slide-rtl ${SLIDE_DUR}ms cubic-bezier(.25,.46,.45,.94) both`,
+          position:"relative", zIndex:1,
+        }}>
+
+          {/* Slide 0 · Welcome */}
+          {idx === 0 && (
+            <div>
+              <div style={{fontSize:9,fontFamily:"Poppins,sans-serif",fontWeight:600,
+                letterSpacing:"0.26em",color:"rgba(255,255,255,.36)",marginBottom:10}}>
+                WELCOME BACK
+              </div>
+              <div style={{fontSize:26,fontWeight:600,fontFamily:"Poppins,sans-serif",
+                color:"#fff",lineHeight:1.1,letterSpacing:"0.01em",
+                textShadow:"0 0 20px rgba(0,174,239,0.55)"}}>
+                Mr. {firstName}
+              </div>
+            </div>
+          )}
+
+          {/* Slide 1 · Intro */}
+          {idx === 1 && (
+            <div>
+              <div style={{fontSize:9,fontFamily:"Poppins,sans-serif",fontWeight:600,
+                letterSpacing:"0.26em",color:"rgba(255,255,255,.36)",marginBottom:10}}>
+                NAVIGATION
+              </div>
+              <div style={{fontSize:22,fontWeight:500,fontFamily:"Poppins,sans-serif",
+                color:"#fff",lineHeight:1.3}}>
+                Let's explore our<br/>menus &amp; tools
+              </div>
+            </div>
+          )}
+
+          {/* Slides 2+ · Services */}
+          {idx >= 2 && (() => {
+            const s = services[idx - 2];
+            return (
+              <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+                <div style={{width:50,height:50,borderRadius:14,flexShrink:0,
+                  background:`${s.color}12`,border:`1px solid ${s.color}30`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:24,animation:"hb-pulse 2.6s ease infinite"}}>{s.icon}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <span style={{fontSize:8,fontFamily:"Poppins,sans-serif",fontWeight:600,
+                    letterSpacing:"0.16em",background:`${s.color}14`,color:s.color,
+                    border:`1px solid ${s.color}38`,borderRadius:5,padding:"3px 8px",
+                    display:"inline-block",marginBottom:6}}>{s.en.label}</span>
+                  <div style={{fontSize:16,fontWeight:600,fontFamily:"Poppins,sans-serif",
+                    color:"#fff",marginBottom:4,lineHeight:1.2}}>{s.en.title}</div>
+                  <div style={{fontSize:11,color:"rgba(255,255,255,.46)",fontFamily:"Poppins,sans-serif",
+                    lineHeight:1.5,marginBottom:10}}>{s.en.sub}</div>
+                  <button onClick={()=>navigate(s.path)} style={{
+                    padding:"8px 16px",borderRadius:10,cursor:"pointer",
+                    background:`${s.color}18`,border:`1px solid ${s.color}44`,
+                    color:"#fff",fontSize:11,fontWeight:600,fontFamily:"Poppins,sans-serif",
+                    letterSpacing:"0.1em",display:"inline-flex",alignItems:"center",gap:6}}>
+                    ENTER <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Timer bar */}
         <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"rgba(255,255,255,.05)"}}>
           <div key={idx} style={{height:"100%",
             background:`linear-gradient(90deg,${accent},${accent}88)`,
-            animation:`hb-timer ${durationFor(idx)}ms linear forwards`}}/>
+            animation:`hb-timer ${SLIDE_DUR}ms linear forwards`}}/>
         </div>
       </div>
-    </div>
-  );
-
-  // ── Slide 0: Welcome ──
-  if (idx === 0) {
-    return shell(
-      <div key="welcome" style={{textAlign:"center",padding:"16px 0 20px"}}>
-        <div style={{fontSize:11,fontFamily:"Poppins,sans-serif",fontWeight:600,letterSpacing:"0.28em",
-          color:"rgba(255,255,255,.5)",marginBottom:12}}>WELCOME BACK</div>
-        <div style={{
-          fontSize:28,fontWeight:600,fontFamily:"Poppins,sans-serif",lineHeight:1.05,
-          color:"#fff",textShadow:`0 0 22px ${accent}66`,
-          animation:"welcome-zoom 1.7s cubic-bezier(.22,1,.36,1) forwards",
-        }}>Mr. {firstName}</div>
-      </div>
-    );
-  }
-
-  // ── Slide 1: Intro ──
-  if (idx === 1) {
-    return shell(
-      <div key="intro" style={{textAlign:"center",padding:"18px 0 22px",
-        animation:"hb-rise .6s ease forwards"}}>
-        <div style={{fontSize:36,marginBottom:10,animation:"hb-pulse 2.6s ease infinite"}}>🧭</div>
-        <div style={{
-          fontSize:17,fontWeight:500,fontFamily:"Poppins,sans-serif",lineHeight:1.25,
-          color:"#fff",marginBottom:8}}>
-          Let's explore our<br/>new menus &amp; tools
-        </div>
-      </div>
-    );
-  }
-
-  // ── Slides 2+: Services ──
-  const s = services[idx - 2];
-  return shell(
-    <div key={idx} style={{animation:"hb-rise .55s ease forwards"}}>
-      <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:14}}>
-        <div style={{
-          width:60,height:60,borderRadius:16,flexShrink:0,
-          background:`${s.color}12`,border:`1px solid ${s.color}30`,
-          display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:30,boxShadow:`0 4px 22px ${s.color}22`,
-          animation:"hb-pulse 2.6s ease infinite"}}>{s.icon}</div>
-        <div style={{flex:1,minWidth:0}}>
-          <span style={{
-            fontSize:9,fontFamily:"Poppins,sans-serif",fontWeight:600,letterSpacing:"0.16em",
-            background:`${s.color}16`,color:s.color,border:`1px solid ${s.color}38`,
-            borderRadius:5,padding:"3px 9px",display:"inline-block",marginBottom:8}}>{s.en.label}</span>
-          <div onClick={()=>navigate(s.path)} style={{
-            fontSize:16,fontWeight:600,fontFamily:"Poppins,sans-serif",cursor:"pointer",
-            marginBottom:5,lineHeight:1.2,
-            background:`linear-gradient(90deg,${s.color} 0%,#fff 35%,${s.color}CC 60%,#fff 80%,${s.color} 100%)`,
-            backgroundSize:"280% auto",
-            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-            animation:"hb-shimmer 7s linear infinite",
-          } as React.CSSProperties}>{s.en.title}</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,.5)",fontFamily:"Poppins,sans-serif",lineHeight:1.5,marginBottom:6}}>
-            {s.en.sub}
-          </div>
-        </div>
-      </div>
-      <button onClick={()=>navigate(s.path)} style={{
-        width:"100%",padding:"10px 16px",borderRadius:12,cursor:"pointer",
-        background:`linear-gradient(90deg,${s.color}22,${s.color}10)`,
-        border:`1px solid ${s.color}44`,
-        display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-        color:"#fff",fontSize:12,fontWeight:600,fontFamily:"Poppins,sans-serif",letterSpacing:"0.08em"}}>
-        <span>ENTER</span>
-        <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
-      </button>
     </div>
   );
 }
@@ -814,16 +797,15 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   return (
     <div className="page" style={{ background: "var(--bg-primary)" }}>
 
-      {/* ── HERO: RADAR ── */}
+      {/* ── HERO: RADAR (pure — no center text) ── */}
       <div className="radar-grid" style={{
-        minHeight: 360,
+        height: 170,
         background: "linear-gradient(180deg, #04101f 0%, #020810 100%)",
         position: "relative",
         overflow: "hidden",
       }}>
         <div className="scan-line" />
         <RadarRings />
-
         {/* Corner brackets */}
         {[{top:12,left:14},{top:12,right:14},{bottom:12,left:14},{bottom:12,right:14}].map((pos,i) => (
           <div key={i} style={{
@@ -834,67 +816,23 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             borderRight: (i===1||i===3) ? "1.5px solid rgba(0,174,239,0.55)" : undefined,
           }} />
         ))}
-
-        {/* Center content — title only, radar is behind */}
-        <div style={{
-          position: "relative", zIndex: 2,
-          display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center",
-          minHeight: 360, padding: "28px 20px",
-          textAlign: "center",
-        }}>
-          {/* Main title */}
-          <div style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: "clamp(28px, 8vw, 42px)",
-            fontWeight: 900,
-            color: "#ffffff",
-            letterSpacing: "0.06em",
-            lineHeight: 1.1,
-            textShadow: "0 0 24px rgba(0,174,239,0.9), 0 0 60px rgba(0,174,239,0.4)",
-            marginBottom: 8,
-          }}>
-            TLS TRAINER
-          </div>
-          <div style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: "clamp(9px, 2.5vw, 12px)",
-            fontWeight: 600,
-            letterSpacing: "0.28em",
-            color: "#00AEEF",
-            textTransform: "uppercase",
-            textShadow: "0 0 12px rgba(0,174,239,0.6)",
-            marginBottom: 20,
-          }}>
-            TRANSPONDER LANDING SYSTEM
-          </div>
-
-          {/* Status pill */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 7,
-            background: "rgba(0,174,239,0.08)",
-            border: "1px solid rgba(0,174,239,0.25)",
-            borderRadius: 20, padding: "5px 16px",
-            marginBottom: 20,
-          }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: "#00AEEF", boxShadow: "0 0 8px #00AEEF",
-              animation: "pulse-glow 2s ease infinite",
-            }} />
-            <div style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: 8, color: "#35D4FF", letterSpacing: "0.18em",
-            }}>SYSTEM ACTIVE</div>
-          </div>
-
-          {/* XP bar */}
-          <div style={{ width: "100%", maxWidth: 300 }}>
-            <XpBar xp={streak.totalXp} />
-          </div>
-        </div>
       </div>
 
+      {/* ── INFO STRIP: TLS TRAINER label + XP bar ── */}
+      <div style={{
+        display:"flex", alignItems:"center", gap:12,
+        padding:"8px 18px",
+        background:"rgba(4,16,31,0.95)",
+        borderBottom:"1px solid rgba(0,174,239,0.1)",
+      }}>
+        <div style={{
+          fontFamily:"Orbitron,monospace", fontSize:9,
+          color:"#00AEEF", letterSpacing:"0.22em", flexShrink:0,
+        }}>TLS TRAINER</div>
+        <div style={{flex:1}}>
+          <XpBar xp={streak.totalXp} />
+        </div>
+      </div>
 
       {/* ── BANNER ── */}
       <HomeBanner name={session.name} navigate={navigate} />
