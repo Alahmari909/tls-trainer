@@ -597,13 +597,20 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
   const card = (children: React.ReactNode) => (
     <div style={{ padding:"0 16px", marginBottom:4 }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@700&display=swap');
-        /* Welcome 10s: enter 3s | hold 4.5s | exit 2.5s */
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@700&family=Orbitron:wght@500;600;700&display=swap');
+        /* Welcome 10s cinematic:
+           fade-in 0-2s (0-20%) | slide right→center 2-4.5s (20-45%) ease-out |
+           hold 4s 4.5-8.5s (45-85%) | fade-out 8.5-10s (85-100%) drifting 20px left */
         @keyframes hb-fade-w {
-          0%   { transform:translateX(26px); opacity:0; animation-timing-function:cubic-bezier(0.22,1,0.36,1); }
-          30%  { transform:translateX(0);    opacity:1; animation-timing-function:linear; }
-          75%  { transform:translateX(0);    opacity:1; animation-timing-function:cubic-bezier(0.65,0,0.35,1); }
-          100% { transform:translateX(-16px); opacity:0; }
+          0%   { transform:translateX(46px); opacity:0; animation-timing-function:cubic-bezier(0.33,0,0.67,1); }
+          20%  { transform:translateX(46px); opacity:1; animation-timing-function:cubic-bezier(0.16,1,0.3,1); }
+          45%  { transform:translateX(0);    opacity:1; animation-timing-function:linear; }
+          85%  { transform:translateX(0);    opacity:1; animation-timing-function:cubic-bezier(0.4,0,0.2,1); }
+          100% { transform:translateX(-20px); opacity:0; }
+        }
+        @keyframes hb-hud {
+          0%,100% { opacity:.55; box-shadow:0 0 6px rgba(24,207,255,.45); }
+          50%     { opacity:1;   box-shadow:0 0 14px rgba(24,207,255,.85); }
         }
         /* Intro 20s: enter 4s | hold 12s | exit 4s */
         @keyframes hb-fade-i {
@@ -689,29 +696,35 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
     }} />
   );
 
-  /* ── Slide 0 · Welcome ── */
+  /* ── Slide 0 · Welcome — premium military HUD ── */
+  const hudFont = "'Eurostile Extended','Microgramma D Extended','Bank Gothic','Orbitron',sans-serif";
   if (idx === 0) return card(
-    <div style={{display:"flex",alignItems:"center",gap:14}}>
-      {/* CSS triangle chevrons */}
-      <div style={{display:"flex",gap:3,flexShrink:0,alignItems:"center"}}>
-        {[0,1,2,3,4].map(n => <Chevron key={n} n={n} />)}
-      </div>
-      <div style={{flex:1}}>
-        <div style={{
-          fontFamily:"'Rajdhani',sans-serif",fontSize:10,fontWeight:700,
-          letterSpacing:"0.28em",color:"rgba(255,255,255,.38)",marginBottom:4,
-          textTransform:"uppercase",
-        }}>WELCOME BACK</div>
-        <div style={{
-          fontFamily:"'Rajdhani',sans-serif",fontSize:26,fontWeight:700,
-          letterSpacing:"0.05em",lineHeight:1.05,display:"flex",alignItems:"center",gap:8,
-        }}>
-          <span style={{color:"#fff"}}>Mr.</span>
-          <span style={{color:"#00c4ff",textShadow:"0 0 20px rgba(0,196,255,0.75)"}}>{firstName.toUpperCase()}</span>
-          {/* right accent line */}
-          <div style={{flex:1,height:2,background:"linear-gradient(90deg,#00c4ff55,transparent)",borderRadius:1,minWidth:20}} />
-        </div>
-      </div>
+    <div style={{
+      display:"flex", flexDirection:"column", justifyContent:"center",
+      alignItems:"flex-start", minHeight:66, textAlign:"left",
+      paddingLeft:"calc(18% - 18px)",
+    }}>
+      {/* WELCOME BACK */}
+      <div style={{
+        fontFamily:hudFont, fontSize:13, fontWeight:700,
+        letterSpacing:"0.38em", textTransform:"uppercase",
+        color:"#A9B7C8", opacity:0.68, marginBottom:8,
+      }}>WELCOME BACK</div>
+      {/* USERNAME */}
+      <div style={{
+        fontFamily:hudFont,
+        fontSize:"clamp(28px,4.4vw,38px)", fontWeight:700,
+        letterSpacing:"0.08em", textTransform:"uppercase",
+        lineHeight:1.02, color:"#1FCFFF", fontStyle:"normal",
+        transform:"none",
+        textShadow:"0 0 8px rgba(0,199,255,.30), 0 0 18px rgba(0,199,255,.18)",
+      }}>{firstName.toUpperCase()}</div>
+      {/* HUD line */}
+      <div style={{
+        width:170, height:2, marginTop:12, borderRadius:1,
+        background:"#18CFFF",
+        animation:"hb-hud 2.4s ease-in-out infinite",
+      }} />
     </div>
   );
 
