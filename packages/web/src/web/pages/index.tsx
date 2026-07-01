@@ -577,22 +577,18 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
     {
       icon:"🤖", color:"#00AEEF", path:"/chat",
       en:{ label:"AI INSTRUCTOR", title:"AI Instructor", sub:"Ask anything about the TTLS system and get an instant, clear answer." },
-      ar:{ title:"المدرب الذكي", sub:"اسأل عن جهاز TTLS واحصل على إجابة فورية وواضحة." },
     },
     {
       icon:"🕹️", color:"#00FF88", path:"/simulator",
       en:{ label:"RCU SIMULATOR", title:"RCU Simulator", sub:"Train on a real-like control panel and track live aircraft codes." },
-      ar:{ title:"محاكي واجهة RCU", sub:"تدرّب على شاشة تحكم واقعية وتتبّع أكواد الطائرات مباشرة." },
     },
     {
       icon:"🏆", color:"#FFD166", path:"/quiz",
       en:{ label:"QUIZ", title:"Quiz", sub:"Test your knowledge and climb to the top of the leaderboard." },
-      ar:{ title:"الاختبار", sub:"اختبر معرفتك وتصدّر قائمة المتميّزين." },
     },
     {
       icon:"📚", color:"#C9A66B", path:"/basics",
       en:{ label:"TLS BASIC", title:"TLS Basic", sub:"Start from the foundations — setup, systems, and operations." },
-      ar:{ title:"أساسيات TLS", sub:"ابدأ من الأساسيات — الإعداد والأنظمة والتشغيل." },
     },
   ] as const;
 
@@ -658,14 +654,10 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
         <div style={{fontSize:11,fontFamily:"Poppins,sans-serif",fontWeight:600,letterSpacing:"0.28em",
           color:"rgba(255,255,255,.5)",marginBottom:12}}>WELCOME BACK</div>
         <div style={{
-          fontSize:40,fontWeight:800,fontFamily:"Poppins,sans-serif",lineHeight:1.05,
+          fontSize:28,fontWeight:600,fontFamily:"Poppins,sans-serif",lineHeight:1.05,
           color:"#fff",textShadow:`0 0 22px ${accent}66`,
           animation:"welcome-zoom 1.7s cubic-bezier(.22,1,.36,1) forwards",
         }}>Mr. {firstName}</div>
-        <div style={{fontSize:22,fontFamily:"Cairo,sans-serif",fontWeight:700,
-          color:accent,marginTop:12,direction:"rtl"}}>
-          مرحباً يا {firstName}
-        </div>
       </div>
     );
   }
@@ -677,13 +669,9 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
         animation:"hb-rise .6s ease forwards"}}>
         <div style={{fontSize:36,marginBottom:10,animation:"hb-pulse 2.6s ease infinite"}}>🧭</div>
         <div style={{
-          fontSize:22,fontWeight:700,fontFamily:"Poppins,sans-serif",lineHeight:1.25,
+          fontSize:17,fontWeight:500,fontFamily:"Poppins,sans-serif",lineHeight:1.25,
           color:"#fff",marginBottom:8}}>
           Let's explore our<br/>new menus &amp; tools
-        </div>
-        <div style={{fontSize:18,fontFamily:"Cairo,sans-serif",fontWeight:700,
-          color:accent,direction:"rtl",lineHeight:1.55}}>
-          تعال نتعرّف على<br/>قوائمنا وخدماتنا الجديدة
         </div>
       </div>
     );
@@ -706,34 +694,25 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
             background:`${s.color}16`,color:s.color,border:`1px solid ${s.color}38`,
             borderRadius:5,padding:"3px 9px",display:"inline-block",marginBottom:8}}>{s.en.label}</span>
           <div onClick={()=>navigate(s.path)} style={{
-            fontSize:20,fontWeight:700,fontFamily:"Poppins,sans-serif",cursor:"pointer",
+            fontSize:16,fontWeight:600,fontFamily:"Poppins,sans-serif",cursor:"pointer",
             marginBottom:5,lineHeight:1.2,
             background:`linear-gradient(90deg,${s.color} 0%,#fff 35%,${s.color}CC 60%,#fff 80%,${s.color} 100%)`,
             backgroundSize:"280% auto",
             WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
             animation:"hb-shimmer 7s linear infinite",
           } as React.CSSProperties}>{s.en.title}</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:"Poppins,sans-serif",lineHeight:1.5,marginBottom:10}}>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.5)",fontFamily:"Poppins,sans-serif",lineHeight:1.5,marginBottom:6}}>
             {s.en.sub}
-          </div>
-          <div style={{direction:"rtl"}}>
-            <div onClick={()=>navigate(s.path)} style={{
-              fontSize:18,fontWeight:700,fontFamily:"Cairo,sans-serif",cursor:"pointer",
-              color:s.color,marginBottom:4,lineHeight:1.3}}>{s.ar.title}</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:"Cairo,sans-serif",lineHeight:1.6}}>
-              {s.ar.sub}
-            </div>
           </div>
         </div>
       </div>
       <button onClick={()=>navigate(s.path)} style={{
-        width:"100%",padding:"12px 16px",borderRadius:12,cursor:"pointer",
+        width:"100%",padding:"10px 16px",borderRadius:12,cursor:"pointer",
         background:`linear-gradient(90deg,${s.color}22,${s.color}10)`,
         border:`1px solid ${s.color}44`,
-        display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-        color:"#fff",fontSize:14,fontWeight:700}}>
-        <span style={{fontFamily:"Cairo,sans-serif"}}>للدخول اضغط هنا</span>
-        <span style={{fontFamily:"Poppins,sans-serif",opacity:.85}}>· Enter</span>
+        display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+        color:"#fff",fontSize:12,fontWeight:600,fontFamily:"Poppins,sans-serif",letterSpacing:"0.08em"}}>
+        <span>ENTER</span>
         <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
       </button>
     </div>
@@ -906,7 +885,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             <div style={{
               fontFamily: "'Inter', sans-serif",
               fontSize: 8, color: "#35D4FF", letterSpacing: "0.18em",
-            }}>{t("system_active")}</div>
+            }}>SYSTEM ACTIVE</div>
           </div>
 
           {/* XP bar */}
@@ -944,7 +923,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                 <div style={{
                   fontFamily: "Inter", fontSize: 9, color,
                   letterSpacing: "0.14em", marginBottom: 4,
-                }}>{t("continue_training")}</div>
+                }}>CONTINUE TRAINING</div>
                 <div style={{
                   fontFamily: "Inter, sans-serif",
                   fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
@@ -975,7 +954,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           <div style={{
             fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
             color: "var(--text-muted)",
-          }}>{t("system_intro")}</div>
+          }}>SYSTEM INTRODUCTION</div>
           <button
             onClick={toggleSubtitles}
             style={{
@@ -995,7 +974,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             }}
           >
             <span style={{ fontSize: 11 }}>CC</span>
-            <span>ترجمة</span>
+            <span>AR</span>
           </button>
         </div>
         <div style={{
@@ -1069,7 +1048,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           color: "var(--text-muted)", fontFamily: "Inter", fontSize: 9,
           letterSpacing: "0.1em", padding: "8px 20px", cursor: "pointer",
         }}>
-          {t("logout")}
+          LOGOUT
         </button>
       </div>
     </div>
