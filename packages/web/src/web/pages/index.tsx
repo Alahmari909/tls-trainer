@@ -660,7 +660,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   return (
     <div className="page" style={{ background: "var(--bg-primary)" }}>
 
-      {/* ── HERO: RADAR (pure — no center text) ── */}
+      {/* ── HERO: RADAR ── */}
       <div className="radar-grid" style={{
         minHeight: 360,
         background: "linear-gradient(180deg, #04101f 0%, #020810 100%)",
@@ -669,6 +669,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       }}>
         <div className="scan-line" />
         <RadarRings />
+
         {/* Corner brackets */}
         {[{top:12,left:14},{top:12,right:14},{bottom:12,left:14},{bottom:12,right:14}].map((pos,i) => (
           <div key={i} style={{
@@ -679,21 +680,64 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
             borderRight: (i===1||i===3) ? "1.5px solid rgba(0,174,239,0.55)" : undefined,
           }} />
         ))}
-      </div>
 
-      {/* ── INFO STRIP: TLS TRAINER label + XP bar ── */}
-      <div style={{
-        display:"flex", alignItems:"center", gap:12,
-        padding:"8px 18px",
-        background:"rgba(4,16,31,0.95)",
-        borderBottom:"1px solid rgba(0,174,239,0.1)",
-      }}>
+        {/* Center content — title only, radar is behind */}
         <div style={{
-          fontFamily:"Orbitron,monospace", fontSize:9,
-          color:"#00AEEF", letterSpacing:"0.22em", flexShrink:0,
-        }}>TLS TRAINER</div>
-        <div style={{flex:1}}>
-          <XpBar xp={streak.totalXp} />
+          position: "relative", zIndex: 2,
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center",
+          minHeight: 360, padding: "28px 20px",
+          textAlign: "center",
+        }}>
+          {/* Main title */}
+          <div style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: "clamp(28px, 8vw, 42px)",
+            fontWeight: 900,
+            color: "#ffffff",
+            letterSpacing: "0.06em",
+            lineHeight: 1.1,
+            textShadow: "0 0 24px rgba(0,174,239,0.9), 0 0 60px rgba(0,174,239,0.4)",
+            marginBottom: 8,
+          }}>
+            TLS TRAINER
+          </div>
+          <div style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: "clamp(9px, 2.5vw, 12px)",
+            fontWeight: 600,
+            letterSpacing: "0.28em",
+            color: "#00AEEF",
+            textTransform: "uppercase",
+            textShadow: "0 0 12px rgba(0,174,239,0.6)",
+            marginBottom: 20,
+          }}>
+            TRANSPONDER LANDING SYSTEM
+          </div>
+
+          {/* Status pill */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            background: "rgba(0,174,239,0.08)",
+            border: "1px solid rgba(0,174,239,0.25)",
+            borderRadius: 20, padding: "5px 16px",
+            marginBottom: 20,
+          }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: "#00AEEF", boxShadow: "0 0 8px #00AEEF",
+              animation: "pulse-glow 2s ease infinite",
+            }} />
+            <div style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 8, color: "#35D4FF", letterSpacing: "0.18em",
+            }}>SYSTEM ACTIVE</div>
+          </div>
+
+          {/* XP bar */}
+          <div style={{ width: "100%", maxWidth: 300 }}>
+            <XpBar xp={streak.totalXp} />
+          </div>
         </div>
       </div>
 
