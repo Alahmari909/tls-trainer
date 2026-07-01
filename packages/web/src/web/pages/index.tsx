@@ -565,138 +565,202 @@ function DailyTip() {
   );
 }
 
-/* ─── HomeBanner — slide-from-right ticker ─── */
-const SLIDE_DUR = 7000; // 7 s per slide
+/* ─── HomeBanner — RTL fade ticker ─── */
+// Timing per slide (ms)
+const T_WELCOME  = 10000;   // 10 s
+const T_INTRO    = 20000;   // 20 s
+const T_SERVICE  = 60000;   // 60 s
 
 function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) => void }) {
   const firstName = (name || "").split(/[\s·,]+/)[0] || name;
   const [idx, setIdx] = useState(0);
 
   const services = [
-    { icon:"🤖", color:"#00AEEF", path:"/chat",      en:{ label:"AI INSTRUCTOR", title:"AI Instructor", sub:"Ask anything about TLS — instant answers." } },
-    { icon:"🕹️", color:"#00FF88", path:"/simulator", en:{ label:"RCU SIMULATOR", title:"RCU Simulator", sub:"Train on a real-like control panel. Track live codes." } },
-    { icon:"🏆", color:"#FFD166", path:"/quiz",       en:{ label:"QUIZ",          title:"Quiz",         sub:"Test your knowledge. Climb the leaderboard." } },
-    { icon:"📚", color:"#C9A66B", path:"/basics",     en:{ label:"TLS BASIC",     title:"TLS Basic",    sub:"Start from the foundations — setup, systems, ops." } },
+    { icon:"🤖", color:"#00AEEF", path:"/chat",      en:{ label:"AI INSTRUCTOR",  title:["AI",      "Instructor"], sub:"Ask anything about TLS — instant answers." } },
+    { icon:"🕹️", color:"#00FF88", path:"/simulator", en:{ label:"RCU SIMULATOR",  title:["RCU",     "Simulator"],  sub:"Train on a real-like control panel. Track live codes." } },
+    { icon:"🏆", color:"#FFD166", path:"/quiz",       en:{ label:"QUIZ",           title:["Quiz",    "Challenge"],  sub:"Test your knowledge. Climb the leaderboard." } },
+    { icon:"📚", color:"#C9A66B", path:"/basics",     en:{ label:"TLS BASIC",      title:["TLS",     "Basic"],      sub:"Start from the foundations — setup, systems, ops." } },
   ] as const;
 
   const totalSlides = 2 + services.length;
+  const durOf = (i: number) => i === 0 ? T_WELCOME : i === 1 ? T_INTRO : T_SERVICE;
 
   useEffect(() => {
-    const t = setTimeout(() => setIdx(i => (i + 1) % totalSlides), SLIDE_DUR);
+    const t = setTimeout(() => setIdx(i => (i + 1) % totalSlides), durOf(idx));
     return () => clearTimeout(t);
   }, [idx]);
 
+  const dur   = durOf(idx);
   const accent = idx >= 2 ? services[idx - 2].color : "#00AEEF";
 
-  return (
+  /* ── card shell ── */
+  const card = (children: React.ReactNode) => (
     <div style={{ padding:"0 16px", marginBottom:4 }}>
       <style>{`
-        @keyframes slide-rtl {
-          0%   { transform:translateX(64px); opacity:0; filter:blur(3px); }
-          14%  { transform:translateX(0);    opacity:1; filter:blur(0);   }
-          78%  { transform:translateX(0);    opacity:1;                   }
-          100% { transform:translateX(-46px); opacity:0;                  }
+        @keyframes fade-rtl {
+          0%   { transform:translateX(28px); opacity:0; }
+          8%   { transform:translateX(0);    opacity:1; }
+          82%  { transform:translateX(0);    opacity:1; }
+          100% { transform:translateX(-18px); opacity:0; }
         }
         @keyframes hb-scan {
-          0%   { left:-120%; opacity:0;   }
-          45%  { opacity:.9;              }
-          100% { left: 120%; opacity:0;   }
+          0%   { left:-130%; opacity:0;  }
+          50%  { opacity:.8;             }
+          100% { left:130%;  opacity:0;  }
         }
-        @keyframes hb-pulse { 0%,100%{opacity:1} 50%{opacity:.78;filter:brightness(1.5)} }
-        @keyframes hb-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
         @keyframes hb-timer { from{width:0%} to{width:100%} }
+        @keyframes hb-pulse { 0%,100%{opacity:1} 50%{opacity:.72;filter:brightness(1.55)} }
+        @keyframes hb-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
+        @keyframes hb-chevron {
+          0%,100% { opacity:.45; transform:translateX(0); }
+          50%     { opacity:1;   transform:translateX(3px); }
+        }
       `}</style>
-      <div style={{
-        background:`linear-gradient(145deg,rgba(4,16,31,.97) 0%,${accent}0C 100%)`,
-        border:`1px solid ${accent}22`,
-        borderRadius:18, padding:"20px 18px",
-        position:"relative", overflow:"hidden",
-        boxShadow:`0 8px 40px ${accent}08`,
-      }}>
-        {/* Ambient glow blob */}
-        <div style={{position:"absolute",top:-50,right:-30,width:160,height:160,
-          borderRadius:"50%",background:`${accent}08`,filter:"blur(50px)",pointerEvents:"none"}} />
 
-        {/* Scan-line flash on every new slide */}
+      {/* outer wrapper */}
+      <div style={{
+        background:`linear-gradient(160deg,rgba(3,12,28,.98) 0%,${accent}09 100%)`,
+        border:`1px solid ${accent}28`,
+        borderRadius:14,
+        position:"relative", overflow:"hidden",
+        boxShadow:`0 6px 32px ${accent}0A, inset 0 1px 0 ${accent}12`,
+      }}>
+        {/* TL corner bracket */}
+        <div style={{position:"absolute",top:0,left:0,width:20,height:20,
+          borderTop:`2px solid ${accent}70`,borderLeft:`2px solid ${accent}70`,
+          borderRadius:"4px 0 0 0",pointerEvents:"none"}} />
+        {/* TR corner bracket */}
+        <div style={{position:"absolute",top:0,right:0,width:20,height:20,
+          borderTop:`2px solid ${accent}70`,borderRight:`2px solid ${accent}70`,
+          borderRadius:"0 4px 0 0",pointerEvents:"none"}} />
+
+        {/* scan flash */}
         <div key={`scan-${idx}`} style={{
-          position:"absolute",top:0,bottom:0,width:"38%",zIndex:2,
-          background:`linear-gradient(90deg,transparent,${accent}22,transparent)`,
-          animation:"hb-scan 0.6s ease-out forwards",
+          position:"absolute",top:0,bottom:0,width:"35%",zIndex:2,
+          background:`linear-gradient(90deg,transparent,${accent}20,transparent)`,
+          animation:"hb-scan 0.55s ease-out forwards",
           pointerEvents:"none",
         }} />
 
-        {/* Slide content — remounts on idx change, restarting animation */}
-        <div key={idx} style={{
-          animation:`slide-rtl ${SLIDE_DUR}ms cubic-bezier(.25,.46,.45,.94) both`,
-          position:"relative", zIndex:1,
+        {/* content */}
+        <div style={{padding:"18px 18px 22px"}}>
+          <div
+            key={idx}
+            style={{
+              animation:`fade-rtl ${dur}ms cubic-bezier(.25,.46,.45,.94) both`,
+              position:"relative", zIndex:1,
+            }}
+          >
+            {children}
+          </div>
+        </div>
+
+        {/* bottom accent line + timer */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"rgba(255,255,255,.04)"}}>
+          <div key={idx} style={{
+            height:"100%",
+            background:`linear-gradient(90deg,${accent}CC,${accent}44)`,
+            animation:`hb-timer ${dur}ms linear forwards`,
+          }}/>
+        </div>
+        {/* bottom glow line */}
+        <div style={{position:"absolute",bottom:0,left:"20%",right:"20%",height:1,
+          background:`linear-gradient(90deg,transparent,${accent}55,transparent)`,
+          filter:"blur(1px)",pointerEvents:"none"}} />
+      </div>
+    </div>
+  );
+
+  /* ── Slide 0 · Welcome ── */
+  if (idx === 0) return card(
+    <div style={{display:"flex",alignItems:"center",gap:14}}>
+      {/* chevrons */}
+      <div style={{display:"flex",gap:2,flexShrink:0}}>
+        {[0,1,2,3,4].map(n => (
+          <div key={n} style={{
+            color:"#00AEEF",fontSize:18,fontWeight:900,
+            animation:`hb-chevron 1.4s ease ${n*0.12}s infinite`,
+          }}>›</div>
+        ))}
+      </div>
+      <div>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:11,fontWeight:600,
+          letterSpacing:"0.22em",color:"rgba(255,255,255,.42)",marginBottom:5,
+        }}>WELCOME BACK</div>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:22,fontWeight:700,
+          letterSpacing:"0.04em",lineHeight:1.1,
         }}>
-
-          {/* Slide 0 · Welcome */}
-          {idx === 0 && (
-            <div>
-              <div style={{fontSize:9,fontFamily:"Poppins,sans-serif",fontWeight:600,
-                letterSpacing:"0.26em",color:"rgba(255,255,255,.36)",marginBottom:10}}>
-                WELCOME BACK
-              </div>
-              <div style={{fontSize:26,fontWeight:600,fontFamily:"Poppins,sans-serif",
-                color:"#fff",lineHeight:1.1,letterSpacing:"0.01em",
-                textShadow:"0 0 20px rgba(0,174,239,0.55)"}}>
-                Mr. {firstName}
-              </div>
-            </div>
-          )}
-
-          {/* Slide 1 · Intro */}
-          {idx === 1 && (
-            <div>
-              <div style={{fontSize:9,fontFamily:"Poppins,sans-serif",fontWeight:600,
-                letterSpacing:"0.26em",color:"rgba(255,255,255,.36)",marginBottom:10}}>
-                NAVIGATION
-              </div>
-              <div style={{fontSize:22,fontWeight:500,fontFamily:"Poppins,sans-serif",
-                color:"#fff",lineHeight:1.3}}>
-                Let's explore our<br/>menus &amp; tools
-              </div>
-            </div>
-          )}
-
-          {/* Slides 2+ · Services */}
-          {idx >= 2 && (() => {
-            const s = services[idx - 2];
-            return (
-              <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
-                <div style={{width:50,height:50,borderRadius:14,flexShrink:0,
-                  background:`${s.color}12`,border:`1px solid ${s.color}30`,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:24,animation:"hb-pulse 2.6s ease infinite"}}>{s.icon}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <span style={{fontSize:8,fontFamily:"Poppins,sans-serif",fontWeight:600,
-                    letterSpacing:"0.16em",background:`${s.color}14`,color:s.color,
-                    border:`1px solid ${s.color}38`,borderRadius:5,padding:"3px 8px",
-                    display:"inline-block",marginBottom:6}}>{s.en.label}</span>
-                  <div style={{fontSize:16,fontWeight:600,fontFamily:"Poppins,sans-serif",
-                    color:"#fff",marginBottom:4,lineHeight:1.2}}>{s.en.title}</div>
-                  <div style={{fontSize:11,color:"rgba(255,255,255,.46)",fontFamily:"Poppins,sans-serif",
-                    lineHeight:1.5,marginBottom:10}}>{s.en.sub}</div>
-                  <button onClick={()=>navigate(s.path)} style={{
-                    padding:"8px 16px",borderRadius:10,cursor:"pointer",
-                    background:`${s.color}18`,border:`1px solid ${s.color}44`,
-                    color:"#fff",fontSize:11,fontWeight:600,fontFamily:"Poppins,sans-serif",
-                    letterSpacing:"0.1em",display:"inline-flex",alignItems:"center",gap:6}}>
-                    ENTER <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
+          <span style={{color:"#fff"}}>Mr. </span>
+          <span style={{color:"#00AEEF",textShadow:"0 0 18px rgba(0,174,239,0.7)"}}>{firstName}</span>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Timer bar */}
-        <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"rgba(255,255,255,.05)"}}>
-          <div key={idx} style={{height:"100%",
-            background:`linear-gradient(90deg,${accent},${accent}88)`,
-            animation:`hb-timer ${SLIDE_DUR}ms linear forwards`}}/>
+  /* ── Slide 1 · Intro ── */
+  if (idx === 1) return card(
+    <div style={{display:"flex",alignItems:"center",gap:16}}>
+      {/* compass icon */}
+      <div style={{
+        width:54,height:54,borderRadius:"50%",flexShrink:0,
+        background:"rgba(0,174,239,0.08)",border:"1px solid rgba(0,174,239,0.3)",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:26,boxShadow:"0 0 18px rgba(0,174,239,0.18)",
+        animation:"hb-pulse 2.8s ease infinite",
+      }}>🧭</div>
+      <div>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:9,fontWeight:600,
+          letterSpacing:"0.22em",color:"rgba(255,255,255,.38)",marginBottom:7,
+        }}>NAVIGATION</div>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:20,fontWeight:500,lineHeight:1.3,
+        }}>
+          <span style={{color:"#fff"}}>Let's explore our </span>
+          <span style={{color:"#00AEEF",textShadow:"0 0 14px rgba(0,174,239,0.6)"}}>menus &amp; tools</span>
         </div>
+      </div>
+    </div>
+  );
+
+  /* ── Slides 2+ · Services ── */
+  const s = services[idx - 2];
+  return card(
+    <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+      {/* circular icon */}
+      <div style={{
+        width:54,height:54,borderRadius:"50%",flexShrink:0,
+        background:`${s.color}0E`,border:`1.5px solid ${s.color}40`,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:26,boxShadow:`0 0 22px ${s.color}28`,
+        animation:"hb-pulse 2.6s ease infinite",
+      }}>{s.icon}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:9,fontWeight:600,
+          letterSpacing:"0.22em",color:"rgba(255,255,255,.38)",marginBottom:6,
+        }}>{s.en.label}</div>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:20,fontWeight:700,
+          lineHeight:1.15,marginBottom:5,
+        }}>
+          <span style={{color:"#fff"}}>{s.en.title[0]} </span>
+          <span style={{color:s.color,fontStyle:"italic",textShadow:`0 0 14px ${s.color}88`}}>{s.en.title[1]}</span>
+        </div>
+        <div style={{
+          fontFamily:"Poppins,sans-serif",fontSize:11,
+          color:"rgba(255,255,255,.44)",lineHeight:1.55,marginBottom:12,
+        }}>{s.en.sub}</div>
+        <button onClick={()=>navigate(s.path)} style={{
+          padding:"7px 18px",borderRadius:8,cursor:"pointer",
+          background:"rgba(255,255,255,0.05)",border:`1px solid ${s.color}50`,
+          color:"#fff",fontSize:11,fontWeight:600,fontFamily:"Poppins,sans-serif",
+          letterSpacing:"0.1em",display:"inline-flex",alignItems:"center",gap:7,
+        }}>
+          ENTER <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
+        </button>
       </div>
     </div>
   );
