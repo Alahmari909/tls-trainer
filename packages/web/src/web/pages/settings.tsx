@@ -103,6 +103,178 @@ function compressImage(file: File, maxSize = 180): Promise<string> {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+/* ─── Feature Spotlight (bilingual, 30 s/card) ────────────────────────── */
+function FeatureSpotlight({ name }: { name: string }) {
+  const firstName = (name || "").split(/[\s·,]+/)[0] || name;
+  const [idx, setIdx]       = useState(0);
+  const [fading, setFading] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
+
+  const cards = [
+    {
+      icon: "🤖", color: "#00AEEF",
+      en: { tag: "AI · NEW",   title: "AI Assistant",            sub: "Ask anything about the TTLS system and get an instant answer" },
+      ar: { title: "المساعد الذكي",           sub: "اسأل أي سؤال عن جهاز TTLS واحصل على إجابة فورية" },
+      path: "/chat",      cta: "Open Chat · افتح المحادثة",
+    },
+    {
+      icon: "🕹️", color: "#00FF88",
+      en: { tag: "SIMULATOR",  title: "RCU Interface Simulator", sub: "Train on a real-like control panel — enter aircraft codes live" },
+      ar: { title: "محاكي واجهة التحكم RCU",  sub: "تدرّب على شاشة التحكم الحقيقية وتتبّع الطائرات بالكود" },
+      path: "/simulator", cta: "Start · ابدأ المحاكاة",
+    },
+    {
+      icon: "🏆", color: "#FFD166",
+      en: { tag: "CHALLENGE",  title: "Quiz & Compete",          sub: "Test your TTLS knowledge and top the leaderboard" },
+      ar: { title: "اختبر نفسك وتنافس",       sub: "اختبر معرفتك بنظام TTLS وتصدّر قائمة المتميّزين" },
+      path: "/quiz",      cta: "Take Quiz · ابدأ الاختبار",
+    },
+    {
+      icon: "📡", color: "#C9A66B",
+      en: { tag: "TRAINING",   title: "9 Training Modules",      sub: "From system setup to precision landing — master every step" },
+      ar: { title: "٩ وحدات تدريبية متكاملة",  sub: "من الإعداد حتى الهبوط الدقيق — أتقن كل خطوة" },
+      path: "/modules",   cta: "Browse · استعرض الوحدات",
+    },
+  ];
+
+  const advance = (newIdx: number) => {
+    setFading(true);
+    setTimeout(() => { setIdx(newIdx); setTimerKey(k => k + 1); setFading(false); }, 350);
+  };
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setFading(true);
+      setTimeout(() => {
+        setIdx(i => { const next = (i + 1) % cards.length; setTimerKey(k => k + 1); return next; });
+        setFading(false);
+      }, 350);
+    }, 30000);
+    return () => clearInterval(t);
+  }, [cards.length]);
+
+  const card = cards[idx];
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{
+        textAlign: "center", marginBottom: 10,
+        fontSize: 9, color: "rgba(255,255,255,0.25)",
+        fontFamily: "Orbitron", letterSpacing: "0.14em", textTransform: "uppercase",
+      }}>
+        Hello {firstName} · مرحباً {firstName}
+      </div>
+
+      <div
+        style={{
+          background: `linear-gradient(145deg, rgba(4,16,31,0.97) 0%, ${card.color}0C 100%)`,
+          border: `1px solid ${card.color}20`,
+          borderRadius: 18, padding: "18px 16px 0",
+          position: "relative", overflow: "hidden",
+          opacity: fading ? 0 : 1,
+          transform: fading ? "translateY(5px)" : "translateY(0)",
+          transition: "opacity 0.35s ease, transform 0.35s ease",
+          boxShadow: `0 8px 32px ${card.color}08`,
+          cursor: "pointer",
+        }}
+        onClick={() => advance((idx + 1) % cards.length)}
+      >
+        {/* Ambient glow */}
+        <div style={{
+          position: "absolute", top: -50, right: -30,
+          width: 160, height: 160, borderRadius: "50%",
+          background: `${card.color}07`, filter: "blur(45px)",
+          pointerEvents: "none",
+        }} />
+
+        {/* Icon + bilingual text */}
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+          <div style={{
+            width: 54, height: 54, borderRadius: 15, flexShrink: 0,
+            background: `${card.color}10`, border: `1px solid ${card.color}25`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 26, boxShadow: `0 4px 18px ${card.color}18`,
+          }}>
+            {card.icon}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* English block */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ marginBottom: 5 }}>
+                <span style={{
+                  fontSize: 8, fontFamily: "Orbitron", letterSpacing: "0.15em",
+                  background: `${card.color}14`, color: card.color,
+                  border: `1px solid ${card.color}35`, borderRadius: 4,
+                  padding: "2px 8px",
+                }}>
+                  {card.en.tag}
+                </span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "Orbitron", letterSpacing: "0.02em", marginBottom: 4 }}>
+                {card.en.title}
+              </div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", fontFamily: "Rajdhani", lineHeight: 1.55 }}>
+                {card.en.sub}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: `${card.color}12`, marginBottom: 10 }} />
+
+            {/* Arabic block */}
+            <div style={{ direction: "rtl" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "Tajawal, sans-serif", marginBottom: 4 }}>
+                {card.ar.title}
+              </div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", fontFamily: "Tajawal, sans-serif", lineHeight: 1.65 }}>
+                {card.ar.sub}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA + dots */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0 14px" }}>
+          <button
+            onClick={e => { e.stopPropagation(); window.location.href = card.path; }}
+            style={{
+              fontSize: 10, fontFamily: "Tajawal, Rajdhani, sans-serif",
+              color: card.color, background: `${card.color}10`,
+              border: `1px solid ${card.color}30`, borderRadius: 8,
+              padding: "6px 14px", cursor: "pointer",
+            }}
+          >
+            {card.cta}
+          </button>
+          <div style={{ display: "flex", gap: 5 }}>
+            {cards.map((_, i) => (
+              <div
+                key={i}
+                onClick={e => { e.stopPropagation(); advance(i); }}
+                style={{
+                  width: i === idx ? 20 : 5, height: 5, borderRadius: 3,
+                  background: i === idx ? card.color : "rgba(255,255,255,0.18)",
+                  transition: "all 0.35s ease", cursor: "pointer",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Timer bar */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.05)" }}>
+          <div key={timerKey} style={{
+            height: "100%",
+            background: `linear-gradient(90deg, ${card.color}, ${card.color}88)`,
+            animation: "spotlight-timer 30s linear forwards",
+          }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const session = getSession();
   const [settings, updateSettings] = useSettings();
@@ -340,6 +512,7 @@ export default function Settings() {
       <style>{`
         @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+        @keyframes spotlight-timer { from { width:0% } to { width:100% } }
         .pin-input::placeholder { color: rgba(255,255,255,0.2); }
         .field-input:focus { border-color: rgba(0,174,239,0.5) !important; background: rgba(0,174,239,0.08) !important; }
       `}</style>
@@ -371,6 +544,9 @@ export default function Settings() {
           </div>
         )}
 
+
+        {/* ── FEATURE SPOTLIGHT ── */}
+        <FeatureSpotlight name={session.name} />
 
         {/* ── PROFILE CARD ─────────────────────────────────────────── */}
         <div style={{
