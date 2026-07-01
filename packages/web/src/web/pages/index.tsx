@@ -565,6 +565,194 @@ function DailyTip() {
   );
 }
 
+/* ─── HomeBanner (bilingual rotating banner, unique animation per card) ─── */
+const BANNER_DURATION = 30000;
+const BANNER_FADE     = 380;
+
+function HomeBanner({ name }: { name: string }) {
+  const firstName = (name || "").split(/[\s·,]+/)[0] || name;
+  const [idx,      setIdx]      = useState(0);
+  const [visible,  setVisible]  = useState(true);
+  const [timerKey, setTimerKey] = useState(0);
+
+  const cards = [
+    {
+      icon:"🤖", color:"#00AEEF", anim:"banner-shake",
+      en:{ label:"AI · NEW",  title:"AI Assistant",            sub:"Ask anything about the TTLS system" },
+      ar:{ title:"المساعد الذكي",          sub:"اسأل عن جهاز TTLS واحصل على إجابة فورية" },
+    },
+    {
+      icon:"🕹️", color:"#00FF88", anim:"banner-glitch",
+      en:{ label:"SIMULATOR", title:"RCU Interface Simulator", sub:"Train on a real-like control panel" },
+      ar:{ title:"محاكي واجهة RCU",  sub:"تدرّب على شاشة التحكم وتتبّع الطائرات" },
+    },
+    {
+      icon:"🏆", color:"#FFD166", anim:"banner-drop",
+      en:{ label:"CHALLENGE", title:"Quiz & Compete",          sub:"Test your knowledge and top the leaderboard" },
+      ar:{ title:"اختبر وتنافس",      sub:"اختبر معرفتك وتصدّر قائمة المتميّزين" },
+    },
+    {
+      icon:"📡", color:"#C9A66B", anim:"banner-split",
+      en:{ label:"TRAINING",  title:"9 Training Modules",      sub:"From setup to precision landing" },
+      ar:{ title:"٩ وحدات تدريبية", sub:"من الإعداد حتى الهبوط الدقيق" },
+    },
+  ] as const;
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setVisible(false), BANNER_DURATION - BANNER_FADE);
+    const t2 = setTimeout(() => {
+      setIdx(i => (i + 1) % 4);
+      setTimerKey(k => k + 1);
+      setVisible(true);
+    }, BANNER_DURATION);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [idx]);
+
+  const card = cards[idx];
+
+  return (
+    <div style={{ padding:"0 16px", marginBottom:4 }}>
+      <style>{`
+        @keyframes banner-shake {
+          0%,100%{transform:translateX(0)}
+          10%{transform:translateX(-6px)}
+          25%{transform:translateX(6px)}
+          40%{transform:translateX(-4px)}
+          55%{transform:translateX(4px)}
+          70%{transform:translateX(-2px)}
+          85%{transform:translateX(2px)}
+        }
+        @keyframes banner-glitch {
+          0%  {transform:translateX(-9px) skewX(4deg);opacity:.4;filter:hue-rotate(90deg) brightness(1.8)}
+          14% {transform:translateX(8px) skewX(-4deg);opacity:.65;filter:hue-rotate(-60deg)}
+          28% {transform:translateX(-5px) skewX(2deg);opacity:.8;filter:hue-rotate(30deg)}
+          45% {transform:translateX(3px);opacity:.92;filter:none}
+          65% {transform:translateX(-1px)}
+          100%{transform:translateX(0);opacity:1;filter:none}
+        }
+        @keyframes banner-drop {
+          0%  {transform:translateY(-30px);opacity:0}
+          42% {transform:translateY(6px);opacity:1}
+          62% {transform:translateY(-3px)}
+          80% {transform:translateY(2px)}
+          100%{transform:translateY(0);opacity:1}
+        }
+        @keyframes banner-split {
+          0%  {transform:scaleX(.35);opacity:0;filter:blur(10px)}
+          42% {transform:scaleX(1.07);opacity:.9;filter:blur(1px)}
+          68% {transform:scaleX(.97);filter:blur(0)}
+          100%{transform:scaleX(1);opacity:1;filter:blur(0)}
+        }
+        @keyframes banner-shimmer {
+          0%  {background-position:-250% center}
+          100%{background-position:250% center}
+        }
+        @keyframes banner-pulse {
+          0%,100%{opacity:1;filter:brightness(1)}
+          50%    {opacity:.86;filter:brightness(1.6)}
+        }
+        @keyframes banner-timer{from{width:0%}to{width:100%}}
+      `}</style>
+
+      <div style={{
+        background:`linear-gradient(145deg,rgba(4,16,31,.97) 0%,${card.color}0C 100%)`,
+        border:`1px solid ${card.color}22`,
+        borderRadius:18, padding:"16px 16px 0",
+        position:"relative", overflow:"hidden",
+        boxShadow:`0 8px 40px ${card.color}08`,
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(-5px)",
+        transition:`opacity ${BANNER_FADE}ms ease,transform ${BANNER_FADE}ms ease`,
+      }}>
+        {/* Ambient glow */}
+        <div style={{position:"absolute",top:-60,right:-40,width:180,height:180,
+          borderRadius:"50%",background:`${card.color}06`,filter:"blur(55px)",pointerEvents:"none"}} />
+
+        {/* key=idx forces remount → per-card animation restarts */}
+        <div key={idx} style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+          {/* Logo icon */}
+          <div style={{
+            width:58,height:58,borderRadius:16,flexShrink:0,
+            background:`${card.color}10`,border:`1px solid ${card.color}28`,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:28,boxShadow:`0 4px 22px ${card.color}20`,
+            animation:"banner-pulse 2.6s ease infinite",
+          }}>{card.icon}</div>
+
+          <div style={{flex:1,minWidth:0}}>
+            {/* English */}
+            <span style={{
+              fontSize:8,fontFamily:"Orbitron",letterSpacing:"0.15em",
+              background:`${card.color}14`,color:card.color,
+              border:`1px solid ${card.color}35`,borderRadius:4,
+              padding:"2px 8px",display:"inline-block",marginBottom:5,
+            }}>{card.en.label}</span>
+
+            <div style={{
+              fontSize:15,fontWeight:700,fontFamily:"Orbitron",letterSpacing:"0.02em",
+              marginBottom:4,lineHeight:1.2,
+              background:`linear-gradient(90deg,${card.color} 0%,#fff 30%,${card.color}CC 55%,#fff 75%,${card.color} 100%)`,
+              backgroundSize:"280% auto",
+              WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
+              animation:`${card.anim} .75s cubic-bezier(.22,1,.36,1) forwards,banner-shimmer 2.8s linear infinite`,
+            } as React.CSSProperties}>{card.en.title}</div>
+
+            <div style={{fontSize:11,color:"rgba(255,255,255,.38)",fontFamily:"Rajdhani",lineHeight:1.55,marginBottom:10}}>
+              {card.en.sub}
+            </div>
+
+            {/* Divider */}
+            <div style={{height:1,background:`${card.color}12`,marginBottom:10}} />
+
+            {/* Arabic */}
+            <div style={{direction:"rtl"}}>
+              <div style={{
+                fontSize:15,fontWeight:700,fontFamily:"Tajawal,sans-serif",
+                marginBottom:4,lineHeight:1.3,
+                background:`linear-gradient(90deg,${card.color} 0%,#fff 30%,${card.color}CC 55%,#fff 75%,${card.color} 100%)`,
+                backgroundSize:"280% auto",
+                WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
+                animation:"banner-shimmer 3.3s linear infinite",
+              } as React.CSSProperties}>{card.ar.title}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.38)",fontFamily:"Tajawal,sans-serif",lineHeight:1.65}}>
+                {card.ar.sub}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Greeting + dots */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0 14px"}}>
+          <div style={{fontSize:9,color:"rgba(255,255,255,.22)",fontFamily:"Orbitron",letterSpacing:"0.12em"}}>
+            WELCOME · مرحباً {firstName}
+          </div>
+          <div style={{display:"flex",gap:5}}>
+            {(cards as typeof cards).map((_c,i)=>(
+              <div key={i}
+                onClick={()=>{setVisible(false);setTimeout(()=>{setIdx(i);setTimerKey(k=>k+1);setVisible(true);},BANNER_FADE);}}
+                style={{
+                  width:i===idx?20:5,height:5,borderRadius:3,
+                  background:i===idx?card.color:"rgba(255,255,255,.18)",
+                  transition:"all .35s ease",cursor:"pointer",
+                }}/>
+            ))}
+          </div>
+        </div>
+
+        {/* Timer bar */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"rgba(255,255,255,.05)"}}>
+          <div key={timerKey} style={{
+            height:"100%",
+            background:`linear-gradient(90deg,${card.color},${card.color}88)`,
+            animation:"banner-timer 30s linear forwards",
+          }}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: () => void }) {
   const [modules, setModules]   = useState<Module[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
@@ -640,13 +828,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
   const getModProgress = (moduleId: number) => progress.find(p => p.moduleId === moduleId)?.progress ?? 0;
   const displayMods = modules.slice(0, 4);
-
-  const statusCards = [
-    { label: t("streak"),   value: `${streak.currentStreak}d`, color: "#FFD166", pulse: streak.currentStreak > 0 },
-    { label: t("xp"),       value: streak.totalXp > 999 ? `${(streak.totalXp/1000).toFixed(1)}k` : String(streak.totalXp), color: "#35D4FF", pulse: false },
-    { label: t("modules"),  value: `${completedMods}/${totalMods}`, color: "#00AEEF", pulse: false },
-    { label: t("progress"), value: `${overallPct}%`, color: "#00AEEF", pulse: overallPct > 0 },
-  ];
+;
 
   const handleLogout = async () => {
     try {
@@ -746,44 +928,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         </div>
       </div>
 
-      {/* ── STATS CARDS ── */}
-      <div style={{ padding: "16px 16px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-          {statusCards.map(s => (
-            <div key={s.label} className="glass-card" style={{
-              padding: "12px 8px",
-              textAlign: "center",
-              border: `1px solid ${s.color}28`,
-              position: "relative", overflow: "hidden",
-              height: 68,
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            }}>
-              {s.pulse && (
-                <div style={{
-                  position: "absolute", top: 6, right: 6,
-                  width: 5, height: 5, borderRadius: "50%",
-                  background: s.color, boxShadow: `0 0 6px ${s.color}`,
-                  animation: "pulse-glow 1.5s ease infinite",
-                }} />
-              )}
-              <div style={{
-                position: "absolute", inset: 0,
-                background: `radial-gradient(circle at 50% 0%, ${s.color}10, transparent 65%)`,
-                pointerEvents: "none",
-              }} />
-              <div style={{
-                fontFamily: "Inter", fontSize: 16, fontWeight: 700,
-                color: s.color, lineHeight: 1, position: "relative",
-              }}>{s.value}</div>
-              <div style={{
-                fontFamily: "Inter, sans-serif",
-                fontSize: 9, color: "var(--text-muted)",
-                marginTop: 4, letterSpacing: "0.08em", position: "relative",
-              }}>{s.label.toUpperCase()}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+
+      {/* ── BANNER ── */}
+      <HomeBanner name={session.name} />
 
       {/* ── CONTINUE TRAINING CTA ── */}
       {(() => {
