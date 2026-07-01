@@ -566,7 +566,7 @@ function DailyTip() {
 }
 
 /* ─── HomeBanner (bilingual rotating banner, unique animation per card) ─── */
-const BANNER_DURATION = 30000;
+const BANNER_DURATION = 120000;
 const BANNER_FADE     = 380;
 
 function HomeBanner({ name }: { name: string }) {
@@ -578,23 +578,23 @@ function HomeBanner({ name }: { name: string }) {
   const cards = [
     {
       icon:"🤖", color:"#00AEEF", anim:"banner-shake",
-      en:{ label:"AI · NEW",  title:"AI Assistant",            sub:"Ask anything about the TTLS system" },
-      ar:{ title:"المساعد الذكي",          sub:"اسأل عن جهاز TTLS واحصل على إجابة فورية" },
+      en:{ label:"AI INSTRUCTOR",  title:"AI Instructor",           sub:"Ask anything about the TTLS system and get an instant answer" },
+      ar:{ title:"المدرب الذكي — AI Instructor",          sub:"اسأل عن جهاز TTLS واحصل على إجابة فورية" },
     },
     {
       icon:"🕹️", color:"#00FF88", anim:"banner-glitch",
-      en:{ label:"SIMULATOR", title:"RCU Interface Simulator", sub:"Train on a real-like control panel" },
+      en:{ label:"RCU SIMULATOR", title:"RCU Simulator",            sub:"Train on a real-like control panel with live aircraft codes" },
       ar:{ title:"محاكي واجهة RCU",  sub:"تدرّب على شاشة التحكم وتتبّع الطائرات" },
     },
     {
       icon:"🏆", color:"#FFD166", anim:"banner-drop",
-      en:{ label:"CHALLENGE", title:"Quiz & Compete",          sub:"Test your knowledge and top the leaderboard" },
+      en:{ label:"QUIZ",      title:"Quiz",                    sub:"Test your knowledge and top the leaderboard" },
       ar:{ title:"اختبر وتنافس",      sub:"اختبر معرفتك وتصدّر قائمة المتميّزين" },
     },
     {
-      icon:"📡", color:"#C9A66B", anim:"banner-split",
-      en:{ label:"TRAINING",  title:"9 Training Modules",      sub:"From setup to precision landing" },
-      ar:{ title:"٩ وحدات تدريبية", sub:"من الإعداد حتى الهبوط الدقيق" },
+      icon:"📚", color:"#C9A66B", anim:"banner-split",
+      en:{ label:"TLS BASIC", title:"TLS Basic",               sub:"Start from the foundations — setup, systems, and operations" },
+      ar:{ title:"أساسيات TLS",      sub:"ابدأ من الأساسيات — الإعداد والأنظمة والتشغيل" },
     },
   ] as const;
 
@@ -694,7 +694,7 @@ function HomeBanner({ name }: { name: string }) {
               background:`linear-gradient(90deg,${card.color} 0%,#fff 30%,${card.color}CC 55%,#fff 75%,${card.color} 100%)`,
               backgroundSize:"280% auto",
               WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-              animation:`${card.anim} .75s cubic-bezier(.22,1,.36,1) forwards,banner-shimmer 2.8s linear infinite`,
+              animation:`${card.anim} .75s cubic-bezier(.22,1,.36,1) forwards,banner-shimmer 7s linear infinite`,
             } as React.CSSProperties}>{card.en.title}</div>
 
             <div style={{fontSize:11,color:"rgba(255,255,255,.38)",fontFamily:"Rajdhani",lineHeight:1.55,marginBottom:10}}>
@@ -712,7 +712,7 @@ function HomeBanner({ name }: { name: string }) {
                 background:`linear-gradient(90deg,${card.color} 0%,#fff 30%,${card.color}CC 55%,#fff 75%,${card.color} 100%)`,
                 backgroundSize:"280% auto",
                 WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-                animation:"banner-shimmer 3.3s linear infinite",
+                animation:"banner-shimmer 8s linear infinite",
               } as React.CSSProperties}>{card.ar.title}</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,.38)",fontFamily:"Tajawal,sans-serif",lineHeight:1.65}}>
                 {card.ar.sub}
@@ -722,11 +722,24 @@ function HomeBanner({ name }: { name: string }) {
         </div>
 
         {/* Greeting + dots */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0 14px"}}>
-          <div style={{fontSize:9,color:"rgba(255,255,255,.22)",fontFamily:"Orbitron",letterSpacing:"0.12em"}}>
-            WELCOME · مرحباً {firstName}
+        <div style={{padding:"12px 0 14px"}}>
+          <div style={{marginBottom:8,textAlign:"center"}}>
+            <div style={{fontSize:8,fontFamily:"Orbitron",letterSpacing:"0.18em",color:"rgba(255,255,255,.3)",marginBottom:4}}>
+              WELCOME BACK · أهلاً وسهلاً
+            </div>
+            <div style={{
+              fontSize:28,fontWeight:800,fontFamily:"Orbitron",letterSpacing:"0.06em",lineHeight:1,
+              background:`linear-gradient(90deg,${card.color} 0%,#fff 40%,${card.color}CC 65%,#fff 85%,${card.color} 100%)`,
+              backgroundSize:"250% auto",
+              WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
+              animation:"banner-shimmer 6s linear infinite",
+            } as React.CSSProperties}>{firstName.toUpperCase()}</div>
+            <div style={{fontSize:16,fontFamily:"Tajawal,sans-serif",fontWeight:700,
+              color:"rgba(255,255,255,.7)",marginTop:3,letterSpacing:"0.02em"}}>
+              مرحباً يا {firstName}
+            </div>
           </div>
-          <div style={{display:"flex",gap:5}}>
+          <div style={{display:"flex",justifyContent:"center",gap:5}}>
             {(cards as typeof cards).map((_c,i)=>(
               <div key={i}
                 onClick={()=>{setVisible(false);setTimeout(()=>{setIdx(i);setTimerKey(k=>k+1);setVisible(true);},BANNER_FADE);}}
