@@ -662,7 +662,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 
       {/* ── HERO: RADAR (pure — no center text) ── */}
       <div className="radar-grid" style={{
-        height: 170,
+        minHeight: 360,
         background: "linear-gradient(180deg, #04101f 0%, #020810 100%)",
         position: "relative",
         overflow: "hidden",
@@ -743,8 +743,6 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           </div>
         );
       })()}
-
-
 
       {/* ── INTRO VIDEO ── */}
       <div style={{ padding: "18px 16px 0" }}>
