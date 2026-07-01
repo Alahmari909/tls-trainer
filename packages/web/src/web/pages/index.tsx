@@ -565,6 +565,155 @@ function DailyTip() {
   );
 }
 
+/* ─── Feature Spotlight ──────────────────────────────────────────────────────
+   Rotating banner personalised to the trainee's name.
+   Highlights key app features and navigates on action-button tap.
+─────────────────────────────────────────────────────────────────────────── */
+function FeatureSpotlight({ name, navigate }: { name: string; navigate: (p: string) => void }) {
+  const firstName = (name || "").split(/[\s·,·]+/)[0] || name;
+
+  const features = [
+    {
+      icon: "🤖",
+      color: "#00AEEF",
+      tag: "AI",
+      title: "المساعد الذكي",
+      body: "اسأل عن أي شيء يخص جهاز TTLS وستحصل على إجابة خلال ثوانٍ",
+      path: "/chat",
+      cta: "اسأل الآن",
+    },
+    {
+      icon: "🎮",
+      color: "#00FF88",
+      tag: "جديد",
+      title: "محاكي RCU",
+      body: "ادخل على واجهة التحكم الحقيقية وأدخل كود الطائرة لتتبع الاقتراب",
+      path: "/simulator",
+      cta: "جرّب المحاكي",
+    },
+    {
+      icon: "🏆",
+      color: "#FFD166",
+      tag: "تحدّ",
+      title: "تنافس مع زملائك",
+      body: "اختبر معلوماتك في نظام TTLS وتصدّر قائمة المتميزين",
+      path: "/quiz",
+      cta: "ابدأ الاختبار",
+    },
+    {
+      icon: "📡",
+      color: "#C9A66B",
+      tag: "تعلّم",
+      title: "9 وحدات تدريبية",
+      body: "من الإعداد حتى الهبوط الدقيق — أتقن النظام خطوة بخطوة",
+      path: "/modules",
+      cta: "استعرض الوحدات",
+    },
+  ];
+
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % features.length), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const f = features[idx];
+
+  return (
+    <div style={{ padding: "14px 16px 0" }}>
+      <div
+        onClick={() => setIdx(i => (i + 1) % features.length)}
+        style={{
+          background: `linear-gradient(135deg, rgba(4,16,31,0.92) 0%, ${f.color}0C 100%)`,
+          border: `1px solid ${f.color}2A`,
+          borderRadius: 14,
+          padding: "14px 16px 12px",
+          position: "relative",
+          overflow: "hidden",
+          cursor: "pointer",
+          userSelect: "none",
+          transition: "border-color 0.4s ease",
+        }}
+      >
+        {/* ambient glow */}
+        <div style={{
+          position: "absolute", top: -30, right: -20,
+          width: 100, height: 100, borderRadius: "50%",
+          background: `${f.color}0E`, filter: "blur(28px)",
+          pointerEvents: "none",
+        }} />
+
+        {/* greeting */}
+        <div style={{
+          fontSize: 9, color: "rgba(255,255,255,0.38)",
+          fontFamily: "Inter", letterSpacing: "0.07em",
+          marginBottom: 9, direction: "rtl",
+        }}>
+          مرحباً {firstName} 👋
+        </div>
+
+        {/* row: icon + text */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <div style={{
+            width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+            background: `${f.color}14`, border: `1px solid ${f.color}28`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 23,
+          }}>
+            {f.icon}
+          </div>
+          <div style={{ flex: 1, direction: "rtl" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "Tajawal" }}>
+                {f.title}
+              </span>
+              <span style={{
+                fontSize: 8, fontFamily: "Inter", letterSpacing: "0.1em",
+                background: `${f.color}1A`, color: f.color,
+                border: `1px solid ${f.color}45`,
+                borderRadius: 4, padding: "1px 6px",
+              }}>
+                {f.tag}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: "Tajawal", lineHeight: 1.55 }}>
+              {f.body}
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); navigate(f.path); }}
+              style={{
+                marginTop: 8, fontSize: 10, fontFamily: "Tajawal",
+                color: f.color, background: `${f.color}10`,
+                border: `1px solid ${f.color}30`, borderRadius: 6,
+                padding: "4px 12px", cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+            >
+              {f.cta} ›
+            </button>
+          </div>
+        </div>
+
+        {/* dot indicators */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 11 }}>
+          {features.map((_, i) => (
+            <div
+              key={i}
+              onClick={e => { e.stopPropagation(); setIdx(i); }}
+              style={{
+                width: i === idx ? 18 : 5,
+                height: 5, borderRadius: 3,
+                background: i === idx ? f.color : "rgba(255,255,255,0.18)",
+                transition: "all 0.35s ease", cursor: "pointer",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: () => void }) {
   const [modules, setModules]   = useState<Module[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
@@ -752,6 +901,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
           </div>
         </div>
       </div>
+
+      {/* ── FEATURE SPOTLIGHT ── */}
+      <FeatureSpotlight name={session.name} navigate={navigate} />
 
       {/* ── STATS CARDS ── */}
       <div style={{ padding: "16px 16px 0" }}>
