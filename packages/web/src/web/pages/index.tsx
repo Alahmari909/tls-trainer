@@ -590,60 +590,52 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
     return () => clearTimeout(t);
   }, [idx]);
 
-  const dur   = durOf(idx);
-  const accent = idx >= 2 ? services[idx - 2].color : "#00AEEF";
+  const dur    = durOf(idx);
+  const accent = idx >= 2 ? services[idx - 2].color : "#00c4ff";
 
   /* ── card shell ── */
   const card = (children: React.ReactNode) => (
     <div style={{ padding:"0 16px", marginBottom:4 }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@700&display=swap');
         @keyframes fade-rtl {
-          0%   { transform:translateX(28px); opacity:0; }
-          8%   { transform:translateX(0);    opacity:1; }
-          82%  { transform:translateX(0);    opacity:1; }
-          100% { transform:translateX(-18px); opacity:0; }
+          0%   { transform:translateX(26px); opacity:0; }
+          9%   { transform:translateX(0);    opacity:1; }
+          84%  { transform:translateX(0);    opacity:1; }
+          100% { transform:translateX(-16px); opacity:0; }
         }
         @keyframes hb-scan {
           0%   { left:-130%; opacity:0;  }
-          50%  { opacity:.8;             }
+          50%  { opacity:.7;             }
           100% { left:130%;  opacity:0;  }
         }
         @keyframes hb-timer { from{width:0%} to{width:100%} }
-        @keyframes hb-pulse { 0%,100%{opacity:1} 50%{opacity:.72;filter:brightness(1.55)} }
+        @keyframes hb-pulse { 0%,100%{opacity:1} 50%{opacity:.7;filter:brightness(1.6)} }
         @keyframes hb-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
-        @keyframes hb-chevron {
-          0%,100% { opacity:.45; transform:translateX(0); }
-          50%     { opacity:1;   transform:translateX(3px); }
+        @keyframes hb-chev {
+          0%,100% { opacity:.35; transform:translateX(0); }
+          50%     { opacity:1;   transform:translateX(4px); }
         }
       `}</style>
 
-      {/* outer wrapper */}
+      {/* outer card */}
       <div style={{
-        background:`linear-gradient(160deg,rgba(3,12,28,.98) 0%,${accent}09 100%)`,
-        border:`1px solid ${accent}28`,
-        borderRadius:14,
+        background:"#060d1e",
+        border:`1px solid rgba(0,150,255,0.14)`,
+        borderRadius:10,
         position:"relative", overflow:"hidden",
-        boxShadow:`0 6px 32px ${accent}0A, inset 0 1px 0 ${accent}12`,
+        boxShadow:`0 4px 28px rgba(0,0,0,0.55), inset 0 1px 0 rgba(0,150,255,0.08)`,
       }}>
-        {/* TL corner bracket */}
-        <div style={{position:"absolute",top:0,left:0,width:20,height:20,
-          borderTop:`2px solid ${accent}70`,borderLeft:`2px solid ${accent}70`,
-          borderRadius:"4px 0 0 0",pointerEvents:"none"}} />
-        {/* TR corner bracket */}
-        <div style={{position:"absolute",top:0,right:0,width:20,height:20,
-          borderTop:`2px solid ${accent}70`,borderRight:`2px solid ${accent}70`,
-          borderRadius:"0 4px 0 0",pointerEvents:"none"}} />
-
         {/* scan flash */}
         <div key={`scan-${idx}`} style={{
-          position:"absolute",top:0,bottom:0,width:"35%",zIndex:2,
-          background:`linear-gradient(90deg,transparent,${accent}20,transparent)`,
-          animation:"hb-scan 0.55s ease-out forwards",
+          position:"absolute",top:0,bottom:0,width:"38%",zIndex:2,
+          background:`linear-gradient(90deg,transparent,${accent}18,transparent)`,
+          animation:"hb-scan 0.6s ease-out forwards",
           pointerEvents:"none",
         }} />
 
         {/* content */}
-        <div style={{padding:"18px 18px 22px"}}>
+        <div style={{padding:"16px 18px 20px"}}>
           <div
             key={idx}
             style={{
@@ -655,45 +647,54 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
           </div>
         </div>
 
-        {/* bottom accent line + timer */}
-        <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"rgba(255,255,255,.04)"}}>
-          <div key={idx} style={{
-            height:"100%",
-            background:`linear-gradient(90deg,${accent}CC,${accent}44)`,
+        {/* bottom: static cyan line */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,
+          background:"linear-gradient(90deg,transparent,#00c4ff88,#00c4ffcc,#00c4ff88,transparent)",
+        }}>
+          {/* animated timer bar on top */}
+          <div key={`t-${idx}`} style={{
+            position:"absolute",top:0,left:0,height:"100%",
+            background:`linear-gradient(90deg,${accent},${accent}55)`,
             animation:`hb-timer ${dur}ms linear forwards`,
           }}/>
         </div>
-        {/* bottom glow line */}
-        <div style={{position:"absolute",bottom:0,left:"20%",right:"20%",height:1,
-          background:`linear-gradient(90deg,transparent,${accent}55,transparent)`,
-          filter:"blur(1px)",pointerEvents:"none"}} />
       </div>
     </div>
+  );
+
+  /* ── CSS triangle chevron ── */
+  const Chevron = ({ n }: { n: number }) => (
+    <div style={{
+      width:0, height:0,
+      borderTop:"7px solid transparent",
+      borderBottom:"7px solid transparent",
+      borderLeft:`9px solid #00c4ff`,
+      opacity: 0.3 + n * 0.14,
+      animation:`hb-chev 1.5s ease ${n * 0.14}s infinite`,
+    }} />
   );
 
   /* ── Slide 0 · Welcome ── */
   if (idx === 0) return card(
     <div style={{display:"flex",alignItems:"center",gap:14}}>
-      {/* chevrons */}
-      <div style={{display:"flex",gap:2,flexShrink:0}}>
-        {[0,1,2,3,4].map(n => (
-          <div key={n} style={{
-            color:"#00AEEF",fontSize:18,fontWeight:900,
-            animation:`hb-chevron 1.4s ease ${n*0.12}s infinite`,
-          }}>›</div>
-        ))}
+      {/* CSS triangle chevrons */}
+      <div style={{display:"flex",gap:3,flexShrink:0,alignItems:"center"}}>
+        {[0,1,2,3,4].map(n => <Chevron key={n} n={n} />)}
       </div>
-      <div>
+      <div style={{flex:1}}>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:11,fontWeight:600,
-          letterSpacing:"0.22em",color:"rgba(255,255,255,.42)",marginBottom:5,
+          fontFamily:"'Rajdhani',sans-serif",fontSize:10,fontWeight:700,
+          letterSpacing:"0.28em",color:"rgba(255,255,255,.38)",marginBottom:4,
+          textTransform:"uppercase",
         }}>WELCOME BACK</div>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:22,fontWeight:700,
-          letterSpacing:"0.04em",lineHeight:1.1,
+          fontFamily:"'Rajdhani',sans-serif",fontSize:26,fontWeight:700,
+          letterSpacing:"0.05em",lineHeight:1.05,display:"flex",alignItems:"center",gap:8,
         }}>
-          <span style={{color:"#fff"}}>Mr. </span>
-          <span style={{color:"#00AEEF",textShadow:"0 0 18px rgba(0,174,239,0.7)"}}>{firstName}</span>
+          <span style={{color:"#fff"}}>Mr.</span>
+          <span style={{color:"#00c4ff",textShadow:"0 0 20px rgba(0,196,255,0.75)"}}>{firstName.toUpperCase()}</span>
+          {/* right accent line */}
+          <div style={{flex:1,height:2,background:"linear-gradient(90deg,#00c4ff55,transparent)",borderRadius:1,minWidth:20}} />
         </div>
       </div>
     </div>
@@ -702,24 +703,31 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
   /* ── Slide 1 · Intro ── */
   if (idx === 1) return card(
     <div style={{display:"flex",alignItems:"center",gap:16}}>
-      {/* compass icon */}
+      {/* circular icon frame */}
       <div style={{
-        width:54,height:54,borderRadius:"50%",flexShrink:0,
-        background:"rgba(0,174,239,0.08)",border:"1px solid rgba(0,174,239,0.3)",
+        width:52,height:52,borderRadius:"50%",flexShrink:0,
+        background:"rgba(0,196,255,0.07)",
+        border:"1.5px solid rgba(0,196,255,0.32)",
         display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:26,boxShadow:"0 0 18px rgba(0,174,239,0.18)",
+        fontSize:24,boxShadow:"0 0 20px rgba(0,196,255,0.22)",
         animation:"hb-pulse 2.8s ease infinite",
       }}>🧭</div>
       <div>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:9,fontWeight:600,
-          letterSpacing:"0.22em",color:"rgba(255,255,255,.38)",marginBottom:7,
+          fontFamily:"'Rajdhani',sans-serif",fontSize:10,fontWeight:700,
+          letterSpacing:"0.28em",color:"rgba(255,255,255,.36)",marginBottom:5,
+          textTransform:"uppercase",
         }}>NAVIGATION</div>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:20,fontWeight:500,lineHeight:1.3,
+          fontFamily:"'Rajdhani',sans-serif",fontSize:22,fontWeight:700,
+          lineHeight:1.2,letterSpacing:"0.03em",
         }}>
           <span style={{color:"#fff"}}>Let's explore our </span>
-          <span style={{color:"#00AEEF",textShadow:"0 0 14px rgba(0,174,239,0.6)"}}>menus &amp; tools</span>
+          <span style={{
+            color:"#00c4ff",
+            fontFamily:"'Poppins',sans-serif",fontStyle:"italic",fontWeight:600,fontSize:20,
+            textShadow:"0 0 16px rgba(0,196,255,0.65)",
+          }}>menus &amp; tools</span>
         </div>
       </div>
     </div>
@@ -729,35 +737,43 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
   const s = services[idx - 2];
   return card(
     <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
-      {/* circular icon */}
+      {/* circular icon frame with glow */}
       <div style={{
-        width:54,height:54,borderRadius:"50%",flexShrink:0,
-        background:`${s.color}0E`,border:`1.5px solid ${s.color}40`,
+        width:52,height:52,borderRadius:"50%",flexShrink:0,
+        background:`${s.color}0D`,
+        border:`1.5px solid ${s.color}45`,
         display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:26,boxShadow:`0 0 22px ${s.color}28`,
+        fontSize:24,boxShadow:`0 0 24px ${s.color}30`,
         animation:"hb-pulse 2.6s ease infinite",
       }}>{s.icon}</div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:9,fontWeight:600,
-          letterSpacing:"0.22em",color:"rgba(255,255,255,.38)",marginBottom:6,
+          fontFamily:"'Rajdhani',sans-serif",fontSize:10,fontWeight:700,
+          letterSpacing:"0.28em",color:"rgba(255,255,255,.36)",marginBottom:5,
+          textTransform:"uppercase",
         }}>{s.en.label}</div>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:20,fontWeight:700,
-          lineHeight:1.15,marginBottom:5,
+          fontFamily:"'Rajdhani',sans-serif",fontSize:24,fontWeight:700,
+          lineHeight:1.1,marginBottom:5,letterSpacing:"0.03em",
         }}>
           <span style={{color:"#fff"}}>{s.en.title[0]} </span>
-          <span style={{color:s.color,fontStyle:"italic",textShadow:`0 0 14px ${s.color}88`}}>{s.en.title[1]}</span>
+          <span style={{
+            color:s.color,
+            fontFamily:"'Poppins',sans-serif",fontStyle:"italic",fontWeight:600,fontSize:20,
+            textShadow:`0 0 16px ${s.color}88`,
+          }}>{s.en.title[1]}</span>
         </div>
         <div style={{
-          fontFamily:"Poppins,sans-serif",fontSize:11,
-          color:"rgba(255,255,255,.44)",lineHeight:1.55,marginBottom:12,
+          fontFamily:"'Inter',sans-serif",fontSize:11,
+          color:"rgba(255,255,255,.42)",lineHeight:1.55,marginBottom:12,
         }}>{s.en.sub}</div>
         <button onClick={()=>navigate(s.path)} style={{
-          padding:"7px 18px",borderRadius:8,cursor:"pointer",
-          background:"rgba(255,255,255,0.05)",border:`1px solid ${s.color}50`,
-          color:"#fff",fontSize:11,fontWeight:600,fontFamily:"Poppins,sans-serif",
-          letterSpacing:"0.1em",display:"inline-flex",alignItems:"center",gap:7,
+          padding:"6px 18px",borderRadius:7,cursor:"pointer",
+          background:"transparent",
+          border:`1px solid rgba(255,255,255,0.22)`,
+          color:"#fff",fontSize:11,fontWeight:700,
+          fontFamily:"'Rajdhani',sans-serif",
+          letterSpacing:"0.14em",display:"inline-flex",alignItems:"center",gap:7,
         }}>
           ENTER <span style={{display:"inline-block",animation:"hb-arrow 1.2s ease infinite"}}>→</span>
         </button>
