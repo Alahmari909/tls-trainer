@@ -598,11 +598,26 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
     <div style={{ padding:"0 16px", marginBottom:4 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@700&display=swap');
-        @keyframes fade-rtl {
-          0%   { transform:translateX(26px); opacity:0; }
-          9%   { transform:translateX(0);    opacity:1; }
-          84%  { transform:translateX(0);    opacity:1; }
+        /* Welcome 10s: enter 3s | hold 4.5s | exit 2.5s */
+        @keyframes hb-fade-w {
+          0%   { transform:translateX(26px); opacity:0; animation-timing-function:cubic-bezier(0.22,1,0.36,1); }
+          30%  { transform:translateX(0);    opacity:1; animation-timing-function:linear; }
+          75%  { transform:translateX(0);    opacity:1; animation-timing-function:cubic-bezier(0.65,0,0.35,1); }
           100% { transform:translateX(-16px); opacity:0; }
+        }
+        /* Intro 20s: enter 4s | hold 12s | exit 4s */
+        @keyframes hb-fade-i {
+          0%   { transform:translateX(26px); opacity:0; animation-timing-function:cubic-bezier(0.22,1,0.36,1); }
+          20%  { transform:translateX(0);    opacity:1; animation-timing-function:linear; }
+          80%  { transform:translateX(0);    opacity:1; animation-timing-function:cubic-bezier(0.65,0,0.35,1); }
+          100% { transform:translateX(-16px); opacity:0; }
+        }
+        /* Service 60s: enter 5s | hold 47s | exit 8s */
+        @keyframes hb-fade-s {
+          0%      { transform:translateX(26px); opacity:0; animation-timing-function:cubic-bezier(0.22,1,0.36,1); }
+          8.33%   { transform:translateX(0);    opacity:1; animation-timing-function:linear; }
+          86.67%  { transform:translateX(0);    opacity:1; animation-timing-function:cubic-bezier(0.65,0,0.35,1); }
+          100%    { transform:translateX(-16px); opacity:0; }
         }
         @keyframes hb-scan {
           0%   { left:-130%; opacity:0;  }
@@ -639,7 +654,7 @@ function HomeBanner({ name, navigate }: { name: string; navigate: (to: string) =
           <div
             key={idx}
             style={{
-              animation:`fade-rtl ${dur}ms cubic-bezier(.25,.46,.45,.94) both`,
+              animation:`${idx===0?'hb-fade-w':idx===1?'hb-fade-i':'hb-fade-s'} ${dur}ms linear both`,
               position:"relative", zIndex:1,
             }}
           >
