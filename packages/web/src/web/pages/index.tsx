@@ -4,6 +4,12 @@ import { getSession, setSession, clearSession } from "../hooks/useTelegramTrack"
 import type { TraineeSession } from "../hooks/useTelegramTrack";
 import { unlockAudio, playAlertTone, vibrate, showToast } from "../lib/audio";
 import { useLanguage } from "../hooks/useLanguage";
+import {
+  BookOpen, Star, FileText, Info, Target, Trophy, MessageSquare, BarChart2,
+  Eye, Lock, LogIn, UserPlus, Clock, AlertTriangle, RefreshCw, ZoomIn,
+  Wifi, Radio, Gauge, Zap, Antenna, Wrench, Plane, Shield, Bell,
+  Play, ArrowLeft, X,
+} from "lucide-react";
 
 type Module = { id: number; title: string; order: number };
 type ProgressRow = { moduleId: number; progress: number; completed: number };
@@ -113,7 +119,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     unlockAudio();
-    if (!loginName.trim()) { setError("الرجاء كتابة اسمك"); return; }
+    if (!loginName.trim()) { setError("Full name is required"); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/trainee/login", {
@@ -176,7 +182,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
       <div style={{ width:"100%", maxWidth:400 }}>
         {forceLogoutMsg && (
           <div style={{ padding:"12px 16px",marginBottom:16,borderRadius:10,background:"rgba(255,77,77,0.12)",border:"1px solid rgba(255,77,77,0.4)",color:"#FF4D4D",fontSize:12,textAlign:"center",lineHeight:1.5 }}>
-            🚫 {forceLogoutMsg}
+            <span style={{ display:"inline-flex", alignItems:"center", gap:6 }}><AlertTriangle size={14} strokeWidth={2} style={{ flexShrink:0 }} /> {forceLogoutMsg}</span>
           </div>
         )}
 
@@ -210,7 +216,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               color:"rgba(255,215,0,0.55)",fontFamily:"Inter",fontSize:11,letterSpacing:"0.12em",
               display:"flex",alignItems:"center",justifyContent:"center",gap:6,
             }}>
-              <span style={{fontSize:14}}>👁</span> BROWSE AS GUEST <span style={{fontSize:9,color:"rgba(255,215,0,0.3)"}}>(LIMITED)</span>
+              <Eye size={14} strokeWidth={1.8} style={{ flexShrink:0 }} /> BROWSE AS GUEST <span style={{fontSize:9,color:"rgba(255,215,0,0.3)"}}>(LIMITED)</span>
             </button>
           </div>
         )}
@@ -220,7 +226,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
           <form onSubmit={doRegister} style={cardStyle}>
             <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:20 }}>
               <button type="button" onClick={()=>{setMode("pick");setError("");}}
-                style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,fontSize:18 }}>←</button>
+                style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,display:"flex",alignItems:"center" }}><ArrowLeft size={18} strokeWidth={2} /></button>
               <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>NEW REGISTRATION REQUEST</div>
             </div>
 
@@ -261,7 +267,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
         {/* PENDING SCREEN */}
         {mode==="pending" && (
           <div style={{ ...cardStyle, textAlign:"center", animation:"fadeUp 0.4s ease" }}>
-            <div style={{ fontSize:52,marginBottom:16 }}>🕐</div>
+            <div style={{ display:"flex",alignItems:"center",justifyContent:"center",marginBottom:16 }}><Clock size={52} strokeWidth={1} color="#00AEEF" /></div>
             <div className="font-orbitron" style={{ fontSize:13,color:C.cyan,letterSpacing:"0.15em",marginBottom:12 }}>
               REQUEST UNDER REVIEW
             </div>
@@ -290,20 +296,20 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
           <form onSubmit={doLogin} style={cardStyle}>
             <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:20 }}>
               <button type="button" onClick={()=>{setMode("pick");setError("");}}
-                style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,fontSize:18 }}>←</button>
-              <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>دخول المتدرب</div>
+                style={{ background:"none",border:"none",color:C.cyan,cursor:"pointer",padding:4,display:"flex",alignItems:"center" }}><ArrowLeft size={18} strokeWidth={2} /></button>
+              <div className="font-orbitron" style={{ fontSize:11,color:C.cyan,letterSpacing:"0.15em" }}>TRAINEE LOGIN</div>
             </div>
 
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>اسمك</div>
+              <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>FULL NAME</div>
               <input type="text" value={loginName} onChange={e=>setLoginName(e.target.value)}
-                placeholder="اكتب اسمك" autoComplete="off" style={inputStyle} />
+                placeholder="Enter your full name" autoComplete="off" style={inputStyle} />
             </div>
 
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>رمز الدخول</div>
+              <div style={{ fontSize:9,fontFamily:"Inter",color:C.cyan,letterSpacing:"0.1em",marginBottom:6 }}>ACCESS PIN</div>
               <input type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)}
-                placeholder="أدخل رمز الدخول" inputMode="numeric" style={inputStyle} />
+                placeholder="Enter access PIN" inputMode="numeric" style={inputStyle} />
             </div>
 
             {error && <div style={{ color:"#FF4D4D",fontSize:12,marginBottom:12,textAlign:"center",lineHeight:1.5 }}>{error}</div>}
@@ -315,7 +321,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
               color:(!loginName.trim()||loading)?"rgba(255,255,255,0.35)":"#fff",
               fontFamily:"Inter",fontSize:12,letterSpacing:"0.1em",fontWeight:700,
             }}>
-              {loading?"جاري الدخول...":"دخول"}
+              {loading ? "SIGNING IN..." : "SIGN IN"}
             </button>
           </form>
         )}
@@ -436,17 +442,18 @@ function DailyTip() {
             style={{ position: "absolute", top: 20, right: 20, width: 40, height: 40,
               borderRadius: "50%", background: "rgba(255,255,255,0.18)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 20, color: "#fff", cursor: "pointer" }}>✕</div>
+              cursor: "pointer", transition: "background 0.2s" }}><X size={20} color="#fff" strokeWidth={2} /></div>
           {zoom > 1 && (
             <div onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
               style={{ position: "absolute", bottom: 28, background: "rgba(255,255,255,0.15)",
-                borderRadius: 20, padding: "6px 16px", fontSize: 12, color: "#fff", cursor: "pointer" }}>
-              ↺ إعادة الحجم
+                borderRadius: 20, padding: "6px 16px", fontSize: 12, color: "#fff", cursor: "pointer",
+                display:"flex", alignItems:"center", gap:6 }}>
+              <RefreshCw size={12} strokeWidth={2} /> Reset Zoom
             </div>
           )}
           {zoom === 1 && (
             <div style={{ position: "absolute", bottom: 28, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
-              إصبعان للتكبير
+              Pinch to zoom
             </div>
           )}
         </div>
@@ -466,7 +473,7 @@ function DailyTip() {
           fontFamily: "Inter", fontSize: 10, color: "rgba(255,255,255,0.4)",
           letterSpacing: "0.12em", marginTop: 3, textTransform: "uppercase",
         }}>
-          النصيحة التقنية اليومية
+          DAILY TECHNICAL TIP
         </div>
       </div>
 
@@ -494,10 +501,10 @@ function DailyTip() {
             background: `radial-gradient(circle, ${C}22, ${C}08)`,
             border: `1px solid ${C}40`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 24, flexShrink: 0,
+            flexShrink: 0,
             boxShadow: `0 0 16px ${C}30`,
           }}>
-            {tip.icon}
+            <Radio size={22} strokeWidth={1.6} color={C} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{
@@ -542,7 +549,8 @@ function DailyTip() {
               padding: "3px 10px", fontSize: 10,
               color: "rgba(255,255,255,0.6)",
               backdropFilter: "blur(4px)",
-            }}>🔍 اضغط للتكبير</div>
+              display:"flex", alignItems:"center", gap:5,
+            }}><ZoomIn size={12} strokeWidth={2} />Tap to zoom</div>
           </div>
         )}
 
@@ -759,8 +767,8 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
                 width: 38, height: 38, borderRadius: 10,
                 background: `${color}18`, border: `1px solid ${color}45`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, flexShrink: 0,
-              }}>▶</div>
+                flexShrink: 0,
+              }}><Play size={16} strokeWidth={2} color={color} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontFamily: "Inter", fontSize: 9, color,
@@ -906,15 +914,25 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
   };
   const [, navigate] = useLocation();
   const sections = [
-    { icon:"📘", label:"TLS BASICS",    sub:"Core TLS concepts",        path:"/basics",   color:"#00AEEF", available:true  },
-    { icon:"⭐", label:"TLS ADVANCED",  sub:"Advanced procedures",      path:"/advanced", color:"#FFD166", available:true  },
-    { icon:"📄", label:"MANUALS",       sub:"Reference documents",      path:"/manuals",  color:"#C9A66B", available:true  },
-    { icon:"ℹ️", label:"ABOUT",         sub:"System information",       path:"/about",    color:"#35D4FF", available:true  },
-    { icon:"🎯", label:"QUIZ",          sub:"Requires registration",    path:"/quiz-list",color:"#00D26A", available:false },
-    { icon:"🏆", label:"LEADERBOARD",   sub:"Requires registration",    path:"/leaderboard",color:"#FF4D4D",available:false},
-    { icon:"💬", label:"CHAT",          sub:"Requires registration",    path:"/chat",     color:"#FF9500", available:false },
-    { icon:"📊", label:"PROGRESS",      sub:"Requires registration",    path:"/",         color:"#AF52DE", available:false },
+    { label:"TLS BASICS",    sub:"Core TLS concepts",        path:"/basics",      color:"#00AEEF", available:true  },
+    { label:"TLS ADVANCED",  sub:"Advanced procedures",      path:"/advanced",    color:"#FFD166", available:true  },
+    { label:"MANUALS",       sub:"Reference documents",      path:"/manuals",     color:"#C9A66B", available:true  },
+    { label:"ABOUT",         sub:"System information",       path:"/about",       color:"#35D4FF", available:true  },
+    { label:"QUIZ",          sub:"Requires registration",    path:"/quiz-list",   color:"#00D26A", available:false },
+    { label:"LEADERBOARD",   sub:"Requires registration",    path:"/leaderboard", color:"#FF4D4D", available:false },
+    { label:"CHAT",          sub:"Requires registration",    path:"/chat",        color:"#FF9500", available:false },
+    { label:"PROGRESS",      sub:"Requires registration",    path:"/",            color:"#AF52DE", available:false },
   ];
+  const sectionIcons: Record<string, React.ReactNode> = {
+    "TLS BASICS":   <BookOpen size={20} strokeWidth={1.6} />,
+    "TLS ADVANCED": <Zap size={20} strokeWidth={1.6} />,
+    "MANUALS":      <FileText size={20} strokeWidth={1.6} />,
+    "ABOUT":        <Info size={20} strokeWidth={1.6} />,
+    "QUIZ":         <Target size={20} strokeWidth={1.6} />,
+    "LEADERBOARD":  <Trophy size={20} strokeWidth={1.6} />,
+    "CHAT":         <MessageSquare size={20} strokeWidth={1.6} />,
+    "PROGRESS":     <BarChart2 size={20} strokeWidth={1.6} />,
+  };
   return (
     <div className="page" style={{ background:"var(--bg-primary)", minHeight:"100vh", paddingBottom:40 }}>
       {/* Guest banner */}
@@ -924,7 +942,7 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{fontSize:18}}>👁</span>
+          <Eye size={18} strokeWidth={1.8} color="#FFD166" style={{ flexShrink:0 }} />
           <div>
             <div style={{ fontFamily:"Orbitron,monospace", fontSize:10, color:"#FFD166", letterSpacing:"0.15em" }}>GUEST MODE</div>
             <div style={{ fontFamily:"Inter", fontSize:10, color:"rgba(255,215,0,0.5)", marginTop:2 }}>Read-only access · Limited features</div>
@@ -969,10 +987,10 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
               opacity: s.available ? 1 : 0.45,
               transition:"all 0.15s",
             }}>
-              <div style={{ fontSize:22, marginBottom:8 }}>{s.icon}</div>
+              <div style={{ marginBottom:10, color:s.available?s.color:"rgba(255,255,255,0.25)" }}>{sectionIcons[s.label]}</div>
               <div style={{ fontFamily:"Orbitron,monospace", fontSize:9, color:s.available?s.color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em" }}>{s.label}</div>
               <div style={{ fontFamily:"Inter", fontSize:10, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{s.sub}</div>
-              {!s.available && <div style={{ fontFamily:"Inter", fontSize:8, color:"rgba(255,255,255,0.18)", marginTop:5, letterSpacing:"0.08em" }}>🔒 LOCKED</div>}
+              {!s.available && <div style={{ fontFamily:"Inter", fontSize:8, color:"rgba(255,255,255,0.18)", marginTop:5, letterSpacing:"0.08em", display:"flex", alignItems:"center", gap:4 }}><Lock size={9} strokeWidth={2} /> LOCKED</div>}
             </div>
           ))}
         </div>

@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { getSession, clearSession } from "../hooks/useTelegramTrack";
 import { telegramTrack } from "../hooks/useTelegramTrack";
+import {
+  Home, BookOpen, Zap, FileText, MessageSquare, MessageCircle,
+  Monitor, ShieldAlert, Trophy, BarChart, Bell, Settings,
+  Crosshair, Users, Info, X, LogOut, Wifi,
+} from "lucide-react";
 
 // ── Mini Bell Icon for NavMenu ────────────────────────────────────────────────
 function BellIcon({ traineeId }: { traineeId: string }) {
@@ -34,12 +39,14 @@ function BellIcon({ traineeId }: { traineeId: string }) {
       style={{
         background: "none", border: "none", cursor: "pointer",
         color: unread > 0 ? "#FFD166" : "rgba(255,255,255,0.45)",
-        fontSize: 18, padding: "2px 4px", position: "relative",
+        padding: "4px 6px", position: "relative",
         flexShrink: 0, lineHeight: 1,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "color 0.2s ease",
       }}
       aria-label="Notifications"
     >
-      🔔
+      <Bell size={18} strokeWidth={1.8} />
       {unread > 0 && (
         <span style={{
           position: "absolute", top: -2, right: 0,
@@ -53,14 +60,47 @@ function BellIcon({ traineeId }: { traineeId: string }) {
   );
 }
 
-// Icon map — emoji fallback for nav items
-const ICON_EMOJI: Record<string, string> = {
-  Home: "🏠", BookOpen: "📡", Zap: "⭐", FileText: "📋",
-  MessageSquare: "💬", MessageCircle: "🔒", Monitor: "🎮",
-  ShieldAlert: "⚠️", Trophy: "🏅", BarChart: "📊",
-  Bell: "🔔", Settings: "⚙️", Crosshair: "🎯", Users: "👥",
-  Info: "ℹ️",
-};
+// ── SVG Icon map — Lucide components for nav items ────────────────────────────
+type LucideIconName = keyof typeof ICON_MAP;
+
+const ICON_MAP = {
+  Home,
+  BookOpen,
+  Zap,
+  FileText,
+  MessageSquare,
+  MessageCircle,
+  Monitor,
+  ShieldAlert,
+  Trophy,
+  BarChart,
+  Bell,
+  Settings,
+  Crosshair,
+  Users,
+  Info,
+} as const;
+
+function NavIcon({ name, active }: { name: string; active: boolean }) {
+  const LucideIcon = ICON_MAP[name as LucideIconName];
+  if (!LucideIcon) {
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 18, height: 18, borderRadius: "50%",
+        background: "rgba(0,174,239,0.2)", fontSize: 9, color: "#00AEEF",
+      }}>•</span>
+    );
+  }
+  return (
+    <LucideIcon
+      size={17}
+      strokeWidth={active ? 2.2 : 1.7}
+      color={active ? "#35D4FF" : "rgba(255,255,255,0.45)"}
+      style={{ flexShrink: 0, transition: "color 0.2s ease, stroke-width 0.2s ease" }}
+    />
+  );
+}
 
 interface DynNavItem { id: number; label: string; href: string; icon: string; order: number; isVisible: boolean; }
 
@@ -234,7 +274,6 @@ export default function NavMenu() {
 
         {/* Right: Hamburger */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          {/* Hamburger */}
           <button
             onClick={() => setOpen(o => !o)}
             aria-label="Menu"
@@ -302,8 +341,11 @@ export default function NavMenu() {
             <button onClick={() => setOpen(false)} style={{
               background: "rgba(0,174,239,0.08)", border: "1px solid rgba(0,174,239,0.2)",
               borderRadius: 6, width: 28, height: 28, cursor: "pointer",
-              color: "#00AEEF", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
-            }}>✕</button>
+              color: "#00AEEF", display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.2s ease, border-color 0.2s ease",
+            }}>
+              <X size={14} strokeWidth={2} />
+            </button>
           </div>
         </div>
 
@@ -311,7 +353,6 @@ export default function NavMenu() {
         <div style={{ flex: 1, padding: "8px 0" }}>
           {dynNavItems.map((item, i) => {
             const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
-            const emoji = ICON_EMOJI[item.icon] ?? "•";
             return (
               <Link
                 key={item.id}
@@ -324,7 +365,7 @@ export default function NavMenu() {
                   color: isActive ? "#35D4FF" : "rgba(255,255,255,0.6)",
                   background: isActive ? "linear-gradient(90deg, rgba(0,174,239,0.12), rgba(0,174,239,0.03))" : "transparent",
                   borderLeft: `2px solid ${isActive ? "#00AEEF" : "transparent"}`,
-                  transition: "all 0.15s",
+                  transition: "all 0.18s ease",
                   fontFamily: "Inter, sans-serif",
                   fontSize: 15, fontWeight: isActive ? 600 : 400,
                   letterSpacing: "0.03em",
@@ -333,7 +374,7 @@ export default function NavMenu() {
                 onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(0,174,239,0.06)"; }}
                 onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <span style={{ fontSize: 16, flexShrink: 0, width: 22, textAlign: "center" }}>{emoji}</span>
+                <NavIcon name={item.icon} active={isActive} />
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {isActive && (
                   <div style={{
@@ -366,15 +407,18 @@ export default function NavMenu() {
                 background: "rgba(220,38,38,0.12)",
                 border: "1px solid rgba(220,38,38,0.35)",
                 borderRadius: 6,
-                padding: "4px 10px",
+                padding: "5px 12px",
                 cursor: "pointer",
                 color: "#ff6b6b",
                 fontFamily: "Inter, sans-serif",
                 fontSize: 8,
                 fontWeight: 700,
                 letterSpacing: "0.1em",
+                display: "flex", alignItems: "center", gap: 5,
+                transition: "background 0.2s ease, border-color 0.2s ease",
               }}
             >
+              <LogOut size={11} strokeWidth={2} />
               LOGOUT
             </button>
           )}

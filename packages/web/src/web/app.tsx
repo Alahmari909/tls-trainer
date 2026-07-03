@@ -7,6 +7,7 @@ import Sidebar from "./components/Sidebar";
 import { Provider } from "./components/provider";
 import { unlockAudio, _toastListeners, showToast } from "./lib/audio";
 import type { ToastItem } from "./lib/audio";
+import { AlertTriangle, AlertOctagon, Volume2, MessageSquare, Megaphone, RotateCcw } from "lucide-react";
 
 // ── PWA Loading Fallback ──────────────────────────────────────────────────────
 const PWAFallback = (
@@ -39,15 +40,14 @@ class RouteErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div style={{ background: '#03080f', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24 }}>
-          <div style={{ fontSize: 40 }}>⚠️</div>
+          <AlertTriangle size={40} strokeWidth={1.5} color="#FF4D4D" />
           <div style={{ color: '#FF4D4D', fontFamily: 'Inter', fontSize: 14, textAlign: 'center' }}>
             Page failed to load
           </div>
           <button
             onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-            style={{ background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.3)', borderRadius: 8, color: '#00AEEF', padding: '10px 24px', cursor: 'pointer', fontFamily: 'Inter', fontSize: 13 }}
-          >
-            ↺ Retry
+            style={{ background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.3)', borderRadius: 8, color: '#00AEEF', padding: '10px 24px', cursor: 'pointer', fontFamily: 'Inter', fontSize: 13, display:"flex", alignItems:"center", gap:6 }}>
+            <RotateCcw size={14} strokeWidth={2} /> Retry
           </button>
         </div>
       );
@@ -377,11 +377,11 @@ function GlobalToast() {
     }}>
       {toasts.map(t => {
         const color = colorMap[t.alertType] ?? "#00AEEF";
-        const emoji = t.alertType === "danger" ? "🚨"
-          : t.alertType === "warning" ? "⚠️"
-          : t.alertType === "sound" ? "🔊"
-          : t.alertType === "message" ? "💬"
-          : "📢";
+        const ToastIcon = t.alertType === "danger" ? AlertOctagon
+          : t.alertType === "warning" ? AlertTriangle
+          : t.alertType === "sound" ? Volume2
+          : t.alertType === "message" ? MessageSquare
+          : Megaphone;
         return (
           <div key={t.id} style={{
             background: "#0a1628",
@@ -394,7 +394,7 @@ function GlobalToast() {
             display: "flex", alignItems: "flex-start", gap: 10,
             pointerEvents: "auto",
           }}>
-            <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{emoji}</span>
+            <ToastIcon size={20} strokeWidth={1.8} style={{ flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: 9, fontFamily: "Inter", letterSpacing: "0.12em",
