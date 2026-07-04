@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
 		<link rel="icon" href="/favicon.ico" />
 		<link rel="manifest" href="/manifest-admin.json" />
@@ -15,6 +15,25 @@
 
 		<meta property="og:image" content="/og-image.png" />
 		<title>TLS Admin</title>
+
+		<script>
+// iOS PWA standalone: prevent navigation links from opening in Safari
+(function(){
+  if(navigator.standalone){
+    document.addEventListener('click',function(e){
+      var a=e.target.closest('a[href]');
+      if(!a)return;
+      var href=a.getAttribute('href');
+      if(!href||href.startsWith('http')||href.startsWith('mailto')||href.startsWith('tel'))return;
+      e.preventDefault();
+      if(window.history&&window.history.pushState){
+        window.history.pushState(null,'',href);
+        window.dispatchEvent(new PopStateEvent('popstate',{state:window.history.state}));
+      }
+    },true);
+  }
+})();
+		</script>
 	</head>
 	<body>
 		<div id="root"></div>

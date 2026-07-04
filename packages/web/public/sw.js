@@ -1,32 +1,43 @@
 /**
- * TLS Trainer — Service Worker
+ * TLS Trainer — Service Worker  (v4 — SPA-safe PWA)
+ *
+ * Key fix: Navigation requests (opening app from home screen) MUST always
+ * return the correct HTML shell (index.html or admin.html), never a 404 or
+ * offline page, so the React SPA can boot and handle routing itself.
+ *
  * Strategy:
- *  - App Shell (HTML/JS/CSS): Cache-first, update in background (stale-while-revalidate)
- *  - API calls:               Network-first, fall back to cache
- *  - Static assets (images, fonts): Cache-first, long TTL
- *  - Manuals / PDFs:          Cache-first after first fetch (offline reading)
- *  - Offline fallback:        /offline.html when network + cache both fail
+ *  - App Shell (HTML):          Cache-first → network update in background
+ *  - JS/CSS assets (hashed):    Cache-first (immutable)
+ *  - API calls:                 Network-first → cache fallback (5 s timeout)
+ *  - Static assets (img/font):  Cache-first → network update
+ *  - PDFs / Manuals:            Cache-first after first fetch (offline reading)
+ *  - Navigation fallback:       Always serve index.html / admin.html (SPA)
  */
 
-const CACHE_VERSION = "v1";
-const SHELL_CACHE   = `tls-shell-${CACHE_VERSION}`;
-const STATIC_CACHE  = `tls-static-${CACHE_VERSION}`;
-const API_CACHE     = `tls-api-${CACHE_VERSION}`;
-const MANUAL_CACHE  = `tls-manuals-${CACHE_VERSION}`;
+const CACHE_VERSION  = "v4";
+const SHELL_CACHE    = `tls-shell-${CACHE_VERSION}`;
+const STATIC_CACHE   = `tls-static-${CACHE_VERSION}`;
+const API_CACHE      = `tls-api-${CACHE_VERSION}`;
+const MANUAL_CACHE   = `tls-manuals-${CACHE_VERSION}`;
 
-// App shell — critical resources to pre-cache on install
+// ── Critical shell resources pre-cached on install ──────────────────────────
 const SHELL_URLS = [
   "/",
+  "/admin",           // admin PWA start_url — must be in cache
   "/offline.html",
   "/manifest-trainee.json",
+  "/manifest-admin.json",
   "/favicon.ico",
 ];
 
-// Static assets to pre-cache
+// ── Static assets pre-cached on install ─────────────────────────────────────
 const STATIC_ASSETS = [
   "/icon-trainee-192.png",
   "/icon-trainee-512.png",
+  "/icon-admin-192.png",
+  "/icon-admin-512.png",
   "/apple-touch-icon.png",
+  "/apple-touch-icon-admin.png",
   "/og-image.png",
   "/tip-critical-area.webp",
   "/tip-ddm.webp",
@@ -40,7 +51,7 @@ const STATIC_ASSETS = [
   "/tip-vswr.webp",
 ];
 
-// ── Install ──────────────────────────────────────────────────────────────────
+// ── Install: pre-cache shell + static assets ─────────────────────────────────
 self.addEventListener("install", (event) => {
   event.waitUntil(
     Promise.all([
@@ -58,20 +69,22 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// ── Activate ─────────────────────────────────────────────────────────────────
+// ── Activate: delete old caches, claim clients immediately ───────────────────
 self.addEventListener("activate", (event) => {
   const CURRENT_CACHES = [SHELL_CACHE, STATIC_CACHE, API_CACHE, MANUAL_CACHE];
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => !CURRENT_CACHES.includes(key))
-          .map((key) => {
-            console.log("[SW] Deleting old cache:", key);
-            return caches.delete(key);
-          })
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => !CURRENT_CACHES.includes(key))
+            .map((key) => {
+              console.log("[SW] Deleting old cache:", key);
+              return caches.delete(key);
+            })
+        )
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim())
   );
 });
 
@@ -80,7 +93,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET, cross-origin (except fonts), and chrome-extension requests
+  // Skip non-GET, cross-origin (except Google Fonts), and extension requests
   if (request.method !== "GET") return;
   if (url.origin !== self.location.origin && !url.hostname.includes("fonts.g")) return;
   if (url.protocol === "chrome-extension:") return;
@@ -91,7 +104,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 2. PDFs and Manuals: Cache-first (offline reading) ───────────────────
+  // ── 2. PDFs / Manuals: Cache-first (offline reading) ─────────────────────
   if (
     url.pathname.endsWith(".pdf") ||
     url.pathname.startsWith("/pdfs/") ||
@@ -111,21 +124,69 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 4. JS/CSS assets (hashed): Cache-first (immutable) ───────────────────
+  // ── 4. Hashed JS/CSS assets: Cache-first (immutable) ─────────────────────
   if (/\/assets\/[^/]+-[a-zA-Z0-9_]{8}\.(js|css)$/.test(url.pathname)) {
     event.respondWith(cacheFirstWithNetwork(request, SHELL_CACHE));
     return;
   }
 
-  // ── 5. HTML navigation: Stale-while-revalidate → offline fallback ─────────
+  // ── 5. HTML navigation (SPA) ─────────────────────────────────────────────
+  //   This is the critical fix: any navigation request (opening from home
+  //   screen, refreshing, deep-linking) must return the correct HTML shell.
+  //   The React router then handles the path client-side.
   if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
-    event.respondWith(staleWhileRevalidateWithOfflineFallback(request));
+    event.respondWith(handleNavigation(request, url));
     return;
   }
 
   // ── 6. Everything else: Network-first ────────────────────────────────────
   event.respondWith(networkFirstWithCache(request, SHELL_CACHE, 8000));
 });
+
+// ── Navigation handler: SPA-safe ─────────────────────────────────────────────
+// Determines which HTML shell to serve (index.html vs admin.html),
+// tries network first, falls back to cache, never returns 404.
+async function handleNavigation(request, url) {
+  // Decide which shell this route belongs to
+  const isAdminRoute =
+    url.pathname === "/admin" ||
+    url.pathname.startsWith("/admin/");
+
+  // Canonical shell URL (what the server actually serves)
+  const shellUrl = isAdminRoute ? "/admin" : "/";
+
+  const cache = await caches.open(SHELL_CACHE);
+
+  // Try network first (so we always get the latest build)
+  try {
+    const networkResponse = await fetchWithTimeout(request, 6000);
+    if (networkResponse.ok) {
+      // Update cache with fresh shell
+      cache.put(shellUrl, networkResponse.clone()).catch(() => {});
+      return networkResponse;
+    }
+  } catch {
+    // Network failed — fall through to cache
+  }
+
+  // Serve from cache (stale is fine — React handles routing)
+  const cached = await cache.match(shellUrl);
+  if (cached) return cached;
+
+  // Last resort: try the other shell
+  const fallbackShell = isAdminRoute ? "/" : "/admin";
+  const fallbackCached = await cache.match(fallbackShell);
+  if (fallbackCached) return fallbackCached;
+
+  // Absolute last resort: offline page
+  const offlinePage = await cache.match("/offline.html");
+  if (offlinePage) return offlinePage;
+
+  return new Response(
+    "<!doctype html><html><head><meta charset=UTF-8><meta name=viewport content='width=device-width,initial-scale=1'><title>TLS Trainer</title></head><body><p style='font-family:sans-serif;text-align:center;padding:40px'>Loading TLS Trainer... Please check your connection.</p></body></html>",
+    { headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
 
 // ── Strategy Helpers ─────────────────────────────────────────────────────────
 
@@ -144,15 +205,15 @@ async function networkFirstWithCache(request, cacheName, timeoutMs = 8000) {
   }
 }
 
-/** Cache-first: serve from cache, update cache in background */
+/** Cache-first: serve from cache, update in background */
 async function cacheFirstWithNetwork(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) {
-    // Update in background
-    fetch(request).then((res) => {
-      if (res.ok) cache.put(request, res).catch(() => {});
-    }).catch(() => {});
+    // Update in background (stale-while-revalidate)
+    fetch(request)
+      .then((res) => { if (res.ok) cache.put(request, res).catch(() => {}); })
+      .catch(() => {});
     return cached;
   }
   try {
@@ -166,38 +227,12 @@ async function cacheFirstWithNetwork(request, cacheName) {
   }
 }
 
-/** Stale-while-revalidate for HTML navigation */
-async function staleWhileRevalidateWithOfflineFallback(request) {
-  const cache = await caches.open(SHELL_CACHE);
-  const cached = await cache.match(request);
-
-  const networkFetch = fetch(request).then((res) => {
-    if (res.ok) cache.put(request, res.clone()).catch(() => {});
-    return res;
-  }).catch(() => null);
-
-  if (cached) {
-    // Serve stale immediately, update in background
-    networkFetch.catch(() => {});
-    return cached;
-  }
-
-  // No cache — wait for network
-  const networkResponse = await networkFetch;
-  if (networkResponse) return networkResponse;
-
-  // Both failed — serve offline page
-  return (await cache.match("/offline.html")) ?? new Response(
-    "<h1>Offline</h1><p>No internet connection.</p>",
-    { headers: { "Content-Type": "text/html" } }
-  );
-}
-
 function fetchWithTimeout(request, ms) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("timeout")), ms);
-    fetch(request).then((res) => { clearTimeout(timer); resolve(res); })
-                  .catch((err) => { clearTimeout(timer); reject(err); });
+    const timer = setTimeout(() => reject(new Error("SW timeout")), ms);
+    fetch(request)
+      .then((res) => { clearTimeout(timer); resolve(res); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
   });
 }
 
@@ -205,15 +240,15 @@ async function offlineFallback(request) {
   const cache = await caches.open(SHELL_CACHE);
   const url = new URL(request.url);
   if (request.mode === "navigate" || url.pathname.endsWith(".html")) {
-    return (await cache.match("/offline.html")) ?? new Response(
-      "<h1>Offline</h1>",
-      { headers: { "Content-Type": "text/html" } }
+    return (
+      (await cache.match("/offline.html")) ??
+      new Response("<h1>Offline</h1>", { headers: { "Content-Type": "text/html" } })
     );
   }
   return new Response("", { status: 503, statusText: "Service Unavailable" });
 }
 
-// ── Background Sync: queue failed API writes ─────────────────────────────────
+// ── Messages ──────────────────────────────────────────────────────────────────
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
@@ -222,7 +257,9 @@ self.addEventListener("message", (event) => {
     const { url } = event.data;
     if (url) {
       caches.open(MANUAL_CACHE).then((cache) =>
-        fetch(url).then((res) => { if (res.ok) cache.put(url, res); }).catch(() => {})
+        fetch(url)
+          .then((res) => { if (res.ok) cache.put(url, res); })
+          .catch(() => {})
       );
     }
   }
