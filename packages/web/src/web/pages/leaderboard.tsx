@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getSession } from "../hooks/useTelegramTrack";
 import BackButton from "../components/BackButton";
+import { Trophy, Zap, Flame, Target, Users } from "lucide-react";
 
 type LeaderboardEntry = {
   id: string;
@@ -16,7 +17,7 @@ type LeaderboardEntry = {
   quizzes_passed: number;
 };
 
-const MEDAL = ["🥇", "🥈", "🥉"];
+const MEDAL_COLORS = ["#FFD700", "#C0C0C0", "#CD7F32"];
 const LEVEL_COLOR: Record<string, string> = {
   advanced: "#FFD166",
   beginner: "#00AEEF",
@@ -49,7 +50,7 @@ export default function Leaderboard() {
 
       {/* Header */}
       <div style={{ textAlign: "center", padding: "24px 0 20px" }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>🏆</div>
+        <div style={{ marginBottom: 8, display:"flex", justifyContent:"center" }}><Trophy size={40} strokeWidth={1.4} color="#FFD166" /></div>
         <div style={{
           fontFamily: "Inter", fontSize: 22, fontWeight: 800,
           letterSpacing: "0.12em", color: "#fff", marginBottom: 4,
@@ -87,9 +88,9 @@ export default function Leaderboard() {
         padding: 4, borderRadius: 10,
       }}>
         {[
-          { key: "xp", label: "⚡ XP" },
-          { key: "streak", label: "🔥 STREAK" },
-          { key: "quiz", label: "🎯 QUIZZES" },
+          { key: "xp", label: "XP" },
+          { key: "streak", label: "STREAK" },
+          { key: "quiz", label: "QUIZZES" },
         ].map(t => (
           <button
             key={t.key}
@@ -118,7 +119,7 @@ export default function Leaderboard() {
       {/* Empty */}
       {!loading && sorted.length === 0 && (
         <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
+          <div style={{ marginBottom: 12, display:"flex", justifyContent:"center" }}><Users size={40} strokeWidth={1.4} color="#3d5a73" /></div>
           <div style={{ color: "#3d5a73", fontFamily: "Inter", fontSize: 13 }}>
             No trainees yet. Be the first!
           </div>
@@ -158,11 +159,13 @@ export default function Leaderboard() {
             {/* Rank */}
             <div style={{
               width: 32, textAlign: "center", flexShrink: 0,
-              fontSize: medal ? 22 : 13,
+              fontSize: 13,
               fontWeight: 700, fontFamily: "Inter",
-              color: i < 3 ? "#FFD166" : "#3d5a73",
+              color: i < 3 ? MEDAL_COLORS[i] : "#3d5a73",
             }}>
-              {medal ?? `#${i + 1}`}
+              {i < 3 ? (
+                <Trophy size={20} strokeWidth={1.8} color={MEDAL_COLORS[i]} />
+              ) : `#${i + 1}`}
             </div>
 
             {/* Avatar */}
@@ -211,8 +214,8 @@ export default function Leaderboard() {
                 {statValue}
               </div>
               {tab === "xp" && (
-                <div style={{ fontSize: 9, color: "#3d5a73", fontFamily: "Inter" }}>
-                  🔥 {entry.current_streak}d streak
+                <div style={{ fontSize: 9, color: "#3d5a73", fontFamily: "Inter", display:"flex", alignItems:"center", gap:3 }}>
+                  <Flame size={9} strokeWidth={2} /> {entry.current_streak}d streak
                 </div>
               )}
               {tab === "streak" && (

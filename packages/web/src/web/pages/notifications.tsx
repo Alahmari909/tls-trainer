@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
 import { playAlertTone, vibrate } from "../lib/audio";
+import { MessageSquare, AlertOctagon, AlertTriangle, Volume2, Megaphone } from "lucide-react";
 
 const C = {
   navy: "#071426",
@@ -49,15 +50,15 @@ function alertColor(atype: string, isMsg: boolean): string {
 }
 
 function alertLabel(atype: string, isMsg: boolean): string {
-  if (isMsg) return "💬 Message";
+  if (isMsg) return "Message";
   const m: Record<string, string> = {
-    danger: "🚨 Danger Alert",
-    warning: "⚠️ Warning",
-    sound: "🔊 Sound Alert",
-    info: "📢 Info",
-    module: "📡 Module",
+    danger: "Danger Alert",
+    warning: "Warning",
+    sound: "Sound Alert",
+    info: "Info",
+    module: "Module",
   };
-  return m[atype] ?? "📢 Alert";
+  return m[atype] ?? "Alert";
 }
 
 function formatTs(ts: number): string {
@@ -281,15 +282,15 @@ export default function Notifications({ adminMode = false }: { adminMode?: boole
                           background: `${color}18`,
                           border: `1px solid ${color}30`,
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 16,
+                          color,
                         }}>
-                          {isMsg ? "💬" : atype === "danger" ? "🚨" : atype === "warning" ? "⚠️" : atype === "sound" ? "🔊" : "📢"}
+                          {isMsg ? <MessageSquare size={16} strokeWidth={1.8} /> : atype === "danger" ? <AlertOctagon size={16} strokeWidth={1.8} /> : atype === "warning" ? <AlertTriangle size={16} strokeWidth={1.8} /> : atype === "sound" ? <Volume2 size={16} strokeWidth={1.8} /> : <Megaphone size={16} strokeWidth={1.8} />}
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                             {notif.pinned === 1 && (
-                              <span style={{ fontSize: 11, color: C.gold }}>📌</span>
+                              <span style={{ display:"inline-flex", alignItems:"center", color: C.gold }}><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg></span>
                             )}
                             <span style={{
                               fontSize: 10, fontFamily: "Inter", letterSpacing: "0.06em",

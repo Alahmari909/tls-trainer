@@ -435,10 +435,7 @@ export default function Quiz() {
 
         {/* ── QUESTION REVIEW ────────────────────────────────── */}
         <div style={{ padding: "0 16px" }}>
-          <div className="font-orbitron" style={{
-            fontSize: 9, color: "rgba(0,174,239,0.55)",
-            letterSpacing: "0.22em", marginBottom: 12,
-          }}>
+          <div className="sub-heading sub-heading-accent" style={{ color: "rgba(0,174,239,0.55)" }}>
             QUESTION REVIEW · {totalQ} QUESTIONS
           </div>
 
@@ -595,7 +592,7 @@ export default function Quiz() {
       {/* Question */}
       <div style={{ padding: "20px 16px", flex: 1 }}>
         <div className="glass-card" style={{ padding: "20px 18px", marginBottom: 16, border: `1px solid ${color}30`, background: `${color}08` }}>
-          <div className="font-orbitron" style={{ fontSize: 9, color: color, letterSpacing: "0.15em", marginBottom: 10 }}>
+          <div className="sub-heading" style={{ color: color, marginBottom: 10 }}>
             QUESTION {current + 1}
           </div>
           <div style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.6, fontWeight: 500 }}>

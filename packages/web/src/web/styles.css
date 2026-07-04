@@ -963,6 +963,86 @@ input:focus, textarea:focus, select:focus {
   transition: background 0.18s ease, border-left-color 0.18s ease, color 0.18s ease;
 }
 
+/* ── Unified sub-heading typography scale ──
+   Use these classes to standardize section labels across all pages
+   ─────────────────────────────────────────────────────────────── */
+
+/* Primary section label: uppercase tracking, muted color */
+.sub-heading {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+/* Accent section label: colored, slightly larger */
+.sub-heading-accent {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+/* Card title inside sections */
+.card-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+
+/* Card subtitle / meta text */
+.card-meta {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+
+/* Orbitron-style section label (for tactical HUD feel) */
+.hud-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Standardize existing font-orbitron section labels */
+.font-orbitron.section-label,
+[class*="font-orbitron"][style*="fontSize: 9"],
+[class*="font-orbitron"][style*="fontSize: 10"] {
+  letter-spacing: 0.22em !important;
+}
+
+/* ── Consistent sub-heading sizes on desktop ── */
+@media (min-width: 768px) {
+  .sub-heading, .sub-heading-accent, .hud-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+  }
+  .card-title {
+    font-size: 14px;
+  }
+  .card-meta {
+    font-size: 12px;
+  }
+}
+
 /* ── Admin green theme overrides ── */
 [data-theme="admin"] {
   --accent-blue:  #00FF88;

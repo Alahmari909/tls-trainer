@@ -287,9 +287,9 @@ export default function Achievements() {
           {/* Streak row */}
           <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
             {[
-              { label: "🔥 STREAK", value: `${streak.currentStreak}d`, color: "#FF9F43" },
-              { label: "⚡ LONGEST", value: `${streak.longestStreak}d`, color: "#FFD166" },
-              { label: "🏅 MODULES", value: String(progressCount), color: "#00D26A" },
+              { label: "STREAK", value: `${streak.currentStreak}d`, color: "#FF9F43" },
+              { label: "LONGEST", value: `${streak.longestStreak}d`, color: "#FFD166" },
+              { label: "MODULES", value: String(progressCount), color: "#00D26A" },
             ].map(s => (
               <div key={s.label} style={{
                 padding: "5px 12px", borderRadius: 20,

@@ -454,7 +454,7 @@ export default function Modules() {
 
                     {/* Lessons Section */}
                     <div style={{ padding: "0 16px 14px" }}>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", marginBottom: 8, fontFamily: "Orbitron" }}>
+                      <div className="sub-heading">
                         LESSONS
                       </div>
 
@@ -543,7 +543,7 @@ export default function Modules() {
                     {/* PDF Section */}
                     {pdf && (
                       <div style={{ padding: "0 16px 16px" }}>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", marginBottom: 8, fontFamily: "Orbitron" }}>
+                        <div className="sub-heading">
                           REFERENCE DOCUMENT
                         </div>
                         <div style={{

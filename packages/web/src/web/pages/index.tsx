@@ -799,10 +799,7 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       {/* ── INTRO VIDEO ── */}
       <div style={{ padding: "18px 16px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <div style={{
-            fontFamily: "Inter", fontSize: 9, letterSpacing: "0.22em",
-            color: "var(--text-muted)",
-          }}>SYSTEM INTRODUCTION</div>
+          <div className="sub-heading" style={{ marginBottom: 0 }}>SYSTEM INTRODUCTION</div>
           <button
             onClick={toggleSubtitles}
             style={{
@@ -977,7 +974,7 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
 
       {/* Section grid */}
       <div style={{ padding:"20px 16px 0" }}>
-        <div style={{ fontFamily:"Inter", fontSize:9, letterSpacing:"0.2em", color:"rgba(255,255,255,0.25)", marginBottom:14 }}>AVAILABLE SECTIONS</div>
+        <div className="sub-heading" style={{ color:"rgba(255,255,255,0.25)" }}>AVAILABLE SECTIONS</div>
         <div className="section-grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           {sections.map((s, idx)=>(
             <div key={s.label} className="stagger-item" onClick={()=>{ if(s.available) navigate(s.path); }} style={{
