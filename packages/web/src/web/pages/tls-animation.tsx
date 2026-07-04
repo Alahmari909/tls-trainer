@@ -115,6 +115,13 @@ const CSS = `
 .sig-ripple:nth-child(2){animation-delay:.4s}
 .sig-ripple:nth-child(3){animation-delay:.8s}
 
+/* Moving dashes for signal direction */
+@keyframes dash-move-out { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+.dash-move-out { stroke-dasharray: 10, 6; animation: dash-move-out 1.5s linear infinite; }
+
+@keyframes dash-move-in { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 100; } }
+.dash-move-in { stroke-dasharray: 10, 6; animation: dash-move-in 1.5s linear infinite; }
+
 .tls-fadein { animation: tls-fadein .55s ease both; }
 .tls-pulse  { animation: tls-pulse 2s ease-in-out infinite; }
 .tls-blink  { animation: tls-blink 1.1s ease-in-out infinite; }
@@ -274,9 +281,9 @@ function Step1Scene({ color }: { color: string }) {
           />
         ))}
       </g>
-      {/* Directional arrow from TLS to aircraft */}
-      <line x1="200" y1="215" x2="690" y2="115" stroke={color} strokeWidth="1.5" strokeDasharray="8 5" opacity=".4" />
-      {/* Freq label */}
+      {/* Directional signal from TLS to aircraft (Animated) */}
+      <line x1="200" y1="215" x2="690" y2="115" stroke={color} strokeWidth="2.5" className="dash-move-out" opacity=".7" />
+      {/* Freq label Space */}
       <g className="tls-fadein" style={{ animationDelay: ".3s" }}>
         <rect x="350" y="130" width="110" height="22" rx="5" fill="rgba(0,0,0,.6)" stroke={color} strokeWidth="1" />
         <text x="405" y="145" textAnchor="middle" fill={color} fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">1030 MHz ►</text>
@@ -306,9 +313,9 @@ function Step2Scene({ color }: { color: string }) {
           />
         ))}
       </g>
-      {/* Dashed return line */}
-      <line x1="690" y1="110" x2="205" y2="218" stroke={color} strokeWidth="1.5" strokeDasharray="8 5" opacity=".45" />
-      {/* Freq label */}
+      {/* Directional signal from aircraft back to TLS (Animated) */}
+      <line x1="690" y1="110" x2="205" y2="218" stroke={color} strokeWidth="2.5" className="dash-move-in" opacity=".7" />
+      {/* Freq label Space */}
       <g className="tls-fadein" style={{ animationDelay: ".3s" }}>
         <rect x="350" y="130" width="120" height="22" rx="5" fill="rgba(0,0,0,.6)" stroke={color} strokeWidth="1" />
         <text x="410" y="145" textAnchor="middle" fill={color} fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">◄ 1090 MHz</text>
