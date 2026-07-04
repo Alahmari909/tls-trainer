@@ -59,11 +59,15 @@ const server = Bun.serve({
     if (await file.exists()) {
       // Hashed assets (e.g. main-abc123.js) get long cache; others get no-cache
       const isHashed = /\/assets\/[^/]+-[a-zA-Z0-9_]{8}\.(js|css)$/.test(url.pathname);
+      // Service Worker must be served with Service-Worker-Allowed header
+      const isSW = url.pathname === "/sw.js";
       return new Response(file, {
         headers: securityHeaders(
           isHashed
             ? { "Cache-Control": "public, max-age=31536000, immutable" }
-            : { "Cache-Control": "no-cache, no-store, must-revalidate" }
+            : isSW
+              ? { "Cache-Control": "no-cache, no-store, must-revalidate", "Service-Worker-Allowed": "/", "Content-Type": "application/javascript" }
+              : { "Cache-Control": "no-cache, no-store, must-revalidate" }
         ),
       });
     }

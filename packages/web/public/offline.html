@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TLS Trainer — Offline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #03080f;
+      --surface: #0a1628;
+      --border:  rgba(0, 200, 255, 0.15);
+      --cyan:    #00c8ff;
+      --cyan-dim: rgba(0, 200, 255, 0.6);
+      --text:    rgba(255,255,255,0.85);
+      --muted:   rgba(255,255,255,0.35);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    /* Animated radar background */
+    .radar-bg {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.18;
+    }
+    .radar-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid var(--cyan);
+      animation: pulse-ring 3s ease-in-out infinite;
+    }
+    .radar-ring:nth-child(1) { width: 120px; height: 120px; animation-delay: 0s; }
+    .radar-ring:nth-child(2) { width: 240px; height: 240px; animation-delay: 0.4s; }
+    .radar-ring:nth-child(3) { width: 360px; height: 360px; animation-delay: 0.8s; }
+    .radar-ring:nth-child(4) { width: 480px; height: 480px; animation-delay: 1.2s; }
+    .radar-ring:nth-child(5) { width: 600px; height: 600px; animation-delay: 1.6s; }
+
+    @keyframes pulse-ring {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50%       { opacity: 0.7; transform: scale(1.02); }
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(0,200,255,0.06), 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    /* Corner brackets */
+    .card::before, .card::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-color: var(--cyan);
+      border-style: solid;
+      opacity: 0.5;
+    }
+    .card::before { top: 10px; left: 10px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
+    .card::after  { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
+
+    .icon-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(0,200,255,0.08);
+      border: 1px solid rgba(0,200,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-6px); }
+    }
+
+    .label {
+      font-family: "Orbitron", "Courier New", monospace;
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      color: var(--cyan-dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-family: "Orbitron", "Courier New", monospace;
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .feature-item {
+      background: rgba(0,200,255,0.04);
+      border: 1px solid rgba(0,200,255,0.1);
+      border-radius: 8px;
+      padding: 10px 8px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .feature-item svg { flex-shrink: 0; color: var(--cyan); opacity: 0.7; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 13px 20px;
+      background: rgba(0,200,255,0.1);
+      border: 1px solid rgba(0,200,255,0.3);
+      border-radius: 10px;
+      color: var(--cyan);
+      font-family: "Orbitron", "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      text-decoration: none;
+      margin-bottom: 10px;
+    }
+    .btn:hover {
+      background: rgba(0,200,255,0.18);
+      border-color: rgba(0,200,255,0.5);
+      transform: translateY(-1px);
+    }
+    .btn:active { transform: translateY(0); }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #FF4444;
+      box-shadow: 0 0 6px #FF4444;
+      animation: blink 1.5s ease-in-out infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    .footer-note {
+      font-size: 10px;
+      color: rgba(255,255,255,0.2);
+      margin-top: 16px;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Radar background -->
+  <div class="radar-bg">
+    <div class="radar-ring"></div>
+    <div class="radar-ring"></div>
+    <div class="radar-ring"></div>
+    <div class="radar-ring"></div>
+    <div class="radar-ring"></div>
+  </div>
+
+  <div class="card">
+    <div class="icon-wrap">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00c8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 6l5 5 4-4 4 4 5-5"/>
+        <path d="M1 18h22"/>
+        <circle cx="12" cy="12" r="1" fill="#00c8ff"/>
+      </svg>
+    </div>
+
+    <div class="label">Connection Status</div>
+    <h1>YOU'RE OFFLINE</h1>
+    <p>
+      <span class="status-dot"></span>
+      No network connection detected. Some content may still be available from your local cache.
+    </p>
+
+    <div class="features">
+      <div class="feature-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Cached Manuals
+      </div>
+      <div class="feature-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Quiz History
+      </div>
+      <div class="feature-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Daily Tips
+      </div>
+      <div class="feature-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Module Content
+      </div>
+    </div>
+
+    <button class="btn" onclick="window.location.reload()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Retry Connection
+    </button>
+    <a href="/" class="btn" style="background:rgba(255,255,255,0.03); border-color:rgba(255,255,255,0.1); color:rgba(255,255,255,0.4);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Go to Home
+    </a>
+
+    <p class="footer-note">TLS TRAINER · OFFLINE MODE · CACHED CONTENT AVAILABLE</p>
+  </div>
+
+</body>
+</html>

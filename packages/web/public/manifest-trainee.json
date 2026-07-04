@@ -1,13 +1,16 @@
 {
   "name": "TLS Trainer",
   "short_name": "TLS Trainer",
-  "description": "Transponder Landing System Training Application",
+  "description": "Transponder Landing System Training Application — ILS/TLS technical training for aviation maintenance engineers",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#03080f",
   "theme_color": "#03080f",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "utilities"],
   "icons": [
     {
       "src": "/icon-trainee-192.png",
@@ -33,5 +36,22 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Quiz",
+      "short_name": "Quiz",
+      "description": "Start a practice quiz",
+      "url": "/?shortcut=quiz",
+      "icons": [{ "src": "/icon-trainee-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Manuals",
+      "short_name": "Manuals",
+      "description": "Browse technical manuals",
+      "url": "/?shortcut=manuals",
+      "icons": [{ "src": "/icon-trainee-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
 }
