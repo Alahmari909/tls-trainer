@@ -1716,6 +1716,79 @@ const app = new Hono()
     const rows = await sql(`SELECT id, module_id, module_name, score, total, pct, passed, ts FROM quiz_attempts WHERE trainee_id=? ORDER BY ts DESC`, [userId]);
     return c.json(rows, 200);
   })
+  // ── AI Trainee Performance Summary ──────────────────────────────────────
+  // GET /ai/trainee-summary/:userId — returns weak modules and missed questions for AI context
+  .get('/ai/trainee-summary/:userId', async (c) => {
+    const userId = c.req.param('userId');
+    try {
+      // 1. Get quiz attempts summary per module
+      const moduleSummary = await sql(`
+        SELECT 
+          module_id,
+          module_name,
+          COUNT(*) as attempts,
+          ROUND(AVG(pct), 1) as avg_pct,
+          MAX(pct) as best_pct,
+          SUM(CASE WHEN passed = 0 THEN 1 ELSE 0 END) as fail_count
+        FROM quiz_attempts
+        WHERE trainee_id = ?
+        GROUP BY module_id
+        ORDER BY avg_pct ASC
+      `, [userId]);
+
+      // 2. Get most-missed questions for this trainee
+      const missedQuestions = await sql(`
+        SELECT 
+          question_id,
+          question_text,
+          module_id,
+          COUNT(*) as times_attempted,
+          SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) as times_wrong
+        FROM quiz_answers
+        WHERE trainee_id = ?
+        GROUP BY question_id
+        HAVING times_wrong > 0
+        ORDER BY times_wrong DESC, times_attempted DESC
+        LIMIT 10
+      `, [userId]);
+
+      // 3. Identify weak modules (avg < 70% or multiple fails)
+      const weakModules = (moduleSummary as any[]).filter(
+        (m: any) => m.avg_pct < 70 || m.fail_count > 0
+      );
+
+      // 4. Get latest attempt info
+      const [latestAttempt] = await sql(`
+        SELECT module_id, module_name, pct, passed, ts
+        FROM quiz_attempts
+        WHERE trainee_id = ?
+        ORDER BY ts DESC
+        LIMIT 1
+      `, [userId]) as any[];
+
+      // 5. Overall stats
+      const [overall] = await sql(`
+        SELECT 
+          COUNT(*) as total_attempts,
+          ROUND(AVG(pct), 1) as overall_avg,
+          SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as total_passed
+        FROM quiz_attempts
+        WHERE trainee_id = ?
+      `, [userId]) as any[];
+
+      return c.json({
+        weakModules,
+        missedQuestions,
+        latestAttempt: latestAttempt ?? null,
+        overall: overall ?? { total_attempts: 0, overall_avg: 0, total_passed: 0 },
+        moduleSummary,
+      }, 200);
+    } catch (e: any) {
+      console.error('[AI Summary]', e?.message);
+      return c.json({ weakModules: [], missedQuestions: [], latestAttempt: null, overall: { total_attempts: 0, overall_avg: 0, total_passed: 0 }, moduleSummary: [] }, 200);
+    }
+  })
+
   // ── AI access-control helpers ────────────────────────────────────────────
   // GET /ai/status/:userId
   .get('/ai/status/:userId', async (c) => {
@@ -1742,10 +1815,11 @@ const app = new Hono()
 
   .post('/chat/ai', async (c) => {
     const body = await c.req.json();
-    const { message, history = [], userId, fileData, fileType, fileName } = body as {
+    const { message, history = [], userId, fileData, fileType, fileName, includePerformance } = body as {
       message: string; userId?: string;
       history: { role: 'user' | 'assistant'; content: string }[];
       fileData?: string; fileType?: string; fileName?: string;
+      includePerformance?: boolean;
     };
 
     // ── Rate limit: 50 questions per 24h ────────────────────────────────────
@@ -1775,6 +1849,34 @@ const app = new Hono()
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return c.json({ reply: 'عذراً، مفتاح API غير مضبوط.\nSorry, AI API key is not configured.' }, 200);
+    }
+
+    // ── Load trainee performance data for smart context ──────────────────────
+    let performanceContext = '';
+    if (userId) {
+      try {
+        const [modSummary, missedQs] = await Promise.all([
+          sql(`SELECT module_id, module_name, COUNT(*) as attempts, ROUND(AVG(pct),1) as avg_pct, SUM(CASE WHEN passed=0 THEN 1 ELSE 0 END) as fail_count FROM quiz_attempts WHERE trainee_id=? GROUP BY module_id ORDER BY avg_pct ASC`, [userId]),
+          sql(`SELECT question_text, module_id, SUM(CASE WHEN is_correct=0 THEN 1 ELSE 0 END) as times_wrong FROM quiz_answers WHERE trainee_id=? GROUP BY question_id HAVING times_wrong>0 ORDER BY times_wrong DESC LIMIT 5`, [userId]),
+        ]);
+        const weakMods = (modSummary as any[]).filter((m: any) => m.avg_pct < 70 || m.fail_count > 0);
+        if (weakMods.length > 0 || (missedQs as any[]).length > 0) {
+          performanceContext = `\n=== أداء المتدرب (بيانات حقيقية من الكويزات) ===\n`;
+          if (weakMods.length > 0) {
+            performanceContext += `الموديولات الضعيفة:\n`;
+            for (const m of weakMods) {
+              performanceContext += `- ${m.module_name ?? 'Module '+m.module_id}: معدل ${m.avg_pct}% | رسب ${m.fail_count} مرة\n`;
+            }
+          }
+          if ((missedQs as any[]).length > 0) {
+            performanceContext += `أكثر الأسئلة خطأً:\n`;
+            for (const q of missedQs as any[]) {
+              performanceContext += `- "${(q.question_text as string).slice(0,80)}" (خطأ ${q.times_wrong} مرة)\n`;
+            }
+          }
+          performanceContext += `\nتعليمات: استخدم هذه البيانات لتوجيه المتدرب. إذا سأل سؤالاً عاماً، اقترح مراجعة نقاط ضعفه. إذا طلب مساعدة، ركّز على المواضيع الضعيفة. اسأل أسئلة تأكيدية للتأكد من الفهم.\n`;
+        }
+      } catch (e) { /* ignore performance fetch errors */ }
     }
 
     // ── Build RAG context ────────────────────────────────────────────────────
@@ -1812,6 +1914,10 @@ const app = new Hono()
 4. أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
 5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ESA...).
 6. تخصصك حصراً في TLS/ILS وأنظمة الملاحة الجوية وصيانة الرادار. إذا كان السؤال خارج هذا النطاق تماماً (مثل الطبخ، الرياضة، السياسة...)، أجب بـ: "هذا السؤال خارج نطاق تخصصي في منظومة TLS. يسعدني مساعدتك في أي سؤال تقني يتعلق بـ TLS أو ILS أو أنظمة الملاحة الجوية."
+7. عند مراجعة نقاط ضعف المتدرب، اشرح بأسلوب مبسط واسأل أسئلة تأكيدية (مثل: "هل فهمت الفرق بين...؟") للتأكد من الاستيعاب.
+8. إذا كان لديك بيانات أداء المتدرب، استخدمها لتخصيص إجاباتك واقتراح مراجعة المواضيع الضعيفة.
+9. عند ذكر مكون TLS معين (مثل Localizer, Glide Slope, ESA, ASA, Shelter, Interrogator)، يمكنك الإشارة لوجود صور توضيحية بقولك: "[📷 يمكنك الاطلاع على الصورة التوضيحية في قسم الكتيبات]"
+${performanceContext}
 ${hasRagContent ? `
 === قاعدة المعرفة ===
 ${qaContext ? `[أسئلة وإجابات]:\n${qaContext.slice(0, 6000)}` : ''}
@@ -1867,7 +1973,45 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
         await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
           [userId, 'assistant', text, now]);
       }
-      return c.json({ reply: text }, 200);
+      // ── Detect relevant images to attach ──────────────────────────────────────
+      const IMAGE_MAP: Record<string, { path: string; label: string }[]> = {
+        'localizer': [{ path: '/tip-loc.webp', label: 'Localizer Diagram' }],
+        'loc': [{ path: '/tip-loc.webp', label: 'Localizer Diagram' }],
+        'glide slope': [{ path: '/tip-glide-slope.webp', label: 'Glide Slope Diagram' }],
+        'glide path': [{ path: '/tip-glide-slope.webp', label: 'Glide Slope Diagram' }],
+        'gp': [{ path: '/tip-glide-slope.webp', label: 'Glide Slope Diagram' }],
+        'ddm': [{ path: '/tip-ddm.webp', label: 'DDM Explanation' }],
+        'marker': [{ path: '/tip-marker.webp', label: 'Marker Beacons' }],
+        'ils': [{ path: '/tip-ils-cat.webp', label: 'ILS Categories' }],
+        'category': [{ path: '/tip-ils-cat.webp', label: 'ILS Categories' }],
+        'vswr': [{ path: '/tip-vswr.webp', label: 'VSWR Diagram' }],
+        'rf safety': [{ path: '/tip-rf-safety.webp', label: 'RF Safety' }],
+        'rf': [{ path: '/tip-rf-safety.webp', label: 'RF Safety' }],
+        'critical area': [{ path: '/tip-critical-area.webp', label: 'Critical Area' }],
+        'self test': [{ path: '/tip-self-test.webp', label: 'Self Test Procedure' }],
+        'self-test': [{ path: '/tip-self-test.webp', label: 'Self Test Procedure' }],
+        'startup': [{ path: '/tip-startup.webp', label: 'Startup Procedure' }],
+        'gtu': [{ path: '/manual-gtu-status.jpg', label: 'GTU Status Panel' }],
+        'integrity': [{ path: '/manual-integrity.jpg', label: 'Integrity Monitor' }],
+        'rcu': [{ path: '/manual-rcu-interface.jpg', label: 'RCU Interface' }],
+        'modes': [{ path: '/manual-modes-flow.jpg', label: 'Operating Modes Flow' }],
+      };
+      const msgLower = message.toLowerCase();
+      const replyLower = text.toLowerCase();
+      const matchedImages: { path: string; label: string }[] = [];
+      const seenPaths = new Set<string>();
+      for (const [keyword, imgs] of Object.entries(IMAGE_MAP)) {
+        if (msgLower.includes(keyword) || replyLower.includes(keyword)) {
+          for (const img of imgs) {
+            if (!seenPaths.has(img.path)) {
+              seenPaths.add(img.path);
+              matchedImages.push(img);
+            }
+          }
+        }
+      }
+
+      return c.json({ reply: text, images: matchedImages.length > 0 ? matchedImages.slice(0, 3) : undefined }, 200);
     } catch (e: any) {
       console.error('[AI] fetch error:', e?.message);
       return c.json({ reply: 'عذراً، تعذر الاتصال بخدمة الذكاء الاصطناعي.\nSorry, could not reach the AI service.' }, 200);
