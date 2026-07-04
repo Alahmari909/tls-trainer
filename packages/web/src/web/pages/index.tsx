@@ -978,14 +978,14 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
       {/* Section grid */}
       <div style={{ padding:"20px 16px 0" }}>
         <div style={{ fontFamily:"Inter", fontSize:9, letterSpacing:"0.2em", color:"rgba(255,255,255,0.25)", marginBottom:14 }}>AVAILABLE SECTIONS</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-          {sections.map(s=>(
-            <div key={s.label} onClick={()=>{ if(s.available) navigate(s.path); }} style={{
+        <div className="section-grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {sections.map((s, idx)=>(
+            <div key={s.label} className="stagger-item" onClick={()=>{ if(s.available) navigate(s.path); }} style={{
               padding:"16px 14px", borderRadius:14, cursor:s.available?"pointer":"not-allowed",
               background: s.available ? `${s.color}0d` : "rgba(255,255,255,0.02)",
               border:`1px solid ${s.available ? s.color+"30" : "rgba(255,255,255,0.07)"}`,
               opacity: s.available ? 1 : 0.45,
-              transition:"all 0.15s",
+              transition:"transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
             }}>
               <div style={{ marginBottom:10, color:s.available?s.color:"rgba(255,255,255,0.25)" }}>{sectionIcons[s.label]}</div>
               <div style={{ fontFamily:"Orbitron,monospace", fontSize:9, color:s.available?s.color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em" }}>{s.label}</div>

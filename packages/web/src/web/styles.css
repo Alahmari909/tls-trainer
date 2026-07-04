@@ -837,6 +837,132 @@ input, textarea, select {
   animation: badgePopIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
+/* ══════════════════════════════════════════
+   UI IMPROVEMENTS — Animations, Transitions & Desktop Spacing
+   ══════════════════════════════════════════ */
+
+/* ── Enhanced card hover with smooth lift ── */
+.glass-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.glass-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,174,239,0.18), 0 0 0 1px rgba(0,174,239,0.12);
+  border-color: rgba(0,174,239,0.3);
+}
+.glass-card:active {
+  transform: scale(0.98);
+  transition-duration: 0.1s;
+}
+
+/* ── Section grid cards on desktop ── */
+@media (min-width: 768px) {
+  .section-grid-2col {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 16px !important;
+  }
+  .section-grid-4col {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 16px !important;
+  }
+}
+@media (min-width: 1200px) {
+  .section-grid-2col {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .section-grid-4col {
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+}
+
+/* ── Staggered fade-in for list items ── */
+@keyframes staggerFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-item {
+  animation: staggerFadeUp 0.35s ease both;
+}
+.stagger-item:nth-child(1) { animation-delay: 0.04s; }
+.stagger-item:nth-child(2) { animation-delay: 0.08s; }
+.stagger-item:nth-child(3) { animation-delay: 0.12s; }
+.stagger-item:nth-child(4) { animation-delay: 0.16s; }
+.stagger-item:nth-child(5) { animation-delay: 0.20s; }
+.stagger-item:nth-child(6) { animation-delay: 0.24s; }
+.stagger-item:nth-child(7) { animation-delay: 0.28s; }
+.stagger-item:nth-child(8) { animation-delay: 0.32s; }
+
+/* ── Smooth icon transitions ── */
+svg {
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+/* ── Button press feedback ── */
+button {
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+/* ── Nav item smooth transition ── */
+.nav-item {
+  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+.nav-item:active {
+  transform: scale(0.92);
+}
+
+/* ── Input focus glow ── */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgba(0,174,239,0.6) !important;
+  box-shadow: 0 0 0 2px rgba(0,174,239,0.15);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ── Desktop: better content width utilization ── */
+@media (min-width: 1024px) {
+  .page {
+    padding: 28px 60px;
+  }
+}
+@media (min-width: 1440px) {
+  .page {
+    padding: 32px 80px;
+  }
+}
+
+/* ── Desktop: hero section max-width constraint ── */
+@media (min-width: 768px) {
+  .radar-grid {
+    min-height: 280px !important;
+  }
+  .radar-grid > div[style*="minHeight: 360"] {
+    min-height: 280px !important;
+  }
+}
+
+/* ── Lucide icon alignment helper ── */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ── Toast slide-in animation ── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Drawer nav item hover ── */
+.drawer-nav-item {
+  transition: background 0.18s ease, border-left-color 0.18s ease, color 0.18s ease;
+}
+
 /* ── Admin green theme overrides ── */
 [data-theme="admin"] {
   --accent-blue:  #00FF88;
