@@ -58,7 +58,16 @@ const EMPTY_FORM: QuestionForm = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getAdminPw(): string {
-  return sessionStorage.getItem("tls_admin_pw") ?? localStorage.getItem("tls_admin_pw") ?? "";
+  try {
+    const raw = sessionStorage.getItem("tls_admin_pw") || localStorage.getItem("tls_admin_pw");
+    if (!raw) return "";
+    // admin.tsx stores as JSON object: { pw: string, exp: number }
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === "object" && obj.pw) return obj.pw;
+    return raw; // fallback if plain string
+  } catch {
+    return sessionStorage.getItem("tls_admin_pw") ?? localStorage.getItem("tls_admin_pw") ?? "";
+  }
 }
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
