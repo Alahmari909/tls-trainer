@@ -515,6 +515,19 @@ export default function Quiz() {
 
         {/* ── ACTION BUTTONS ─────────────────────────────────── */}
         <div style={{ padding: "16px 16px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* AI Review Button — appears when trainee didn't pass or got wrong answers */}
+          {wrong > 0 && (
+            <button onClick={() => navigate(`/chat?review=${encodeURIComponent(mod?.title ?? '')}&pct=${finalPct}`)} style={{
+              width: "100%", padding: "14px",
+              background: "rgba(53,212,255,0.08)", border: "1px solid rgba(53,212,255,0.35)",
+              borderRadius: 12, color: "#35D4FF",
+              fontFamily: "Inter", fontSize: 12, letterSpacing: "0.05em", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: 16 }}>🤖</span>
+              Review Mistakes with AI Instructor
+            </button>
+          )}
           <button onClick={() => navigate("/quiz")} style={{
             width: "100%", padding: "14px",
             background: `${color}15`, border: `1px solid ${color}50`,

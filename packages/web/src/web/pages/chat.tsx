@@ -506,7 +506,14 @@ const PRESET_QUESTIONS = [
   "Explain ESA alignment procedure",
 ];
 
-type AiMsg = { role: "user" | "assistant"; content: string; attachName?: string; attachType?: string; attachPreview?: string };
+type AiMsg = { role: "user" | "assistant"; content: string; attachName?: string; attachType?: string; attachPreview?: string; images?: { path: string; label: string }[] };
+
+type TraineeSummary = {
+  weakModules: { module_id: number; module_name: string; avg_pct: number; fail_count: number }[];
+  missedQuestions: { question_id: number; question_text: string; module_id: number; times_wrong: number }[];
+  latestAttempt: { module_id: number; module_name: string; pct: number; passed: number; ts: number } | null;
+  overall: { total_attempts: number; overall_avg: number; total_passed: number };
+};
 
 function AIInstructor() {
   const [history,   setHistory]   = useState<AiMsg[]>([]);
@@ -517,6 +524,8 @@ function AIInstructor() {
   const [lockState, setLockState] = useState<"limit" | null>(null);
   const [limitMsg,  setLimitMsg]  = useState("");
   const [attachment, setAttachment] = useState<{ data: string; type: string; name: string; preview?: string } | null>(null);
+  const [summary, setSummary] = useState<TraineeSummary | null>(null);
+  const [smartGreeting, setSmartGreeting] = useState<string | null>(null);
   const bottomRef    = useRef<HTMLDivElement>(null);
   const inputRef     = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -533,6 +542,50 @@ function AIInstructor() {
       .then((rows: any[]) => {
         if (Array.isArray(rows) && rows.length > 0) {
           setHistory(rows.map(r => ({ role: r.role as "user" | "assistant", content: r.content })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-review: if navigated from quiz with ?review=ModuleName&pct=XX
+  const reviewTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (reviewTriggeredRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const reviewModule = params.get('review');
+    const reviewPct = params.get('pct');
+    if (reviewModule) {
+      reviewTriggeredRef.current = true;
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Auto-ask for review after a short delay
+      setTimeout(() => {
+        ask(`خلصت كويز ${reviewModule} وحصلت ${reviewPct}%. راجع معي النقاط اللي أخطأت فيها واشرحلي الإجابات الصحيحة.`);
+      }, 500);
+    }
+  }, []);
+
+  // Load trainee performance summary for smart greeting
+  useEffect(() => {
+    if (isAdmin || !trainee.id || trainee.id === "anonymous") return;
+    fetch(`/api/ai/trainee-summary/${encodeURIComponent(trainee.id)}`)
+      .then(r => r.json())
+      .then((data: TraineeSummary) => {
+        setSummary(data);
+        // Build smart greeting based on performance
+        if (data.weakModules && data.weakModules.length > 0) {
+          const weakest = data.weakModules[0];
+          setSmartGreeting(
+            `لاحظت إنك محتاج تراجع موضوع ${weakest.module_name ?? 'Module ' + weakest.module_id} (معدلك ${weakest.avg_pct}%). تبي نراجعه سوا؟`
+          );
+        } else if (data.latestAttempt && data.latestAttempt.passed === 0) {
+          setSmartGreeting(
+            `شفت إنك ما عديت كويز ${data.latestAttempt.module_name ?? ''} (حصلت ${data.latestAttempt.pct}%). خلني أساعدك تفهم النقاط اللي أخطأت فيها.`
+          );
+        } else if (data.overall && data.overall.total_attempts > 0) {
+          setSmartGreeting(
+            `أداؤك ممتاز! معدلك العام ${data.overall.overall_avg}%. هل تبي تتعمق في موضوع معين؟`
+          );
         }
       })
       .catch(() => {});
@@ -588,14 +641,14 @@ function AIInstructor() {
           ...(att ? { fileData: att.data, fileType: att.type, fileName: att.name } : {}),
         }),
       });
-      const data = await res.json() as { reply?: string; error?: string; message?: string };
+      const data = await res.json() as { reply?: string; error?: string; message?: string; images?: { path: string; label: string }[] };
       if (data.error === "limit") {
         setLockState("limit");
         setLimitMsg(data.message ?? "Resets tomorrow.");
         setHistory(prev => prev.slice(0, -1));
         return;
       }
-      setHistory(prev => [...prev, { role: "assistant", content: data.reply ?? "عذراً، تعذر الاتصال.\nSorry, connection failed." }]);
+      setHistory(prev => [...prev, { role: "assistant", content: data.reply ?? "عذراً، تعذر الاتصال.\nSorry, connection failed.", images: data.images }]);
       // update local question count
       setAiStatus(prev => prev ? { ...prev, questionsUsed: prev.questionsUsed + 1, questionsRemaining: Math.max(0, prev.questionsRemaining - 1) } : prev);
     } catch {
@@ -642,6 +695,42 @@ function AIInstructor() {
             <div style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: "Inter", lineHeight: 1.5 }}>
               Ask any question about TLS, ILS, aviation navigation, or radar systems.
             </div>
+          </div>
+        )}
+
+        {/* Smart Greeting — personalized based on performance */}
+        {history.length === 0 && smartGreeting && (
+          <div style={{
+            margin: "4px 0 8px", padding: "12px 14px",
+            background: "rgba(0,174,239,0.06)", border: `1px solid ${C}30`,
+            borderRadius: 14, borderLeft: `3px solid ${C}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ fontSize: 18, lineHeight: 1 }}>💡</div>
+              <div>
+                <div style={{ fontSize: 9, color: C, fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 4 }}>SMART RECOMMENDATION</div>
+                <div style={{ fontSize: 12.5, color: "var(--text-primary)", fontFamily: "Inter", lineHeight: 1.6, direction: "rtl" }}>
+                  {smartGreeting}
+                </div>
+              </div>
+            </div>
+            {summary && summary.weakModules.length > 0 && (
+              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {summary.weakModules.slice(0, 3).map(m => (
+                  <button key={m.module_id}
+                    onClick={() => ask(`راجع معي موضوع ${m.module_name ?? 'Module ' + m.module_id}`)}
+                    style={{
+                      padding: "6px 10px", borderRadius: 8,
+                      background: "rgba(255,77,77,0.08)", border: "1px solid rgba(255,77,77,0.25)",
+                      color: "#FF6B6B", fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 4,
+                    }}>
+                    <span style={{ fontSize: 8, opacity: 0.7 }}>⚠️</span>
+                    {m.module_name ?? `Module ${m.module_id}`} ({m.avg_pct}%)
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -705,6 +794,22 @@ function AIInstructor() {
                 </div>
               )}
               {msg.content}
+              {/* Illustrative images from AI response */}
+              {msg.role === "assistant" && msg.images && msg.images.length > 0 && (
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 9, color: C, letterSpacing: "0.08em", fontFamily: "Inter" }}>📷 REFERENCE IMAGES</div>
+                  {msg.images.map((img, idx) => (
+                    <div key={idx} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C}25` }}>
+                      <img src={img.path} alt={img.label}
+                        style={{ width: "100%", maxHeight: 200, objectFit: "contain", background: "rgba(0,0,0,0.3)", display: "block" }}
+                        loading="lazy" />
+                      <div style={{ padding: "5px 8px", background: "rgba(0,0,0,0.4)", fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>
+                        {img.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
