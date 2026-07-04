@@ -9,6 +9,9 @@ import BackButton from "../components/BackButton";
 // ── Palette ───────────────────────────────────────────────────────────────────
 const BG      = "#030b18";
 const SURFACE = "#040d1c";
+const GOLD    = "#FFD700";   // antenna labels colour
+const CYAN    = "#00C8FF";   // ASA / ESA colour
+const GREEN   = "#00E676";   // TLS station / ATA colour
 
 // ── Step definitions ──────────────────────────────────────────────────────────
 const STEPS = [
@@ -68,7 +71,7 @@ const STEPS = [
   },
 ] as const;
 
-const STEP_DUR = 4500;
+const STEP_DUR = 7000;   // 7 seconds per step
 
 // ── SVG scene dimensions ──────────────────────────────────────────────────────
 const VW = 860;
@@ -90,6 +93,34 @@ const CSS = `
 .ring:nth-child(2) { animation-delay: .55s; }
 .ring:nth-child(3) { animation-delay: 1.1s; }
 .ring:nth-child(4) { animation-delay: 1.65s; }
+
+/* Moving directional dots — from TLS to aircraft (Step 1) */
+@keyframes dot-out {
+  0%   { offset-distance: 0%;   opacity: 0; }
+  5%   { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+.dot-out {
+  offset-path: path('M 180 210 L 640 115');
+  animation: dot-out 1.8s linear infinite;
+}
+.dot-out:nth-child(2) { animation-delay: .6s; }
+.dot-out:nth-child(3) { animation-delay: 1.2s; }
+
+/* Moving directional dots — from aircraft to TLS (Step 2) */
+@keyframes dot-in {
+  0%   { offset-distance: 0%;   opacity: 0; }
+  5%   { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+.dot-in {
+  offset-path: path('M 640 115 L 180 210');
+  animation: dot-in 1.8s linear infinite;
+}
+.dot-in:nth-child(2) { animation-delay: .6s; }
+.dot-in:nth-child(3) { animation-delay: 1.2s; }
 
 /* Step 3 — grid lines draw in */
 @keyframes line-draw { from{stroke-dashoffset:500} to{stroke-dashoffset:0} }
@@ -137,43 +168,105 @@ const CSS = `
 
 // ── Shared SVG sub-components ─────────────────────────────────────────────────
 
-/** Simple aircraft silhouette — side view */
+/** Aircraft silhouette — side view */
 function Aircraft({ x, y, scale = 1, color = "#d0e8f8" }: {
   x: number; y: number; scale?: number; color?: string;
 }) {
   return (
     <g transform={`translate(${x},${y}) scale(${scale})`}
        style={{ filter: `drop-shadow(0 0 5px ${color}55)` }}>
-      {/* fuselage */}
       <ellipse cx="0" cy="0" rx="40" ry="8" fill={color} opacity=".92" />
-      {/* nose cone */}
       <ellipse cx="38" cy="-1" rx="10" ry="5" fill={color} opacity=".85" />
-      {/* main wing */}
       <polygon points="-6,-8 20,-8 8,16 -20,16" fill={color} opacity=".88" />
-      {/* tail fin */}
       <polygon points="-34,-8 -23,-8 -30,-24 -38,-8" fill={color} opacity=".8" />
-      {/* horizontal stabiliser */}
       <polygon points="-32,0 -22,0 -26,9 -36,9" fill={color} opacity=".75" />
-      {/* engine */}
       <ellipse cx="5" cy="13" rx="10" ry="4" fill={color} opacity=".6" />
     </g>
   );
 }
 
-/** Small ground antenna — simple pole + radiating element (matches Figure 4-1) */
-function GroundAntenna({ x, y, color }: { x: number; y: number; color: string }) {
+/**
+ * Full TLS Station — matches the real equipment layout from IMG_4196:
+ *  - Dark container with 5 yellow ventilation slots + "TLS" label
+ *  - Main radar mast (green pole + oval dish + equipment box)
+ *  - ASA antenna (left cyan panel)
+ *  - ATA antenna (right cyan panel)
+ *  - ESA antenna (small cyan post below container)
+ *  - Gold labels: ASA / ATA / ESA
+ */
+function TLSStation({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x},${y})`}>
-      {/* base */}
-      <rect x="-5" y="0" width="10" height="4" rx="1" fill={color} opacity=".6" />
+
+      {/* ── Container (shelter) ── */}
+      {/* side pillars */}
+      <rect x="-68" y="-28" width="10" height="28" rx="2" fill="#3a3a3a" />
+      <rect x="58"  y="-28" width="10" height="28" rx="2" fill="#3a3a3a" />
+      {/* main body */}
+      <rect x="-58" y="-28" width="116" height="28" rx="3" fill="#111" stroke="#333" strokeWidth="1" />
+      {/* 5 yellow ventilation slots */}
+      {[-38, -20, -2, 16, 34].map((dx) => (
+        <rect key={dx} x={dx} y="-20" width="14" height="10" rx="2" fill={GOLD} opacity=".75" />
+      ))}
+      {/* TLS label */}
+      <text x="0" y="-26" textAnchor="middle" fill={GREEN}
+        fontSize="8" fontFamily="Courier New,monospace" fontWeight="700" letterSpacing="3">TLS</text>
+
+      {/* ── Main radar mast (on top of container) ── */}
       {/* pole */}
-      <line x1="0" y1="0" x2="0" y2="-22" stroke={color} strokeWidth="1.8" opacity=".85" />
-      {/* radiating element top */}
-      <line x1="-7" y1="-20" x2="7" y2="-20" stroke={color} strokeWidth="2" opacity=".9" />
-      {/* small element mid */}
-      <line x1="-4" y1="-14" x2="4" y2="-14" stroke={color} strokeWidth="1.4" opacity=".7" />
-      {/* tip dot */}
-      <circle cx="0" cy="-22" r="2" fill={color} opacity=".9" />
+      <line x1="0" y1="-28" x2="0" y2="-72" stroke={GREEN} strokeWidth="3" />
+      {/* equipment box */}
+      <rect x="-9" y="-58" width="18" height="14" rx="2"
+        fill="#0a2a0a" stroke={GREEN} strokeWidth="1.5" />
+      {/* oval dish */}
+      <ellipse cx="0" cy="-68" rx="20" ry="7" fill="none" stroke={GREEN} strokeWidth="2" />
+      {/* dish centre post */}
+      <line x1="0" y1="-61" x2="0" y2="-68" stroke={GREEN} strokeWidth="1.5" />
+
+      {/* ── ASA — Azimuth Sensor Antenna (left) ── */}
+      {/* connection line from container */}
+      <line x1="-58" y1="-18" x2="-90" y2="-18" stroke={CYAN} strokeWidth="1" strokeDasharray="4 3" opacity=".6" />
+      {/* panel */}
+      <rect x="-104" y="-30" width="18" height="24" rx="2"
+        fill="#0a1a1a" stroke={CYAN} strokeWidth="1.5" />
+      {/* inner green fill */}
+      <rect x="-102" y="-28" width="14" height="20" rx="1" fill="#0a2a0a" opacity=".8" />
+      {/* radiation lines from ASA */}
+      <line x1="-104" y1="-22" x2="-118" y2="-28" stroke={CYAN} strokeWidth="1" opacity=".55" />
+      <line x1="-104" y1="-18" x2="-120" y2="-18" stroke={CYAN} strokeWidth="1" opacity=".55" />
+      <line x1="-104" y1="-14" x2="-118" y2="-8"  stroke={CYAN} strokeWidth="1" opacity=".55" />
+      {/* ASA label */}
+      <text x="-95" y="-36" textAnchor="middle" fill={GOLD}
+        fontSize="8" fontFamily="Courier New,monospace" fontWeight="700">ASA</text>
+
+      {/* ── ATA — Azimuth Tracking Antenna (right) ── */}
+      {/* connection line */}
+      <line x1="68" y1="-18" x2="90" y2="-18" stroke={CYAN} strokeWidth="1" strokeDasharray="4 3" opacity=".6" />
+      {/* panel */}
+      <rect x="88" y="-30" width="18" height="24" rx="2"
+        fill="#0a1a1a" stroke={CYAN} strokeWidth="1.5" />
+      {/* inner green fill */}
+      <rect x="90" y="-28" width="14" height="20" rx="1" fill="#0a2a0a" opacity=".8" />
+      {/* radiation lines from ATA */}
+      <line x1="106" y1="-22" x2="120" y2="-28" stroke={CYAN} strokeWidth="1" opacity=".55" />
+      <line x1="106" y1="-18" x2="122" y2="-18" stroke={CYAN} strokeWidth="1" opacity=".55" />
+      <line x1="106" y1="-14" x2="120" y2="-8"  stroke={CYAN} strokeWidth="1" opacity=".55" />
+      {/* ATA label */}
+      <text x="97" y="-36" textAnchor="middle" fill={GOLD}
+        fontSize="8" fontFamily="Courier New,monospace" fontWeight="700">ATA</text>
+
+      {/* ── ESA — Elevation Sensor Antenna (below container) ── */}
+      {/* small post */}
+      <line x1="30" y1="0" x2="30" y2="14" stroke={CYAN} strokeWidth="2" />
+      {/* ESA box */}
+      <rect x="22" y="14" width="16" height="12" rx="2"
+        fill="#0a1a1a" stroke={CYAN} strokeWidth="1.5" />
+      {/* ESA label */}
+      <text x="30" y="36" textAnchor="middle" fill={GOLD}
+        fontSize="8" fontFamily="Courier New,monospace" fontWeight="700">ESA</text>
+
+      {/* Ground line */}
+      <line x1="-80" y1="0" x2="80" y2="0" stroke="#333" strokeWidth="1" opacity=".5" />
     </g>
   );
 }
@@ -182,61 +275,68 @@ function GroundAntenna({ x, y, color }: { x: number; y: number; color: string })
 function Runway({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x},${y})`}>
-      <rect x="-70" y="-10" width="140" height="20" rx="2" fill="#111" opacity=".8" />
-      {[-50, -30, -10, 10, 30, 50].map((dx) => (
-        <rect key={dx} x={dx - 8} y="-2" width="16" height="4" rx="1" fill="#FFD700" opacity=".4" />
+      <rect x="-80" y="-8" width="160" height="16" rx="2" fill="#111" opacity=".8" />
+      {[-55, -35, -15, 5, 25, 45].map((dx) => (
+        <rect key={dx} x={dx} y="-2" width="16" height="4" rx="1" fill={GOLD} opacity=".35" />
       ))}
     </g>
   );
 }
 
-// ── Step 1: Interrogation — expanding rings from antenna toward aircraft ───────
+// ── Step 1: Interrogation — rings from TLS + moving dots toward aircraft ───────
 function Step1Scene({ color }: { color: string }) {
-  const antX = 160, antY = 220, acX = 680, acY = 110;
+  const stX = 170, stY = 215, acX = 660, acY = 115;
   return (
     <g>
-      <Runway x={160} y={240} />
-      <GroundAntenna x={antX} y={antY} color={color} />
-      <Aircraft x={acX} y={acY} scale={1} color="#d0e8f8" />
+      <Runway x={170} y={248} />
+      <TLSStation x={stX} y={stY} />
+      <Aircraft x={acX} y={acY} color="#d0e8f8" />
 
-      {/* Expanding concentric rings from antenna */}
+      {/* Expanding rings from TLS mast */}
       {[0, 1, 2, 3].map((i) => (
-        <circle key={i} className="ring" cx={antX} cy={antY - 11}
+        <circle key={i} className="ring" cx={stX} cy={stY - 68}
           r={8} fill="none" stroke={color} strokeWidth="2.5"
           style={{ animationDelay: `${i * 0.55}s` }} />
       ))}
 
-      {/* Direction arrow overlay to show signal going toward aircraft */}
-      <line x1={antX + 20} y1={antY - 20} x2={acX - 50} y2={acY + 10}
-        stroke={color} strokeWidth="1" strokeDasharray="6 4" opacity=".3" />
+      {/* Moving dots — TLS → Aircraft (direction indicator) */}
+      {[0, 1, 2].map((i) => (
+        <circle key={i} className="dot-out"
+          r="5" fill={color} opacity=".9"
+          style={{ animationDelay: `${i * 0.6}s` }} />
+      ))}
+
+      {/* Direction arrow head near aircraft */}
+      <polygon points={`${acX - 55},${acY + 5} ${acX - 45},${acY - 5} ${acX - 45},${acY + 15}`}
+        fill={color} opacity=".6" />
 
       {/* Freq badge */}
       <g className="tls-fadein" style={{ animationDelay: ".4s" }}>
-        <rect x="340" y="140" width="120" height="22" rx="5"
+        <rect x="340" y="140" width="130" height="22" rx="5"
           fill="rgba(0,0,0,.65)" stroke={color} strokeWidth="1" />
-        <text x="400" y="155" textAnchor="middle" fill={color}
+        <text x="405" y="155" textAnchor="middle" fill={color}
           fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">1030 MHz ►</text>
       </g>
 
       {/* Mode label */}
       <g className="tls-fadein" style={{ animationDelay: ".7s" }}>
-        <rect x="340" y="170" width="120" height="18" rx="4"
+        <rect x="340" y="170" width="130" height="18" rx="4"
           fill="rgba(0,0,0,.5)" stroke={`${color}55`} strokeWidth="1" />
-        <text x="400" y="183" textAnchor="middle" fill={`${color}cc`}
+        <text x="405" y="183" textAnchor="middle" fill={`${color}cc`}
           fontSize="9" fontFamily="Courier New,monospace">MODE A / MODE C</text>
       </g>
     </g>
   );
 }
 
-// ── Step 2: Transponder Reply — rings from aircraft back to antenna ────────────
+// ── Step 2: Transponder Reply — rings from aircraft + moving dots toward TLS ───
 function Step2Scene({ color }: { color: string }) {
-  const antX = 160, antY = 220, acX = 680, acY = 110;
+  const stX = 170, stY = 215, acX = 660, acY = 115;
   return (
     <g>
-      <Runway x={160} y={240} />
-      <GroundAntenna x={antX} y={antY} color="#00E676" />
-      <Aircraft x={acX} y={acY} scale={1} color={color} />
+      <Runway x={170} y={248} />
+      <TLSStation x={stX} y={stY} />
+      <Aircraft x={acX} y={acY} color={color} />
 
       {/* Expanding rings from aircraft */}
       {[0, 1, 2, 3].map((i) => (
@@ -245,52 +345,66 @@ function Step2Scene({ color }: { color: string }) {
           style={{ animationDelay: `${i * 0.55}s` }} />
       ))}
 
-      {/* Direction arrow */}
-      <line x1={acX - 60} y1={acY + 15} x2={antX + 25} y2={antY - 15}
-        stroke={color} strokeWidth="1" strokeDasharray="6 4" opacity=".3" />
+      {/* Moving dots — Aircraft → TLS (direction indicator) */}
+      {[0, 1, 2].map((i) => (
+        <circle key={i} className="dot-in"
+          r="5" fill={color} opacity=".9"
+          style={{ animationDelay: `${i * 0.6}s` }} />
+      ))}
+
+      {/* Direction arrow head near TLS */}
+      <polygon points={`${stX + 40},${stY - 20} ${stX + 30},${stY - 30} ${stX + 30},${stY - 10}`}
+        fill={color} opacity=".6" />
 
       {/* Freq badge */}
       <g className="tls-fadein" style={{ animationDelay: ".4s" }}>
-        <rect x="330" y="140" width="130" height="22" rx="5"
+        <rect x="330" y="140" width="140" height="22" rx="5"
           fill="rgba(0,0,0,.65)" stroke={color} strokeWidth="1" />
-        <text x="395" y="155" textAnchor="middle" fill={color}
+        <text x="400" y="155" textAnchor="middle" fill={color}
           fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">◄ 1090 MHz</text>
       </g>
 
       {/* Transponder label */}
       <g className="tls-fadein" style={{ animationDelay: ".7s" }}>
-        <rect x="590" y="60" width="110" height="18" rx="4"
+        <rect x="580" y="60" width="120" height="18" rx="4"
           fill="rgba(0,0,0,.6)" stroke={`${color}55`} strokeWidth="1" />
-        <text x="645" y="73" textAnchor="middle" fill={`${color}cc`}
+        <text x="640" y="73" textAnchor="middle" fill={`${color}cc`}
           fontSize="9" fontFamily="Courier New,monospace">TRANSPONDER</text>
       </g>
     </g>
   );
 }
 
-// ── Step 3: Position Fix — lines from multiple sensors converging on aircraft ──
+// ── Step 3: Position Fix — lines from ASA/ESA/ATA converging on aircraft ───────
 function Step3Scene({ color }: { color: string }) {
   const acX = 640, acY = 120;
+  // Named sensor positions matching TLS station layout
   const sensors = [
-    { x: 150, y: 230 },
-    { x: 220, y: 255 },
-    { x: 100, y: 200 },
-    { x: 190, y: 270 },
+    { x: 60,  y: 197, label: "ASA" },   // left panel
+    { x: 170, y: 215, label: "ESA" },   // below container
+    { x: 280, y: 197, label: "ATA" },   // right panel
+    { x: 170, y: 147, label: "MAST" },  // main mast
   ];
   return (
     <g>
-      <Runway x={170} y={250} />
-      {sensors.map((s, i) => (
-        <GroundAntenna key={i} x={s.x} y={s.y} color={color} />
-      ))}
-      <Aircraft x={acX} y={acY} scale={1} color="#d0e8f8" />
+      <Runway x={170} y={248} />
+      <TLSStation x={170} y={215} />
+      <Aircraft x={acX} y={acY} color="#d0e8f8" />
 
       {/* Lines from each sensor to aircraft */}
       {sensors.map((s, i) => (
         <line key={i} className="grid-line"
-          x1={s.x} y1={s.y - 22} x2={acX} y2={acY}
+          x1={s.x} y1={s.y} x2={acX} y2={acY}
           stroke={color} strokeWidth="1.5" opacity=".65"
           style={{ animationDelay: `${i * 0.15}s` }} />
+      ))}
+
+      {/* Sensor labels */}
+      {sensors.slice(0, 3).map((s, i) => (
+        <text key={i} x={s.x} y={s.y - 8} textAnchor="middle"
+          fill={GOLD} fontSize="7" fontFamily="Courier New,monospace" fontWeight="700">
+          {s.label}
+        </text>
       ))}
 
       {/* Crosshair at aircraft */}
@@ -319,23 +433,23 @@ function Step3Scene({ color }: { color: string }) {
 
 // ── Step 4: Displacement Calculation ─────────────────────────────────────────
 function Step4Scene({ color }: { color: string }) {
-  const antX = 160, antY = 230, acX = 680, acY = 115;
+  const stX = 170, stY = 215, acX = 660, acY = 115;
   return (
     <g>
-      <Runway x={160} y={248} />
-      <GroundAntenna x={antX} y={antY} color={color} />
+      <Runway x={stX} y={248} />
+      <TLSStation x={stX} y={stY} />
 
       {/* ILS beam — triangular */}
       <polygon className="beam-grow"
-        points={`${antX},${antY - 4} ${antX},${antY + 4} ${acX + 30},${acY + 35} ${acX + 30},${acY - 35}`}
+        points={`${stX},${stY - 4} ${stX},${stY + 4} ${acX + 30},${acY + 35} ${acX + 30},${acY - 35}`}
         fill={`${color}1a`} stroke={color} strokeWidth="1" opacity=".85" />
 
       {/* Centerline (ideal path) */}
-      <line x1={antX} y1={antY} x2={acX + 30} y2={acY}
+      <line x1={stX} y1={stY} x2={acX + 30} y2={acY}
         stroke={color} strokeWidth="1.5" strokeDasharray="10 5" opacity=".6" />
 
       {/* Aircraft off path */}
-      <Aircraft x={acX} y={acY + 24} scale={1} color={color} />
+      <Aircraft x={acX} y={acY + 24} color={color} />
 
       {/* Deviation arrow */}
       <g className="tls-fadein" style={{ animationDelay: ".5s" }}>
@@ -348,21 +462,21 @@ function Step4Scene({ color }: { color: string }) {
       </g>
 
       {/* CDI instrument */}
-      <g className="tls-fadein" style={{ animationDelay: ".7s" }} transform="translate(770,155)">
-        <circle cx="0" cy="0" r="58" fill="#080808" stroke={color} strokeWidth="1.5" />
-        <line x1="-38" y1="0" x2="38" y2="0" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
-        <line x1="0" y1="-38" x2="0" y2="38" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
-        {[-22, -11, 11, 22].map((d) => (
+      <g className="tls-fadein" style={{ animationDelay: ".7s" }} transform="translate(790,155)">
+        <circle cx="0" cy="0" r="55" fill="#080808" stroke={color} strokeWidth="1.5" />
+        <line x1="-36" y1="0" x2="36" y2="0" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
+        <line x1="0" y1="-36" x2="0" y2="36" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
+        {[-20, -10, 10, 20].map((d) => (
           <circle key={d} cx={d} cy="0" r="2.5" fill="rgba(255,255,255,.2)" />
         ))}
-        {[-22, -11, 11, 22].map((d) => (
+        {[-20, -10, 10, 20].map((d) => (
           <circle key={d} cx="0" cy={d} r="2.5" fill="rgba(255,255,255,.2)" />
         ))}
-        <rect className="needle-swing" x="-2" y="-36" width="4" height="72" rx="2" fill={color} opacity=".9" />
-        <rect x="-36" y="-2" width="72" height="4" rx="2" fill={color} opacity=".55"
+        <rect className="needle-swing" x="-2" y="-34" width="4" height="68" rx="2" fill={color} opacity=".9" />
+        <rect x="-34" y="-2" width="68" height="4" rx="2" fill={color} opacity=".55"
           style={{ transform: "rotate(10deg)", transformOrigin: "center" }} />
         <circle cx="0" cy="0" r="5" fill={color} opacity=".9" />
-        <text x="0" y="70" textAnchor="middle" fill={color}
+        <text x="0" y="66" textAnchor="middle" fill={color}
           fontSize="7.5" fontFamily="Courier New,monospace" fontWeight="700">CDI</text>
       </g>
 
@@ -381,48 +495,39 @@ function Step4Scene({ color }: { color: string }) {
   );
 }
 
-// ── Step 5: Course Adjustment Calculation — RCU computer screen ───────────────
+// ── Step 5: Course Adjustment — RCU computer screen ───────────────────────────
 function Step5Scene({ color }: { color: string }) {
-  const antX = 160, antY = 230;
+  const stX = 170, stY = 215;
   return (
     <g>
-      <Runway x={160} y={248} />
-      <GroundAntenna x={antX} y={antY} color={color} />
-      <Aircraft x={650} y={110} scale={1} color="#d0e8f8" />
+      <Runway x={stX} y={248} />
+      <TLSStation x={stX} y={stY} />
+      <Aircraft x={650} y={110} color="#d0e8f8" />
 
       {/* RCU / Computer screen */}
-      <g className="tls-fadein" transform="translate(350,130)">
-        {/* outer casing */}
+      <g className="tls-fadein" transform="translate(380,135)">
         <rect x="-60" y="-55" width="120" height="90" rx="6"
           fill="#0a1a0a" stroke={color} strokeWidth="1.5" opacity=".95" />
-        {/* screen */}
         <rect x="-50" y="-48" width="100" height="60" rx="3"
           fill="#030d03" stroke={`${color}66`} strokeWidth="1" />
-        {/* screen header */}
         <text x="0" y="-33" textAnchor="middle" fill={color}
           fontSize="7" fontFamily="Courier New,monospace" fontWeight="700">RCU PROCESSOR</text>
-        {/* data lines */}
         {["LOC ADJ: -0.08°", "GS  ADJ: +0.12°", "XPDR: A4721"].map((txt, i) => (
           <text key={i} x="-44" y={-20 + i * 13} fill="rgba(255,255,255,.65)"
             fontSize="7" fontFamily="Courier New,monospace">{txt}</text>
         ))}
-        {/* computing dots */}
         <text x="-10" y="22" fill={color} fontSize="7" fontFamily="Courier New,monospace">CALC</text>
         <circle className="dot1" cx="20" cy="18" r="3" fill={color} />
         <circle className="dot2" cx="28" cy="18" r="3" fill={color} />
         <circle className="dot3" cx="36" cy="18" r="3" fill={color} />
-        {/* blinking cursor */}
         <rect className="rcu-blink" x="-44" y="28" width="6" height="8" rx="1" fill={color} />
-        {/* base */}
         <rect x="-20" y="35" width="40" height="6" rx="2" fill={color} opacity=".4" />
       </g>
 
-      {/* Processing arrow from antenna to RCU */}
-      <line x1={antX + 10} y1={antY - 22} x2="290" y2="140"
+      {/* Arrows */}
+      <line x1={stX + 10} y1={stY - 22} x2="320" y2="145"
         stroke={color} strokeWidth="1.2" strokeDasharray="6 4" opacity=".45" />
-
-      {/* Arrow from RCU to aircraft */}
-      <line x1="410" y1="130" x2="610" y2="115"
+      <line x1="440" y1="135" x2="610" y2="115"
         stroke={color} strokeWidth="1.2" strokeDasharray="6 4" opacity=".45" />
 
       {/* Status badge */}
@@ -439,19 +544,19 @@ function Step5Scene({ color }: { color: string }) {
 
 // ── Step 6: Guidance Signal — ILS beam + aircraft on path ────────────────────
 function Step6Scene({ color }: { color: string }) {
-  const antX = 160, antY = 230;
+  const stX = 170, stY = 215;
   return (
     <g>
-      <Runway x={160} y={248} />
-      <GroundAntenna x={antX} y={antY} color={color} />
+      <Runway x={stX} y={248} />
+      <TLSStation x={stX} y={stY} />
 
       {/* ILS guidance beam */}
       <polygon className="guid-pulse"
-        points={`${antX},${antY - 6} ${antX},${antY + 6} 820,195 820,55`}
+        points={`${stX},${stY - 6} ${stX},${stY + 6} 820,195 820,55`}
         fill={`${color}18`} stroke={color} strokeWidth="1" />
 
       {/* Centerline */}
-      <line x1={antX} y1={antY} x2={820} y2={125}
+      <line x1={stX} y1={stY} x2={820} y2={125}
         stroke={color} strokeWidth="2" strokeDasharray="12 6" opacity=".65" />
 
       {/* Aircraft on correct path */}
@@ -459,10 +564,10 @@ function Step6Scene({ color }: { color: string }) {
         <Aircraft x={660} y={125} scale={1.05} color={color} />
       </g>
 
-      {/* Signal ripples from antenna */}
+      {/* Signal ripples from TLS mast */}
       {[0, 1, 2].map((i) => (
         <circle key={i} className="sig-ripple"
-          cx={antX} cy={antY - 11} r={5}
+          cx={stX} cy={stY - 68} r={5}
           fill="none" stroke={color} strokeWidth="2"
           style={{ animationDelay: `${i * 0.47}s` }} />
       ))}
@@ -478,13 +583,13 @@ function Step6Scene({ color }: { color: string }) {
 
       {/* ILS / GCA info */}
       <g className="tls-fadein" style={{ animationDelay: ".8s" }}>
-        <rect x="290" y="185" width="200" height="52" rx="5"
+        <rect x="300" y="185" width="200" height="52" rx="5"
           fill="rgba(0,0,0,.75)" stroke={color} strokeWidth="1" />
-        <text x="390" y="202" textAnchor="middle" fill={color}
+        <text x="400" y="202" textAnchor="middle" fill={color}
           fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">ILS GUIDANCE ACTIVE</text>
-        <text x="390" y="216" textAnchor="middle" fill="rgba(255,255,255,.65)"
+        <text x="400" y="216" textAnchor="middle" fill="rgba(255,255,255,.65)"
           fontSize="8.5" fontFamily="Courier New,monospace">LOC: 108.10 MHz</text>
-        <text x="390" y="230" textAnchor="middle" fill="rgba(255,255,255,.65)"
+        <text x="400" y="230" textAnchor="middle" fill="rgba(255,255,255,.65)"
           fontSize="8.5" fontFamily="Courier New,monospace">GS:  334.70 MHz  / GCA</text>
       </g>
 
