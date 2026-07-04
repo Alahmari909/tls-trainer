@@ -144,19 +144,88 @@ function AircraftShape({ x, y, scale = 1, color = "#d0e8f8" }: { x: number; y: n
   );
 }
 
-// TLS ground station
+// TLS ground station — realistic layout:
+// main mast with guy wires + equipment container + 2 cross-dipole antennas
 function TLSStation({ x, y }: { x: number; y: number }) {
+  const c = "#00E676";
   return (
     <g transform={`translate(${x},${y})`}>
-      {/* base */}
-      <rect x="-18" y="0" width="36" height="14" rx="3" fill="#1a3a1a" stroke="#00E676" strokeWidth="1" opacity=".9" />
-      {/* tower */}
-      <rect x="-4" y="-28" width="8" height="28" fill="#0d2a0d" stroke="#00E676" strokeWidth="1" opacity=".85" />
-      {/* antenna dish */}
-      <ellipse cx="0" cy="-30" rx="14" ry="6" fill="none" stroke="#00E676" strokeWidth="1.5" opacity=".9" />
-      <line x1="0" y1="-30" x2="0" y2="-36" stroke="#00E676" strokeWidth="1.5" opacity=".9" />
-      {/* label */}
-      <text x="0" y="22" textAnchor="middle" fill="#00E676" fontSize="9" fontFamily="Courier New,monospace" fontWeight="700" letterSpacing="1">TLS</text>
+
+      {/* ── Equipment container (shelter) ── */}
+      <rect x="-22" y="-8" width="44" height="18" rx="2"
+        fill="#1c2e1c" stroke={c} strokeWidth="1" opacity=".9" />
+      {/* container panel lines */}
+      {[-12, -4, 4, 12].map((dx) => (
+        <line key={dx} x1={dx} y1="-8" x2={dx} y2="10"
+          stroke={c} strokeWidth=".4" opacity=".35" />
+      ))}
+      {/* container label */}
+      <text x="0" y="4" textAnchor="middle" fill={c}
+        fontSize="5.5" fontFamily="Courier New,monospace" fontWeight="700" letterSpacing=".5"
+        opacity=".8">SHELTER</text>
+
+      {/* ── Main mast (tall, thin) ── */}
+      <rect x="-1.5" y="-58" width="3" height="50"
+        fill={c} opacity=".85" />
+      {/* mast cross-bar at top */}
+      <line x1="-10" y1="-56" x2="10" y2="-56"
+        stroke={c} strokeWidth="1.5" opacity=".8" />
+      {/* mast cross-bar mid */}
+      <line x1="-7" y1="-44" x2="7" y2="-44"
+        stroke={c} strokeWidth="1" opacity=".6" />
+      {/* antenna element at top */}
+      <line x1="0" y1="-58" x2="0" y2="-66"
+        stroke={c} strokeWidth="1.5" opacity=".9" />
+      <line x1="-5" y1="-63" x2="5" y2="-63"
+        stroke={c} strokeWidth="1.5" opacity=".9" />
+
+      {/* ── Guy wires (3 directions) ── */}
+      <line x1="0" y1="-52" x2="-36" y2="-2"
+        stroke={c} strokeWidth=".8" strokeDasharray="3 2" opacity=".45" />
+      <line x1="0" y1="-52" x2="36" y2="-2"
+        stroke={c} strokeWidth=".8" strokeDasharray="3 2" opacity=".45" />
+      <line x1="0" y1="-52" x2="0" y2="-2"
+        stroke={c} strokeWidth=".8" strokeDasharray="3 2" opacity=".3" />
+      {/* guy wire anchors */}
+      <circle cx="-36" cy="-2" r="2" fill={c} opacity=".5" />
+      <circle cx="36" cy="-2" r="2" fill={c} opacity=".5" />
+
+      {/* ── Cross-dipole antenna A (left, on ground) ── */}
+      <g transform="translate(-44, -4)">
+        {/* vertical pole */}
+        <line x1="0" y1="0" x2="0" y2="-18"
+          stroke={c} strokeWidth="1.2" opacity=".8" />
+        {/* horizontal arm top */}
+        <line x1="-8" y1="-16" x2="8" y2="-16"
+          stroke={c} strokeWidth="1.2" opacity=".8" />
+        {/* horizontal arm mid */}
+        <line x1="-6" y1="-10" x2="6" y2="-10"
+          stroke={c} strokeWidth="1" opacity=".65" />
+        {/* base plate */}
+        <rect x="-4" y="0" width="8" height="3" rx="1"
+          fill={c} opacity=".5" />
+        <text x="0" y="10" textAnchor="middle" fill={c}
+          fontSize="5" fontFamily="Courier New,monospace" opacity=".6">ANT</text>
+      </g>
+
+      {/* ── Cross-dipole antenna B (right, on ground) ── */}
+      <g transform="translate(44, -4)">
+        <line x1="0" y1="0" x2="0" y2="-18"
+          stroke={c} strokeWidth="1.2" opacity=".8" />
+        <line x1="-8" y1="-16" x2="8" y2="-16"
+          stroke={c} strokeWidth="1.2" opacity=".8" />
+        <line x1="-6" y1="-10" x2="6" y2="-10"
+          stroke={c} strokeWidth="1" opacity=".65" />
+        <rect x="-4" y="0" width="8" height="3" rx="1"
+          fill={c} opacity=".5" />
+        <text x="0" y="10" textAnchor="middle" fill={c}
+          fontSize="5" fontFamily="Courier New,monospace" opacity=".6">ANT</text>
+      </g>
+
+      {/* ── TLS label ── */}
+      <text x="0" y="22" textAnchor="middle" fill={c}
+        fontSize="9" fontFamily="Courier New,monospace" fontWeight="700" letterSpacing="1"
+        style={{ filter: `drop-shadow(0 0 4px ${c})` }}>TLS</text>
     </g>
   );
 }
