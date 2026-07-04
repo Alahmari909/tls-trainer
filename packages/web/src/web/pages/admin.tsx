@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
+import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award } from "lucide-react";
 
 import Basics from "./basics";
 import Advanced from "./advanced";
@@ -2629,15 +2630,17 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
   return (
     <div>
       {/* Stat Cards */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 20 }}>
         {stats.map(s => (
           <div key={s.label} style={{
-            flex: "1 1 auto", minWidth: 60, textAlign: "center",
-            background: `${s.color}10`, border: `1px solid ${s.color}25`,
-            borderRadius: 10, padding: "10px 6px",
+            textAlign: "center",
+            background: `linear-gradient(135deg, ${s.color}12, ${s.color}05)`,
+            border: `1px solid ${s.color}28`,
+            borderRadius: 12, padding: "12px 6px",
+            transition: "transform 0.2s ease",
           }}>
-            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", marginTop: 3, letterSpacing: "0.08em" }}>{s.label}</div>
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 16, fontWeight: 800, color: s.color, lineHeight:1 }}>{s.value}</div>
+            <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", marginTop: 5, letterSpacing: "0.1em", textTransform:"uppercase" }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -2646,20 +2649,23 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
 
           {/* XP Bar Chart */}
-          <div style={{ background: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 10, padding: "12px 14px" }}>
-            <div style={{ fontSize: 9, color: "#FFD700", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>XP RANKING</div>
-            {[...trainees].sort((a,b) => b.xp - a.xp).slice(0,8).map(t => (
-              <div key={t.id} style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
-                  <span style={{ fontSize: 9, color: "#FFD700", fontFamily: "monospace" }}>{t.xp}</span>
+          <div style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.06), rgba(255,215,0,0.02))", border: "1px solid rgba(255,215,0,0.18)", borderRadius: 12, padding: "14px" }}>
+            <div style={{ fontSize: 9, color: "#FFD700", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 12, display:"flex", alignItems:"center", gap:5 }}>
+              <Zap size={11} strokeWidth={2} /> XP RANKING
+            </div>
+            {[...trainees].sort((a,b) => b.xp - a.xp).slice(0,8).map((t, idx) => (
+              <div key={t.id} style={{ marginBottom: 7 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, alignItems:"center" }}>
+                  <span style={{ fontSize: 9, color: idx === 0 ? "#FFD700" : "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: idx === 0 ? 700 : 400 }}>{t.name}</span>
+                  <span style={{ fontSize: 9, color: "#FFD700", fontFamily: "monospace", fontWeight:700 }}>{t.xp}</span>
                 </div>
-                <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
                   <div style={{
-                    height: "100%", borderRadius: 3,
+                    height: "100%", borderRadius: 4,
                     width: `${Math.round((t.xp / maxXp) * 100)}%`,
-                    background: "linear-gradient(90deg, #FFD700, #FF9F1C)",
-                    transition: "width 0.6s ease",
+                    background: idx === 0 ? "linear-gradient(90deg, #FFD700, #FF9F1C)" : "linear-gradient(90deg, rgba(255,215,0,0.6), rgba(255,159,28,0.4))",
+                    transition: "width 0.8s ease",
+                    boxShadow: idx === 0 ? "0 0 6px rgba(255,215,0,0.4)" : "none",
                   }} />
                 </div>
               </div>
@@ -2667,20 +2673,23 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
           </div>
 
           {/* Module Completion Chart */}
-          <div style={{ background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10, padding: "12px 14px" }}>
-            <div style={{ fontSize: 9, color: "#00FF88", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>MODULE COMPLETION</div>
-            {[...trainees].sort((a,b) => b.completedModules - a.completedModules).slice(0,8).map(t => (
-              <div key={t.id} style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
-                  <span style={{ fontSize: 9, color: "#00FF88", fontFamily: "monospace" }}>{t.completedModules}</span>
+          <div style={{ background: "linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,255,136,0.02))", border: "1px solid rgba(0,255,136,0.18)", borderRadius: 12, padding: "14px" }}>
+            <div style={{ fontSize: 9, color: "#00FF88", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 12, display:"flex", alignItems:"center", gap:5 }}>
+              <TrendingUp size={11} strokeWidth={2} /> MODULE COMPLETION
+            </div>
+            {[...trainees].sort((a,b) => b.completedModules - a.completedModules).slice(0,8).map((t, idx) => (
+              <div key={t.id} style={{ marginBottom: 7 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, alignItems:"center" }}>
+                  <span style={{ fontSize: 9, color: idx === 0 ? "#00FF88" : "rgba(255,255,255,0.55)", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: idx === 0 ? 700 : 400 }}>{t.name}</span>
+                  <span style={{ fontSize: 9, color: "#00FF88", fontFamily: "monospace", fontWeight:700 }}>{t.completedModules}/{maxMods}</span>
                 </div>
-                <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
                   <div style={{
-                    height: "100%", borderRadius: 3,
+                    height: "100%", borderRadius: 4,
                     width: `${Math.round((t.completedModules / maxMods) * 100)}%`,
-                    background: "linear-gradient(90deg, #00FF88, #00FF88)",
-                    transition: "width 0.6s ease",
+                    background: idx === 0 ? "linear-gradient(90deg, #00FF88, #00CC66)" : "linear-gradient(90deg, rgba(0,255,136,0.6), rgba(0,204,102,0.4))",
+                    transition: "width 0.8s ease",
+                    boxShadow: idx === 0 ? "0 0 6px rgba(0,255,136,0.4)" : "none",
                   }} />
                 </div>
               </div>
@@ -3350,7 +3359,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
                   a.href = url; a.download = 'simulator-report.xlsx'; a.click();
                   URL.revokeObjectURL(url);
                 }}
-              >📥 DOWNLOAD EXCEL REPORT</button>
+              ><span style={{ display:"inline-flex", alignItems:"center", gap:6 }}><BarChart2 size={12} strokeWidth={2} /> DOWNLOAD EXCEL REPORT</span></button>
             </div>
             <div style={{ ...card, background: "rgba(0,255,136,0.02)" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", lineHeight: 1.7 }}>
@@ -3504,24 +3513,44 @@ function AiKnowledgePanel({ adminPw }: { adminPw: string }) {
 // ADMIN_NAV kept for type reference only — navigation is entirely via ☰ MENU dropdown
 const ADMIN_NAV = [] as const;
 
+const NAV_ICON_MAP: Record<string, React.ReactNode> = {
+  dashboard:     <LayoutDashboard size={14} strokeWidth={1.8} />,
+  trainees:      <Users size={14} strokeWidth={1.8} />,
+  reports:       <BarChart2 size={14} strokeWidth={1.8} />,
+  settings:      <Settings size={14} strokeWidth={1.8} />,
+  basics:        <BookOpen size={14} strokeWidth={1.8} />,
+  advanced:      <Star size={14} strokeWidth={1.8} />,
+  quiz:          <Target size={14} strokeWidth={1.8} />,
+  chat:          <MessageSquare size={14} strokeWidth={1.8} />,
+  status:        <Activity size={14} strokeWidth={1.8} />,
+  notifications: <Bell size={14} strokeWidth={1.8} />,
+  about:         <Info size={14} strokeWidth={1.8} />,
+  documents:     <FileText size={14} strokeWidth={1.8} />,
+  common_faults: <AlertTriangle size={14} strokeWidth={1.8} />,
+  error_codes:   <Search size={14} strokeWidth={1.8} />,
+  simulator:     <Plane size={14} strokeWidth={1.8} />,
+  "ai-knowledge":<Brain size={14} strokeWidth={1.8} />,
+  nav_manager:   <Map size={14} strokeWidth={1.8} />,
+};
+
 const NAV_LINKS = [
-  { id: "dashboard",     label: "Dashboard",      icon: "⚡", divider: false },
-  { id: "trainees",      label: "Trainees",       icon: "👥", divider: false },
-  { id: "reports",       label: "Reports",        icon: "📊", divider: false },
-  { id: "settings",      label: "Settings",       icon: "⚙️", divider: true  },
-  { id: "basics",        label: "TLS Basic",      icon: "📘", divider: false },
-  { id: "advanced",      label: "TLS Advanced",   icon: "⭐", divider: false },
-  { id: "quiz",          label: "Quiz",           icon: "🎯", divider: false },
-  { id: "chat",          label: "Chat",           icon: "💬", divider: false },
-  { id: "status",        label: "System Status",  icon: "📶", divider: false },
-  { id: "notifications", label: "Notifications",  icon: "🔔", divider: false },
-  { id: "about",         label: "About",          icon: "ℹ️", divider: false },
-  { id: "documents",     label: "Documents",      icon: "📄", divider: false },
-  { id: "common_faults",  label: "Common Faults",  icon: "⚠️", divider: false },
-  { id: "error_codes",    label: "Error Codes",     icon: "🔍", divider: false },
-  { id: "simulator",      label: "Simulator",      icon: "🛩️", divider: false },
-  { id: "ai-knowledge",  label: "AI Knowledge",   icon: "🧠", divider: false },
-  { id: "nav_manager",   label: "Nav Manager",    icon: "🗂️", divider: true  },
+  { id: "dashboard",     label: "Dashboard",      divider: false },
+  { id: "trainees",      label: "Trainees",       divider: false },
+  { id: "reports",       label: "Reports",        divider: false },
+  { id: "settings",      label: "Settings",       divider: true  },
+  { id: "basics",        label: "TLS Basic",      divider: false },
+  { id: "advanced",      label: "TLS Advanced",   divider: false },
+  { id: "quiz",          label: "Quiz",           divider: false },
+  { id: "chat",          label: "Chat",           divider: false },
+  { id: "status",        label: "System Status",  divider: false },
+  { id: "notifications", label: "Notifications",  divider: false },
+  { id: "about",         label: "About",          divider: false },
+  { id: "documents",     label: "Documents",      divider: false },
+  { id: "common_faults",  label: "Common Faults",  divider: false },
+  { id: "error_codes",    label: "Error Codes",     divider: false },
+  { id: "simulator",      label: "Simulator",      divider: false },
+  { id: "ai-knowledge",  label: "AI Knowledge",   divider: false },
+  { id: "nav_manager",   label: "Nav Manager",    divider: true  },
 ] as const;
 
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
@@ -4944,9 +4973,10 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               background: "linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05))",
               border: "1px solid rgba(0,255,136,0.4)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16, flexShrink: 0,
+              flexShrink: 0,
               boxShadow: "0 0 12px rgba(0,255,136,0.15)",
-            }}>⚡</div>
+              color: "#00FF88",
+            }}><Zap size={16} strokeWidth={2} /></div>
             <div>
               <div style={{
                 fontFamily: "Orbitron, monospace", fontSize: 11, fontWeight: 900,
@@ -4997,7 +5027,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                           textAlign: "left", transition: "background 0.15s, color 0.15s",
                         }}
                       >
-                        <span>{link.icon}</span>{link.label}
+                        <span style={{ display:"inline-flex", alignItems:"center" }}>{NAV_ICON_MAP[link.id] ?? null}</span>{link.label}
                         {link.id === "trainees" && (retakeRequests.length + regRequests.filter(r=>r.status==="pending").length) > 0 && (
                           <span style={{ marginLeft: "auto", background: "#FFD700", color: "#000", borderRadius: 10, padding: "0 5px", fontSize: 8, fontWeight: 700 }}>{retakeRequests.length + regRequests.filter(r=>r.status==="pending").length}</span>
                         )}
@@ -5050,37 +5080,41 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
               {[
-                { label: "TOTAL", value: String(trainees.length), color: "#00FF88", sub: "registered", icon: "👥" },
-                { label: "LIVE NOW", value: String(online.length), color: "#00CC66", sub: "online", icon: "🟢" },
-                { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: "#FFD700", sub: "earned", icon: "⚡" },
-                { label: "AVG MODS", value: avgModules, color: "#FFD700", sub: "completed", icon: "📚" },
+                { label: "TOTAL", value: String(trainees.length), color: "#00FF88", sub: "registered", icon: <Users size={16} strokeWidth={1.8} /> },
+                { label: "LIVE NOW", value: String(online.length), color: "#00CC66", sub: "online", icon: <Activity size={16} strokeWidth={1.8} /> },
+                { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: "#FFD700", sub: "earned", icon: <Zap size={16} strokeWidth={1.8} /> },
+                { label: "AVG MODS", value: avgModules, color: "#FFD700", sub: "completed", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
               ].map(({ label, value, color, sub, icon }) => (
                 <div key={label} style={{
-                  background: `${color}08`, border: `1px solid ${color}20`,
-                  borderRadius: 10, padding: "12px 8px", textAlign: "center",
+                  background: `linear-gradient(135deg, ${color}10, ${color}04)`,
+                  border: `1px solid ${color}25`,
+                  borderRadius: 12, padding: "14px 8px", textAlign: "center",
+                  transition: "transform 0.2s ease, box-shadow 0.2s ease",
                 }}>
-                  <div style={{ fontSize: 16, marginBottom: 4 }}>{icon}</div>
-                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color }}>{value}</div>
-                  <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 2, letterSpacing: "0.06em" }}>{label}</div>
+                  <div style={{ display:"flex", justifyContent:"center", marginBottom: 6, color, opacity:0.8 }}>{icon}</div>
+                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 16, fontWeight: 800, color, lineHeight:1 }}>{value}</div>
+                  <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontFamily: "Inter", marginTop: 4, letterSpacing: "0.08em", textTransform:"uppercase" }}>{label}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Quick stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
             {[
-              { label: "PENDING RETAKES", value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.2)" },
-              { label: "طلبات تسجيل", value: String(regRequests.filter(r=>r.status==="pending").length), color: regRequests.filter(r=>r.status==="pending").length > 0 ? "#FF9500" : "rgba(255,255,255,0.2)" },
-              { label: "BLOCKED",  value: String(trainees.filter(t => (t as any).status === "blocked").length), color: "#FF4444" },
-              { label: "ADVANCED", value: String(trainees.filter(t => (t as any).trainingLevel === "advanced").length), color: "#FFD700" },
-            ].map(({ label, value, color }) => (
+              { label: "PENDING RETAKES", value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.2)", urgent: retakeRequests.length > 0 },
+              { label: "REG REQUESTS",   value: String(regRequests.filter(r=>r.status==="pending").length), color: regRequests.filter(r=>r.status==="pending").length > 0 ? "#FF9500" : "rgba(255,255,255,0.2)", urgent: regRequests.filter(r=>r.status==="pending").length > 0 },
+              { label: "BLOCKED",        value: String(trainees.filter(t => (t as any).status === "blocked").length), color: "#FF4444", urgent: false },
+              { label: "ADVANCED",       value: String(trainees.filter(t => (t as any).trainingLevel === "advanced").length), color: "#00FF88", urgent: false },
+            ].map(({ label, value, color, urgent }) => (
               <div key={label} style={{
-                background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 10, padding: "10px 8px", textAlign: "center",
+                background: urgent ? `${color}10` : "rgba(255,255,255,0.02)",
+                border: urgent ? `1px solid ${color}35` : "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 10, padding: "12px 8px", textAlign: "center",
+                transition: "border-color 0.2s ease",
               }}>
-                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color }}>{value}</div>
-                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", fontFamily: "Inter", marginTop: 2, letterSpacing: "0.06em" }}>{label}</div>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 800, color, lineHeight:1 }}>{value}</div>
+                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 4, letterSpacing: "0.08em", textTransform:"uppercase" }}>{label}</div>
               </div>
             ))}
           </div>
@@ -5091,8 +5125,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.12)",
               borderRadius: 12, padding: "14px", marginBottom: 16,
             }}>
-              <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.2em", color: "#FFD700", marginBottom: 12 }}>
-                🏆 TOP PERFORMERS
+              <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.2em", color: "#FFD700", marginBottom: 12, display:"flex", alignItems:"center", gap:6 }}>
+                <Award size={14} strokeWidth={1.8} color="#FFD700" /> TOP PERFORMERS
               </div>
               {[...trainees].sort((a, b) => b.xp - a.xp).slice(0, 3).map((t, i) => (
                 <div key={t.id} style={{
@@ -5140,8 +5174,8 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             background: "rgba(0,210,106,0.06)", border: "1px solid rgba(0,210,106,0.25)",
             borderRadius: 12,
           }}>
-            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, color: "rgba(0,210,106,0.7)", letterSpacing: "0.15em", marginBottom: 8 }}>
-              📥 EXPORT REPORT
+            <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, color: "rgba(0,210,106,0.7)", letterSpacing: "0.15em", marginBottom: 8, display:"flex", alignItems:"center", gap:6 }}>
+              <BarChart2 size={12} strokeWidth={2} /> EXPORT REPORT
             </div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 12, lineHeight: 1.5 }}>
               Download a full Excel report with two sheets:<br />
@@ -5163,7 +5197,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 fontSize: 11, letterSpacing: "0.1em",
               }}
             >
-              ⬇ DOWNLOAD EXCEL (.xlsx)
+              <span style={{ display:"inline-flex", alignItems:"center", gap:6 }}><BarChart2 size={12} strokeWidth={2} /> DOWNLOAD EXCEL (.xlsx)</span>
             </button>
           </div>
 
@@ -5215,7 +5249,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           )}
           {!loading && trainees.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(255,255,255,0.2)" }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom: 12, opacity:0.4 }}><BarChart2 size={40} strokeWidth={1.2} /></div>
               <div style={{ fontFamily: "Orbitron, monospace", fontSize: 11 }}>NO DATA YET</div>
             </div>
           )}

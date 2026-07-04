@@ -1082,6 +1082,23 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* ── Admin dashboard card hover ── */
+[data-theme="admin"] .admin-stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+[data-theme="admin"] .admin-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+
+/* ── Admin bar chart fill animation ── */
+@keyframes barFill {
+  from { width: 0%; }
+}
+.admin-bar-fill {
+  animation: barFill 0.8s ease both;
+}
+
 /* ── Admin green theme overrides ── */
 [data-theme="admin"] {
   --accent-blue:  #00FF88;
