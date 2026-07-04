@@ -1043,6 +1043,45 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* ── Section card hover effects ── */
+.section-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+.section-card-available:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 20px rgba(0,174,239,0.12);
+}
+.section-card-available:active {
+  transform: scale(0.97);
+  transition-duration: 0.1s;
+}
+
+/* ── Scroll-reveal animation ── */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal-on-scroll {
+  animation: revealUp 0.5s ease both;
+}
+
+/* ── Radar enhanced keyframes ── */
+@keyframes radar-ring-pulse {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 0.55; }
+}
+
+/* ── Radar hero: stronger vignette on desktop ── */
+@media (min-width: 768px) {
+  .radar-grid {
+    background-image:
+      radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.5) 100%),
+      linear-gradient(rgba(0,174,239,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,174,239,0.04) 1px, transparent 1px) !important;
+    background-size: auto, 44px 44px, 44px 44px !important;
+  }
+}
+
 /* ── Admin green theme overrides ── */
 [data-theme="admin"] {
   --accent-blue:  #00FF88;

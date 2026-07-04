@@ -8,7 +8,7 @@ import {
   BookOpen, Star, FileText, Info, Target, Trophy, MessageSquare, BarChart2,
   Eye, Lock, LogIn, UserPlus, Clock, AlertTriangle, RefreshCw, ZoomIn,
   Wifi, Radio, Gauge, Zap, Antenna, Wrench, Plane, Shield, Bell,
-  Play, ArrowLeft, X,
+  Play, ArrowLeft, X, ChevronRight,
 } from "lucide-react";
 
 type Module = { id: number; title: string; order: number };
@@ -21,12 +21,62 @@ const COLORS = ["#00AEEF","#35D4FF","#00D26A","#FFD166","#00AEEF","#35D4FF","#C9
 
 function RadarRings() {
   return (
-    <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:320,height:320,pointerEvents:"none" }}>
-      {[1,2,3].map(n=>(
-        <div key={n} style={{ position:"absolute",inset:0,borderRadius:"50%",border:`1px solid rgba(0,174,239,${0.18-n*0.04})`,animation:`radar-ring ${2.5+n*0.6}s ease-in-out infinite`,animationDelay:`${n*0.4}s`,transform:`scale(${0.3+n*0.22})` }} />
+    <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:340,height:340,pointerEvents:"none" }}>
+      {/* Outer glow ring */}
+      <div style={{ position:"absolute",inset:0,borderRadius:"50%",border:"1px solid rgba(0,174,239,0.06)",boxShadow:"0 0 40px rgba(0,174,239,0.08) inset",transform:"scale(1)" }} />
+      {/* 5 concentric rings with varying opacity */}
+      {[1,2,3,4,5].map(n=>(
+        <div key={n} style={{
+          position:"absolute",inset:0,borderRadius:"50%",
+          border:`1px solid rgba(0,174,239,${0.22-n*0.03})`,
+          animation:`radar-ring ${2.2+n*0.5}s ease-in-out infinite`,
+          animationDelay:`${n*0.3}s`,
+          transform:`scale(${0.18+n*0.16})`,
+          boxShadow: n===1 ? "0 0 8px rgba(0,174,239,0.15) inset" : "none",
+        }} />
       ))}
-      <div style={{ position:"absolute",top:"50%",left:"50%",width:"50%",height:1,transformOrigin:"0 50%",background:"linear-gradient(90deg,rgba(0,174,239,0.7),transparent)",animation:"radar-sweep 3s linear infinite" }} />
-      <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:8,height:8,borderRadius:"50%",background:"#00AEEF",boxShadow:"0 0 10px #00AEEF,0 0 20px rgba(0,174,239,0.5)",animation:"pulse-glow 1.5s ease infinite" }} />
+      {/* Sweep line with trailing glow */}
+      <div style={{
+        position:"absolute",top:"50%",left:"50%",
+        width:"50%",height:2,
+        transformOrigin:"0 50%",
+        background:"linear-gradient(90deg,rgba(0,174,239,0.9),rgba(53,212,255,0.5),transparent)",
+        animation:"radar-sweep 3s linear infinite",
+        borderRadius:"0 2px 2px 0",
+        boxShadow:"0 0 6px rgba(0,174,239,0.4)",
+      }} />
+      {/* Sweep cone (trailing fade) */}
+      <div style={{
+        position:"absolute",top:"50%",left:"50%",
+        width:"50%",height:"50%",
+        transformOrigin:"0% 0%",
+        background:"conic-gradient(from 0deg, rgba(0,174,239,0.12) 0deg, transparent 60deg)",
+        animation:"radar-sweep 3s linear infinite",
+        borderRadius:"0 100% 0 0",
+      }} />
+      {/* Cross-hair lines */}
+      <div style={{ position:"absolute",top:"50%",left:0,right:0,height:1,background:"rgba(0,174,239,0.08)",transform:"translateY(-50%)" }} />
+      <div style={{ position:"absolute",left:"50%",top:0,bottom:0,width:1,background:"rgba(0,174,239,0.08)",transform:"translateX(-50%)" }} />
+      {/* Blip dots at different positions */}
+      {[{top:"28%",left:"62%"},{top:"65%",left:"38%"},{top:"42%",left:"30%"}].map((pos,i)=>(
+        <div key={i} style={{
+          position:"absolute",...pos,
+          width:4,height:4,borderRadius:"50%",
+          background:"#35D4FF",
+          boxShadow:"0 0 6px #35D4FF,0 0 12px rgba(53,212,255,0.5)",
+          animation:`radar-blip ${2+i*0.7}s ease-in-out infinite`,
+          animationDelay:`${i*0.8}s`,
+        }} />
+      ))}
+      {/* Center dot */}
+      <div style={{
+        position:"absolute",top:"50%",left:"50%",
+        transform:"translate(-50%,-50%)",
+        width:10,height:10,borderRadius:"50%",
+        background:"radial-gradient(circle, #35D4FF, #00AEEF)",
+        boxShadow:"0 0 12px #00AEEF,0 0 24px rgba(0,174,239,0.6),0 0 40px rgba(0,174,239,0.2)",
+        animation:"pulse-glow 1.5s ease infinite",
+      }} />
     </div>
   );
 }
@@ -671,21 +721,23 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       {/* ── HERO: RADAR ── */}
       <div className="radar-grid" style={{
         minHeight: 360,
-        background: "linear-gradient(180deg, #04101f 0%, #020810 100%)",
+        background: "linear-gradient(180deg, #03101e 0%, #020c18 50%, #010810 100%)",
         position: "relative",
         overflow: "hidden",
+        boxShadow: "0 8px 40px rgba(0,0,0,0.6) inset",
       }}>
         <div className="scan-line" />
         <RadarRings />
 
         {/* Corner brackets */}
-        {[{top:12,left:14},{top:12,right:14},{bottom:12,left:14},{bottom:12,right:14}].map((pos,i) => (
+        {[{top:10,left:12},{top:10,right:12},{bottom:10,left:12},{bottom:10,right:12}].map((pos,i) => (
           <div key={i} style={{
-            position:"absolute",...pos,width:16,height:16,
-            borderTop:    i<2  ? "1.5px solid rgba(0,174,239,0.55)" : undefined,
-            borderBottom: i>=2 ? "1.5px solid rgba(0,174,239,0.55)" : undefined,
-            borderLeft:  (i===0||i===2) ? "1.5px solid rgba(0,174,239,0.55)" : undefined,
-            borderRight: (i===1||i===3) ? "1.5px solid rgba(0,174,239,0.55)" : undefined,
+            position:"absolute",...pos,width:22,height:22,
+            borderTop:    i<2  ? "2px solid rgba(0,174,239,0.7)" : undefined,
+            borderBottom: i>=2 ? "2px solid rgba(0,174,239,0.7)" : undefined,
+            borderLeft:  (i===0||i===2) ? "2px solid rgba(0,174,239,0.7)" : undefined,
+            borderRight: (i===1||i===3) ? "2px solid rgba(0,174,239,0.7)" : undefined,
+            filter: "drop-shadow(0 0 4px rgba(0,174,239,0.5))",
           }} />
         ))}
 
@@ -974,20 +1026,81 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
 
       {/* Section grid */}
       <div style={{ padding:"20px 16px 0" }}>
-        <div className="sub-heading" style={{ color:"rgba(255,255,255,0.25)" }}>AVAILABLE SECTIONS</div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+          <div className="sub-heading" style={{ color:"rgba(255,255,255,0.35)", marginBottom:0 }}>AVAILABLE SECTIONS</div>
+          <div style={{ fontFamily:"Inter", fontSize:9, color:"rgba(255,255,255,0.2)", letterSpacing:"0.06em" }}>{sections.filter(s=>s.available).length}/{sections.length} UNLOCKED</div>
+        </div>
         <div className="section-grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-          {sections.map((s, idx)=>(
-            <div key={s.label} className="stagger-item" onClick={()=>{ if(s.available) navigate(s.path); }} style={{
-              padding:"16px 14px", borderRadius:14, cursor:s.available?"pointer":"not-allowed",
-              background: s.available ? `${s.color}0d` : "rgba(255,255,255,0.02)",
-              border:`1px solid ${s.available ? s.color+"30" : "rgba(255,255,255,0.07)"}`,
-              opacity: s.available ? 1 : 0.45,
-              transition:"transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
-            }}>
-              <div style={{ marginBottom:10, color:s.available?s.color:"rgba(255,255,255,0.25)" }}>{sectionIcons[s.label]}</div>
-              <div style={{ fontFamily:"Orbitron,monospace", fontSize:9, color:s.available?s.color:"rgba(255,255,255,0.25)", letterSpacing:"0.1em" }}>{s.label}</div>
-              <div style={{ fontFamily:"Inter", fontSize:10, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{s.sub}</div>
-              {!s.available && <div style={{ fontFamily:"Inter", fontSize:8, color:"rgba(255,255,255,0.18)", marginTop:5, letterSpacing:"0.08em", display:"flex", alignItems:"center", gap:4 }}><Lock size={9} strokeWidth={2} /> LOCKED</div>}
+          {sections.map((s)=>(
+            <div
+              key={s.label}
+              className={`stagger-item section-card${s.available ? " section-card-available" : ""}`}
+              onClick={()=>{ if(s.available) navigate(s.path); }}
+              style={{
+                padding:"18px 14px 16px",
+                borderRadius:16,
+                cursor:s.available?"pointer":"default",
+                background: s.available
+                  ? `linear-gradient(135deg, ${s.color}12 0%, ${s.color}06 100%)`
+                  : "rgba(255,255,255,0.015)",
+                border:`1px solid ${s.available ? s.color+"35" : "rgba(255,255,255,0.06)"}`,
+                opacity: s.available ? 1 : 0.5,
+                position:"relative",
+                overflow:"hidden",
+              }}
+            >
+              {/* Glow accent top-right */}
+              {s.available && (
+                <div style={{
+                  position:"absolute", top:-20, right:-20,
+                  width:60, height:60, borderRadius:"50%",
+                  background:`radial-gradient(circle, ${s.color}20, transparent 70%)`,
+                  pointerEvents:"none",
+                }} />
+              )}
+              {/* Icon */}
+              <div style={{
+                marginBottom:12,
+                color:s.available?s.color:"rgba(255,255,255,0.2)",
+                display:"flex", alignItems:"center",
+              }}>
+                {sectionIcons[s.label]}
+              </div>
+              {/* Label */}
+              <div style={{
+                fontFamily:"Inter", fontSize:10, fontWeight:700,
+                color:s.available?s.color:"rgba(255,255,255,0.22)",
+                letterSpacing:"0.1em", marginBottom:5,
+              }}>{s.label}</div>
+              {/* Sub */}
+              <div style={{
+                fontFamily:"Inter", fontSize:10,
+                color:s.available?"rgba(255,255,255,0.45)":"rgba(255,255,255,0.2)",
+                lineHeight:1.4,
+              }}>{s.sub}</div>
+              {/* Lock badge */}
+              {!s.available && (
+                <div style={{
+                  display:"inline-flex", alignItems:"center", gap:4,
+                  marginTop:8, padding:"3px 8px",
+                  background:"rgba(255,255,255,0.05)",
+                  border:"1px solid rgba(255,255,255,0.1)",
+                  borderRadius:6,
+                  fontFamily:"Inter", fontSize:8, color:"rgba(255,255,255,0.25)",
+                  letterSpacing:"0.08em",
+                }}>
+                  <Lock size={8} strokeWidth={2} /> LOCKED
+                </div>
+              )}
+              {/* Available arrow hint */}
+              {s.available && (
+                <div style={{
+                  position:"absolute", bottom:12, right:12,
+                  color:`${s.color}60`,
+                }}>
+                  <ChevronRight size={14} strokeWidth={2} />
+                </div>
+              )}
             </div>
           ))}
         </div>
