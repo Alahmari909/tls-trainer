@@ -417,17 +417,17 @@ const DAILY_TIPS = [
 
 // Map tip categories to illustrated technical diagrams
 const TIP_IMAGES: Record<string, string> = {
-  "Glide Slope":   "/tip-glide-slope.png",
-  "DDM":           "/tip-ddm.png",
-  "ILS / LOC":     "/tip-loc.png",
-  "ILS Categories":"/tip-ils-cat.png",
-  "Marker Beacon": "/tip-marker.png",
-  "Critical Area": "/tip-critical-area.png",
-  "Sensitive Area":"/tip-critical-area.png",
-  "Self-Test":     "/tip-self-test.png",
-  "RF Safety":     "/tip-rf-safety.png",
-  "VSWR":          "/tip-vswr.png",
-  "تشغيل":         "/tip-startup.png",
+  "Glide Slope":   "/tip-glide-slope.webp",
+  "DDM":           "/tip-ddm.webp",
+  "ILS / LOC":     "/tip-loc.webp",
+  "ILS Categories":"/tip-ils-cat.webp",
+  "Marker Beacon": "/tip-marker.webp",
+  "Critical Area": "/tip-critical-area.webp",
+  "Sensitive Area":"/tip-critical-area.webp",
+  "Self-Test":     "/tip-self-test.webp",
+  "RF Safety":     "/tip-rf-safety.webp",
+  "VSWR":          "/tip-vswr.webp",
+  "تشغيل":         "/tip-startup.webp",
 };
 
 function DailyTip() {
