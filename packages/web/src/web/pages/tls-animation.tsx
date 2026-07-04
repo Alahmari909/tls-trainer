@@ -1,559 +1,509 @@
 /**
- * TLS Animation — Technical Operational Sequence
- * 5-step animated SVG/CSS visualization of how TLS works
- * Dark military theme, landscape-optimised, auto-looping
+ * TLS Animation — Figure 4-1 TLS Operation Cycle
+ * 6-step animated SVG/CSS visualization matching the official TLS Operators Manual
+ * Split into: Surveillance (Steps 1-3) and Guidance (Steps 4-6)
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import BackButton from "../components/BackButton";
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const BG      = "#030b18";
-const SURFACE = "#050f1e";
-const GRID    = "rgba(0,174,239,0.07)";
+const SURFACE = "#040d1c";
 
+// ── Step definitions ──────────────────────────────────────────────────────────
 const STEPS = [
   {
     n: 1,
-    color:   "#00E676",
-    label:   "INTERROGATION",
-    freq:    "1030 MHz",
-    en:      "TLS interrogates all aircraft transponders within the service volume.",
-    ar:      "يرسل نظام TLS إشارة استجواب بتردد 1030 MHz لجميع الطائرات داخل نطاق الخدمة.",
+    phase: "SURVEILLANCE",
+    color: "#00E676",
+    label: "INTERROGATION",
+    freq:  "1030 MHz",
+    en: "System interrogates all transponders within the service volume with alternating Mode A and Mode C request.",
+    ar: "يرسل النظام إشارة استجواب بتردد 1030 MHz لجميع الطائرات داخل نطاق الخدمة بتناوب Mode A و Mode C.",
   },
   {
     n: 2,
-    color:   "#FF9500",
-    label:   "TRANSPONDER REPLY",
-    freq:    "1090 MHz",
-    en:      "Aircraft transponders respond to the interrogation signal at 1090 MHz.",
-    ar:      "يرد جهاز الإرسال (Transponder) في الطائرة على إشارة الاستجواب بتردد 1090 MHz.",
+    phase: "SURVEILLANCE",
+    color: "#FF9500",
+    label: "TRANSPONDER REPLY",
+    freq:  "1090 MHz",
+    en: "Aircraft transponder responds to the interrogation signal.",
+    ar: "يرد جهاز الإرسال (Transponder) في الطائرة على إشارة الاستجواب بتردد 1090 MHz.",
   },
   {
     n: 3,
-    color:   "#00C8FF",
-    label:   "POSITION FIX",
-    freq:    "MLAT x,y,z",
-    en:      "TLS sensors receive replies at multiple antennas and compute the aircraft position in 3D.",
-    ar:      "تستقبل حساسات TLS الردود عبر أنتينات متعددة وتحسب موضع الطائرة ثلاثياً (x, y, z).",
+    phase: "SURVEILLANCE",
+    color: "#00C8FF",
+    label: "POSITION FIX",
+    freq:  "MLAT x,y,z",
+    en: "System sensors measure the reply signal and determine aircraft position.",
+    ar: "تقيس حساسات النظام إشارة الرد وتحدد موضع الطائرة ثلاثياً (x, y, z).",
   },
   {
     n: 4,
-    color:   "#FFD700",
-    label:   "DEVIATION CALC",
-    freq:    "Δ CDI / GS",
-    en:      "TLS computes the localizer and glide-slope needle deflections from the aircraft's position.",
-    ar:      "يحسب النظام انحراف الطائرة عن مسار ILS ويحدد قيمة مؤشر CDI وزاوية الانزلاق.",
+    phase: "GUIDANCE",
+    color: "#FFD700",
+    label: "DISPLACEMENT CALC",
+    freq:  "Δ PATH",
+    en: "The system determines the displacement from the desired approach (programmed into the system).",
+    ar: "يحدد النظام انحراف الطائرة عن مسار الاقتراب المبرمج مسبقاً.",
   },
   {
     n: 5,
-    color:   "#00AEEF",
-    label:   "ILS GUIDANCE",
-    freq:    "LOC + GS",
-    en:      "TLS transmits ILS-equivalent guidance signals to guide the aircraft to the correct approach path.",
-    ar:      "يرسل TLS إشارة توجيه مكافئة لنظام ILS لتوجيه الطائرة إلى مسار الاقتراب الصحيح.",
+    phase: "GUIDANCE",
+    color: "#FF6B35",
+    label: "COURSE ADJUSTMENT",
+    freq:  "RCU COMPUTE",
+    en: "The system calculates the required course adjustments.",
+    ar: "يحسب النظام التعديلات اللازمة على مسار الطيران.",
+  },
+  {
+    n: 6,
+    phase: "GUIDANCE",
+    color: "#00AEEF",
+    label: "GUIDANCE SIGNAL",
+    freq:  "ILS / GCA",
+    en: "Course correction information is sent to the aircraft either by verbal instruction (GCA) or transmitted signals (ILS).",
+    ar: "تُرسل معلومات تصحيح المسار للطائرة إما بتعليمات صوتية (GCA) أو إشارات إرسال (ILS).",
   },
 ] as const;
 
-const STEP_DUR = 4000; // ms per step
+const STEP_DUR = 4500;
 
-// ── CSS animations injected once ─────────────────────────────────────────────
+// ── SVG scene dimensions ──────────────────────────────────────────────────────
+const VW = 860;
+const VH = 300;
+
+// ── CSS keyframes ─────────────────────────────────────────────────────────────
 const CSS = `
-@keyframes tls-fadein   { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-@keyframes tls-prog     { from{width:0%} to{width:100%} }
-@keyframes tls-pulse    { 0%,100%{opacity:.7} 50%{opacity:1} }
-@keyframes tls-blink    { 0%,100%{opacity:1} 50%{opacity:.25} }
+@keyframes tls-fadein { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+@keyframes tls-prog   { from{width:0%} to{width:100%} }
+@keyframes tls-blink  { 0%,100%{opacity:1} 50%{opacity:.2} }
 
-/* Step 1 — interrogation waves outward from TLS toward aircraft */
-@keyframes wave-out {
-  0%   { r: 0;   opacity: .9; }
-  70%  { opacity: .6; }
-  100% { r: 160; opacity: 0; }
+/* Expanding concentric circles — outward from source */
+@keyframes ring-expand {
+  0%   { r: 8;  opacity: .95; stroke-width: 2.5; }
+  40%  { opacity: .7; }
+  100% { r: 130; opacity: 0;  stroke-width: .8; }
 }
-.wave-out { animation: wave-out 1.8s ease-out infinite; }
-.wave-out:nth-child(2) { animation-delay:.45s; }
-.wave-out:nth-child(3) { animation-delay:.9s;  }
-.wave-out:nth-child(4) { animation-delay:1.35s;}
-
-/* Step 2 — reply waves inward from aircraft toward TLS */
-@keyframes wave-in {
-  0%   { r: 0;   opacity: .9; }
-  70%  { opacity: .6; }
-  100% { r: 160; opacity: 0; }
-}
-.wave-in { animation: wave-in 1.8s ease-out infinite; }
-.wave-in:nth-child(2) { animation-delay:.45s; }
-.wave-in:nth-child(3) { animation-delay:.9s;  }
-.wave-in:nth-child(4) { animation-delay:1.35s;}
+.ring { animation: ring-expand 2.2s ease-out infinite; }
+.ring:nth-child(2) { animation-delay: .55s; }
+.ring:nth-child(3) { animation-delay: 1.1s; }
+.ring:nth-child(4) { animation-delay: 1.65s; }
 
 /* Step 3 — grid lines draw in */
-@keyframes line-draw { from{stroke-dashoffset:400} to{stroke-dashoffset:0} }
-.grid-line { stroke-dasharray:400; animation: line-draw 1.2s ease both; }
+@keyframes line-draw { from{stroke-dashoffset:500} to{stroke-dashoffset:0} }
+.grid-line { stroke-dasharray:500; animation: line-draw 1.3s ease both; }
 
-/* Step 3 — crosshair blink */
-@keyframes cross-pop { 0%{opacity:0;transform:scale(.4)} 60%{opacity:1;transform:scale(1.15)} 100%{transform:scale(1)} }
-.cross-pop { animation: cross-pop .6s ease both; }
+/* Step 3 — crosshair pop */
+@keyframes cross-pop { 0%{opacity:0;transform:scale(.3)} 60%{opacity:1;transform:scale(1.2)} 100%{transform:scale(1)} }
+.cross-pop { animation: cross-pop .7s ease both; }
 
-/* Step 4 — beam expand */
-@keyframes beam-grow { from{opacity:0;transform:scaleX(.05)} to{opacity:1;transform:scaleX(1)} }
-.beam-grow { transform-origin: left center; animation: beam-grow 1.1s ease both; }
+/* Step 4 — beam grow */
+@keyframes beam-grow { from{opacity:0;transform:scaleX(.04)} to{opacity:1;transform:scaleX(1)} }
+.beam-grow { transform-origin: left center; animation: beam-grow 1.2s ease both; }
 
 /* Step 4 — CDI needle swing */
-@keyframes needle-swing { 0%{transform:rotate(-35deg)} 60%{transform:rotate(8deg)} 100%{transform:rotate(0deg)} }
-.needle-swing { transform-origin: 50% 100%; animation: needle-swing 1.4s ease both; }
+@keyframes needle-swing { 0%{transform:rotate(-38deg)} 65%{transform:rotate(10deg)} 100%{transform:rotate(0deg)} }
+.needle-swing { transform-origin: 50% 100%; animation: needle-swing 1.5s ease both; }
 
-/* Step 5 — aircraft glide */
-@keyframes ac-glide { from{transform:translate(0,18px)} to{transform:translate(0,0)} }
-.ac-glide { animation: ac-glide 1.6s ease both; }
+/* Step 5 — RCU screen blink */
+@keyframes rcu-blink { 0%,100%{opacity:.8} 50%{opacity:.3} }
+.rcu-blink { animation: rcu-blink .9s ease-in-out infinite; }
 
-/* Step 5 — guidance beam pulse */
-@keyframes guid-pulse { 0%,100%{opacity:.55} 50%{opacity:.9} }
-.guid-pulse { animation: guid-pulse 1.4s ease-in-out infinite; }
+/* Step 5 — compute dots */
+@keyframes dot-seq { 0%,100%{opacity:.2} 33%{opacity:1} }
+.dot1 { animation: dot-seq 1.2s ease-in-out infinite; }
+.dot2 { animation: dot-seq 1.2s ease-in-out infinite .4s; }
+.dot3 { animation: dot-seq 1.2s ease-in-out infinite .8s; }
 
-/* Step 5 — signal ripple */
-@keyframes sig-ripple { 0%{r:4;opacity:.9} 100%{r:22;opacity:0} }
-.sig-ripple { animation: sig-ripple 1.2s ease-out infinite; }
-.sig-ripple:nth-child(2){animation-delay:.4s}
-.sig-ripple:nth-child(3){animation-delay:.8s}
+/* Step 6 — guidance beam pulse */
+@keyframes guid-pulse { 0%,100%{opacity:.5} 50%{opacity:.9} }
+.guid-pulse { animation: guid-pulse 1.5s ease-in-out infinite; }
 
-/* Moving dashes for signal direction */
-@keyframes dash-move-out { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
-.dash-move-out { stroke-dasharray: 10, 6; animation: dash-move-out 1.5s linear infinite; }
+/* Step 6 — aircraft glide onto path */
+@keyframes ac-glide { from{transform:translate(0,20px)} to{transform:translate(0,0)} }
+.ac-glide { animation: ac-glide 1.8s ease both; }
 
-@keyframes dash-move-in { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 100; } }
-.dash-move-in { stroke-dasharray: 10, 6; animation: dash-move-in 1.5s linear infinite; }
+/* Step 6 — signal ripple */
+@keyframes sig-ripple { 0%{r:5;opacity:.9} 100%{r:28;opacity:0} }
+.sig-ripple { animation: sig-ripple 1.4s ease-out infinite; }
+.sig-ripple:nth-child(2){animation-delay:.47s}
+.sig-ripple:nth-child(3){animation-delay:.94s}
 
-.tls-fadein { animation: tls-fadein .55s ease both; }
-.tls-pulse  { animation: tls-pulse 2s ease-in-out infinite; }
+.tls-fadein { animation: tls-fadein .5s ease both; }
 .tls-blink  { animation: tls-blink 1.1s ease-in-out infinite; }
 `;
 
-// ── Shared scene dimensions (viewBox) ────────────────────────────────────────
-const VW = 900;
-const VH = 340;
+// ── Shared SVG sub-components ─────────────────────────────────────────────────
 
-// Aircraft SVG path (simplified side-view silhouette)
-function AircraftShape({ x, y, scale = 1, color = "#d0e8f8" }: { x: number; y: number; scale?: number; color?: string }) {
+/** Simple aircraft silhouette — side view */
+function Aircraft({ x, y, scale = 1, color = "#d0e8f8" }: {
+  x: number; y: number; scale?: number; color?: string;
+}) {
   return (
-    <g transform={`translate(${x},${y}) scale(${scale})`} style={{ filter: `drop-shadow(0 0 6px ${color}66)` }}>
+    <g transform={`translate(${x},${y}) scale(${scale})`}
+       style={{ filter: `drop-shadow(0 0 5px ${color}55)` }}>
       {/* fuselage */}
-      <ellipse cx="0" cy="0" rx="38" ry="8" fill={color} opacity=".92" />
-      {/* nose */}
-      <ellipse cx="36" cy="-1" rx="10" ry="5" fill={color} opacity=".85" />
+      <ellipse cx="0" cy="0" rx="40" ry="8" fill={color} opacity=".92" />
+      {/* nose cone */}
+      <ellipse cx="38" cy="-1" rx="10" ry="5" fill={color} opacity=".85" />
       {/* main wing */}
-      <polygon points="-8,-8 18,-8 6,14 -18,14" fill={color} opacity=".88" />
+      <polygon points="-6,-8 20,-8 8,16 -20,16" fill={color} opacity=".88" />
       {/* tail fin */}
-      <polygon points="-32,-8 -22,-8 -28,-22 -36,-8" fill={color} opacity=".8" />
-      {/* horizontal stabilizer */}
-      <polygon points="-30,0 -20,0 -24,8 -34,8" fill={color} opacity=".75" />
-      {/* engine pod */}
-      <ellipse cx="4" cy="12" rx="10" ry="4" fill={color} opacity=".6" />
+      <polygon points="-34,-8 -23,-8 -30,-24 -38,-8" fill={color} opacity=".8" />
+      {/* horizontal stabiliser */}
+      <polygon points="-32,0 -22,0 -26,9 -36,9" fill={color} opacity=".75" />
+      {/* engine */}
+      <ellipse cx="5" cy="13" rx="10" ry="4" fill={color} opacity=".6" />
     </g>
   );
 }
 
-// TLS ground station — realistic layout:
-// main mast with guy wires + equipment container + 2 cross-dipole antennas
-function TLSStation({ x, y }: { x: number; y: number }) {
-  const c = "#00E676";
+/** Small ground antenna — simple pole + radiating element (matches Figure 4-1) */
+function GroundAntenna({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x},${y})`}>
-
-      {/* ── Equipment container (shelter) ── */}
-      <rect x="-22" y="-8" width="44" height="18" rx="2"
-        fill="#1c2e1c" stroke={c} strokeWidth="1" opacity=".9" />
-      {/* container panel lines */}
-      {[-12, -4, 4, 12].map((dx) => (
-        <line key={dx} x1={dx} y1="-8" x2={dx} y2="10"
-          stroke={c} strokeWidth=".4" opacity=".35" />
-      ))}
-      {/* container label */}
-      <text x="0" y="4" textAnchor="middle" fill={c}
-        fontSize="5.5" fontFamily="Courier New,monospace" fontWeight="700" letterSpacing=".5"
-        opacity=".8">SHELTER</text>
-
-      {/* ── Main mast (tall, thin) ── */}
-      <rect x="-1.5" y="-58" width="3" height="50"
-        fill={c} opacity=".85" />
-      {/* mast cross-bar at top */}
-      <line x1="-10" y1="-56" x2="10" y2="-56"
-        stroke={c} strokeWidth="1.5" opacity=".8" />
-      {/* mast cross-bar mid */}
-      <line x1="-7" y1="-44" x2="7" y2="-44"
-        stroke={c} strokeWidth="1" opacity=".6" />
-      {/* antenna element at top */}
-      <line x1="0" y1="-58" x2="0" y2="-66"
-        stroke={c} strokeWidth="1.5" opacity=".9" />
-      <line x1="-5" y1="-63" x2="5" y2="-63"
-        stroke={c} strokeWidth="1.5" opacity=".9" />
-
-      {/* ── Guy wires (3 directions) ── */}
-      <line x1="0" y1="-52" x2="-36" y2="-2"
-        stroke={c} strokeWidth=".8" strokeDasharray="3 2" opacity=".45" />
-      <line x1="0" y1="-52" x2="36" y2="-2"
-        stroke={c} strokeWidth=".8" strokeDasharray="3 2" opacity=".45" />
-      <line x1="0" y1="-52" x2="0" y2="-2"
-        stroke={c} strokeWidth=".8" strokeDasharray="3 2" opacity=".3" />
-      {/* guy wire anchors */}
-      <circle cx="-36" cy="-2" r="2" fill={c} opacity=".5" />
-      <circle cx="36" cy="-2" r="2" fill={c} opacity=".5" />
-
-      {/* ── Cross-dipole antenna A (left, on ground) ── */}
-      <g transform="translate(-44, -4)">
-        {/* vertical pole */}
-        <line x1="0" y1="0" x2="0" y2="-18"
-          stroke={c} strokeWidth="1.2" opacity=".8" />
-        {/* horizontal arm top */}
-        <line x1="-8" y1="-16" x2="8" y2="-16"
-          stroke={c} strokeWidth="1.2" opacity=".8" />
-        {/* horizontal arm mid */}
-        <line x1="-6" y1="-10" x2="6" y2="-10"
-          stroke={c} strokeWidth="1" opacity=".65" />
-        {/* base plate */}
-        <rect x="-4" y="0" width="8" height="3" rx="1"
-          fill={c} opacity=".5" />
-        <text x="0" y="10" textAnchor="middle" fill={c}
-          fontSize="5" fontFamily="Courier New,monospace" opacity=".6">ANT</text>
-      </g>
-
-      {/* ── Cross-dipole antenna B (right, on ground) ── */}
-      <g transform="translate(44, -4)">
-        <line x1="0" y1="0" x2="0" y2="-18"
-          stroke={c} strokeWidth="1.2" opacity=".8" />
-        <line x1="-8" y1="-16" x2="8" y2="-16"
-          stroke={c} strokeWidth="1.2" opacity=".8" />
-        <line x1="-6" y1="-10" x2="6" y2="-10"
-          stroke={c} strokeWidth="1" opacity=".65" />
-        <rect x="-4" y="0" width="8" height="3" rx="1"
-          fill={c} opacity=".5" />
-        <text x="0" y="10" textAnchor="middle" fill={c}
-          fontSize="5" fontFamily="Courier New,monospace" opacity=".6">ANT</text>
-      </g>
-
-      {/* ── TLS label ── */}
-      <text x="0" y="22" textAnchor="middle" fill={c}
-        fontSize="9" fontFamily="Courier New,monospace" fontWeight="700" letterSpacing="1"
-        style={{ filter: `drop-shadow(0 0 4px ${c})` }}>TLS</text>
+      {/* base */}
+      <rect x="-5" y="0" width="10" height="4" rx="1" fill={color} opacity=".6" />
+      {/* pole */}
+      <line x1="0" y1="0" x2="0" y2="-22" stroke={color} strokeWidth="1.8" opacity=".85" />
+      {/* radiating element top */}
+      <line x1="-7" y1="-20" x2="7" y2="-20" stroke={color} strokeWidth="2" opacity=".9" />
+      {/* small element mid */}
+      <line x1="-4" y1="-14" x2="4" y2="-14" stroke={color} strokeWidth="1.4" opacity=".7" />
+      {/* tip dot */}
+      <circle cx="0" cy="-22" r="2" fill={color} opacity=".9" />
     </g>
   );
 }
 
-// Runway
+/** Runway strip */
 function Runway({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x},${y})`}>
-      <rect x="-60" y="-14" width="120" height="28" rx="2" fill="#1a1a1a" opacity=".85" />
-      {/* centerline dashes */}
-      {[-40, -20, 0, 20, 40].map((dx) => (
-        <rect key={dx} x={dx - 8} y="-2" width="16" height="4" rx="1" fill="#FFD700" opacity=".5" />
+      <rect x="-70" y="-10" width="140" height="20" rx="2" fill="#111" opacity=".8" />
+      {[-50, -30, -10, 10, 30, 50].map((dx) => (
+        <rect key={dx} x={dx - 8} y="-2" width="16" height="4" rx="1" fill="#FFD700" opacity=".4" />
       ))}
-      {/* threshold markings */}
-      <rect x="-58" y="-12" width="6" height="24" rx="1" fill="#fff" opacity=".3" />
-      <rect x="52" y="-12" width="6" height="24" rx="1" fill="#fff" opacity=".3" />
     </g>
   );
 }
 
-// ── Step Scenes ───────────────────────────────────────────────────────────────
-
+// ── Step 1: Interrogation — expanding rings from antenna toward aircraft ───────
 function Step1Scene({ color }: { color: string }) {
+  const antX = 160, antY = 220, acX = 680, acY = 110;
   return (
     <g>
-      {/* Background grid */}
-      <line x1="0" y1="0" x2={VW} y2={VH} stroke={GRID} strokeWidth="1" />
-      {/* Runway */}
-      <Runway x={180} y={260} />
-      {/* TLS station */}
-      <TLSStation x={180} y={230} />
-      {/* Aircraft far right, high */}
-      <AircraftShape x={720} y={100} scale={1.1} color="#d0e8f8" />
-      {/* Interrogation waves — arcs expanding from TLS toward aircraft */}
-      <g>
-        {[0, 1, 2, 3].map((i) => (
-          <circle
-            key={i}
-            className="wave-out"
-            cx={180} cy={225}
-            r={0}
-            fill="none"
-            stroke={color}
-            strokeWidth="2"
-            style={{ animationDelay: `${i * 0.45}s` }}
-          />
-        ))}
+      <Runway x={160} y={240} />
+      <GroundAntenna x={antX} y={antY} color={color} />
+      <Aircraft x={acX} y={acY} scale={1} color="#d0e8f8" />
+
+      {/* Expanding concentric rings from antenna */}
+      {[0, 1, 2, 3].map((i) => (
+        <circle key={i} className="ring" cx={antX} cy={antY - 11}
+          r={8} fill="none" stroke={color} strokeWidth="2.5"
+          style={{ animationDelay: `${i * 0.55}s` }} />
+      ))}
+
+      {/* Direction arrow overlay to show signal going toward aircraft */}
+      <line x1={antX + 20} y1={antY - 20} x2={acX - 50} y2={acY + 10}
+        stroke={color} strokeWidth="1" strokeDasharray="6 4" opacity=".3" />
+
+      {/* Freq badge */}
+      <g className="tls-fadein" style={{ animationDelay: ".4s" }}>
+        <rect x="340" y="140" width="120" height="22" rx="5"
+          fill="rgba(0,0,0,.65)" stroke={color} strokeWidth="1" />
+        <text x="400" y="155" textAnchor="middle" fill={color}
+          fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">1030 MHz ►</text>
       </g>
-      {/* Directional signal from TLS to aircraft (Animated) */}
-      <line x1="200" y1="215" x2="690" y2="115" stroke={color} strokeWidth="2.5" className="dash-move-out" opacity=".7" />
-      {/* Freq label Space */}
-      <g className="tls-fadein" style={{ animationDelay: ".3s" }}>
-        <rect x="350" y="130" width="110" height="22" rx="5" fill="rgba(0,0,0,.6)" stroke={color} strokeWidth="1" />
-        <text x="405" y="145" textAnchor="middle" fill={color} fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">1030 MHz ►</text>
+
+      {/* Mode label */}
+      <g className="tls-fadein" style={{ animationDelay: ".7s" }}>
+        <rect x="340" y="170" width="120" height="18" rx="4"
+          fill="rgba(0,0,0,.5)" stroke={`${color}55`} strokeWidth="1" />
+        <text x="400" y="183" textAnchor="middle" fill={`${color}cc`}
+          fontSize="9" fontFamily="Courier New,monospace">MODE A / MODE C</text>
       </g>
     </g>
   );
 }
 
+// ── Step 2: Transponder Reply — rings from aircraft back to antenna ────────────
 function Step2Scene({ color }: { color: string }) {
+  const antX = 160, antY = 220, acX = 680, acY = 110;
   return (
     <g>
-      <Runway x={180} y={260} />
-      <TLSStation x={180} y={230} />
-      <AircraftShape x={720} y={100} scale={1.1} color="#FF9500" />
-      {/* Reply waves from aircraft back to TLS */}
-      <g>
-        {[0, 1, 2, 3].map((i) => (
-          <circle
-            key={i}
-            className="wave-in"
-            cx={720} cy={100}
-            r={0}
-            fill="none"
-            stroke={color}
-            strokeWidth="2"
-            style={{ animationDelay: `${i * 0.45}s` }}
-          />
-        ))}
+      <Runway x={160} y={240} />
+      <GroundAntenna x={antX} y={antY} color="#00E676" />
+      <Aircraft x={acX} y={acY} scale={1} color={color} />
+
+      {/* Expanding rings from aircraft */}
+      {[0, 1, 2, 3].map((i) => (
+        <circle key={i} className="ring" cx={acX} cy={acY}
+          r={8} fill="none" stroke={color} strokeWidth="2.5"
+          style={{ animationDelay: `${i * 0.55}s` }} />
+      ))}
+
+      {/* Direction arrow */}
+      <line x1={acX - 60} y1={acY + 15} x2={antX + 25} y2={antY - 15}
+        stroke={color} strokeWidth="1" strokeDasharray="6 4" opacity=".3" />
+
+      {/* Freq badge */}
+      <g className="tls-fadein" style={{ animationDelay: ".4s" }}>
+        <rect x="330" y="140" width="130" height="22" rx="5"
+          fill="rgba(0,0,0,.65)" stroke={color} strokeWidth="1" />
+        <text x="395" y="155" textAnchor="middle" fill={color}
+          fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">◄ 1090 MHz</text>
       </g>
-      {/* Directional signal from aircraft back to TLS (Animated) */}
-      <line x1="690" y1="110" x2="205" y2="218" stroke={color} strokeWidth="2.5" className="dash-move-in" opacity=".7" />
-      {/* Freq label Space */}
-      <g className="tls-fadein" style={{ animationDelay: ".3s" }}>
-        <rect x="350" y="130" width="120" height="22" rx="5" fill="rgba(0,0,0,.6)" stroke={color} strokeWidth="1" />
-        <text x="410" y="145" textAnchor="middle" fill={color} fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">◄ 1090 MHz</text>
-      </g>
-      {/* Transponder label on aircraft */}
-      <g className="tls-fadein" style={{ animationDelay: ".6s" }}>
-        <rect x="630" y="60" width="100" height="18" rx="4" fill="rgba(0,0,0,.65)" stroke={color} strokeWidth="1" />
-        <text x="680" y="73" textAnchor="middle" fill={color} fontSize="9.5" fontFamily="Courier New,monospace" fontWeight="700">TRANSPONDER</text>
+
+      {/* Transponder label */}
+      <g className="tls-fadein" style={{ animationDelay: ".7s" }}>
+        <rect x="590" y="60" width="110" height="18" rx="4"
+          fill="rgba(0,0,0,.6)" stroke={`${color}55`} strokeWidth="1" />
+        <text x="645" y="73" textAnchor="middle" fill={`${color}cc`}
+          fontSize="9" fontFamily="Courier New,monospace">TRANSPONDER</text>
       </g>
     </g>
   );
 }
 
+// ── Step 3: Position Fix — lines from multiple sensors converging on aircraft ──
 function Step3Scene({ color }: { color: string }) {
-  const delays = [0, 0.15, 0.3, 0.45, 0.6, 0.75];
-  // Grid lines converging on aircraft position
-  const acX = 680, acY = 130;
-  const antennas = [
-    { x: 180, y: 230 },
-    { x: 280, y: 270 },
-    { x: 120, y: 200 },
-    { x: 230, y: 290 },
+  const acX = 640, acY = 120;
+  const sensors = [
+    { x: 150, y: 230 },
+    { x: 220, y: 255 },
+    { x: 100, y: 200 },
+    { x: 190, y: 270 },
   ];
   return (
     <g>
-      <Runway x={180} y={260} />
-      <TLSStation x={180} y={230} />
-      {/* Multiple antennas */}
-      {antennas.slice(1).map((a, i) => (
-        <g key={i} transform={`translate(${a.x},${a.y})`}>
-          <rect x="-6" y="-16" width="12" height="16" fill="#0d2a0d" stroke={color} strokeWidth="1" opacity=".7" />
-          <line x1="-8" y1="-16" x2="8" y2="-16" stroke={color} strokeWidth="1.5" opacity=".8" />
-          <text x="0" y="8" textAnchor="middle" fill={color} fontSize="7" fontFamily="Courier New,monospace" opacity=".7">ANT</text>
-        </g>
+      <Runway x={170} y={250} />
+      {sensors.map((s, i) => (
+        <GroundAntenna key={i} x={s.x} y={s.y} color={color} />
       ))}
-      {/* Lines from each antenna to aircraft */}
-      {antennas.map((a, i) => (
-        <line
-          key={i}
-          className="grid-line"
-          x1={a.x} y1={a.y - 20}
-          x2={acX} y2={acY}
-          stroke={color}
-          strokeWidth="1.5"
-          opacity=".7"
-          style={{ animationDelay: `${delays[i]}s` }}
-        />
+      <Aircraft x={acX} y={acY} scale={1} color="#d0e8f8" />
+
+      {/* Lines from each sensor to aircraft */}
+      {sensors.map((s, i) => (
+        <line key={i} className="grid-line"
+          x1={s.x} y1={s.y - 22} x2={acX} y2={acY}
+          stroke={color} strokeWidth="1.5" opacity=".65"
+          style={{ animationDelay: `${i * 0.15}s` }} />
       ))}
-      {/* Perspective grid */}
-      {[0, 1, 2, 3].map((i) => (
-        <line
-          key={`h${i}`}
-          className="grid-line"
-          x1={300 + i * 120} y1={80}
-          x2={300 + i * 120} y2={VH - 40}
-          stroke={color}
-          strokeWidth=".8"
-          opacity=".2"
-          style={{ animationDelay: `${0.5 + i * 0.1}s` }}
-        />
-      ))}
-      {[0, 1, 2].map((i) => (
-        <line
-          key={`v${i}`}
-          className="grid-line"
-          x1={280} y1={80 + i * 70}
-          x2={VW - 60} y2={80 + i * 70}
-          stroke={color}
-          strokeWidth=".8"
-          opacity=".2"
-          style={{ animationDelay: `${0.5 + i * 0.1}s` }}
-        />
-      ))}
-      {/* Aircraft */}
-      <AircraftShape x={acX} y={acY} scale={1.1} color="#d0e8f8" />
+
       {/* Crosshair at aircraft */}
-      <g className="cross-pop" style={{ animationDelay: ".8s" }}>
-        <line x1={acX - 22} y1={acY} x2={acX + 22} y2={acY} stroke={color} strokeWidth="2" />
-        <line x1={acX} y1={acY - 22} x2={acX} y2={acY + 22} stroke={color} strokeWidth="2" />
-        <circle cx={acX} cy={acY} r="8" fill="none" stroke={color} strokeWidth="1.5" />
+      <g className="cross-pop" style={{ animationDelay: ".7s" }}>
+        <line x1={acX - 24} y1={acY} x2={acX + 24} y2={acY}
+          stroke={color} strokeWidth="2" />
+        <line x1={acX} y1={acY - 24} x2={acX} y2={acY + 24}
+          stroke={color} strokeWidth="2" />
+        <circle cx={acX} cy={acY} r="9" fill="none" stroke={color} strokeWidth="1.5" />
       </g>
+
       {/* Position readout */}
-      <g className="tls-fadein" style={{ animationDelay: "1s" }}>
-        <rect x={acX + 30} y={acY - 50} width="130" height="46" rx="5" fill="rgba(0,0,0,.75)" stroke={color} strokeWidth="1" />
-        <text x={acX + 95} y={acY - 34} textAnchor="middle" fill={color} fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">POSITION FIX</text>
-        <text x={acX + 95} y={acY - 20} textAnchor="middle" fill="rgba(255,255,255,.7)" fontSize="9" fontFamily="Courier New,monospace">x:+0.42  y:-0.18</text>
-        <text x={acX + 95} y={acY - 8} textAnchor="middle" fill="rgba(255,255,255,.7)" fontSize="9" fontFamily="Courier New,monospace">z: 1240 ft</text>
+      <g className="tls-fadein" style={{ animationDelay: ".9s" }}>
+        <rect x={acX + 32} y={acY - 55} width="140" height="52" rx="5"
+          fill="rgba(0,0,0,.78)" stroke={color} strokeWidth="1" />
+        <text x={acX + 102} y={acY - 39} textAnchor="middle" fill={color}
+          fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">POSITION FIX</text>
+        <text x={acX + 102} y={acY - 25} textAnchor="middle" fill="rgba(255,255,255,.7)"
+          fontSize="8.5" fontFamily="Courier New,monospace">x: +0.42  y: -0.18</text>
+        <text x={acX + 102} y={acY - 13} textAnchor="middle" fill="rgba(255,255,255,.7)"
+          fontSize="8.5" fontFamily="Courier New,monospace">z: 1240 ft</text>
       </g>
     </g>
   );
 }
 
+// ── Step 4: Displacement Calculation ─────────────────────────────────────────
 function Step4Scene({ color }: { color: string }) {
-  // ILS beam from TLS toward aircraft — triangular beam
-  const tlsX = 180, tlsY = 240;
-  const acX  = 700, acY  = 110;
+  const antX = 160, antY = 230, acX = 680, acY = 115;
   return (
     <g>
-      <Runway x={180} y={260} />
-      <TLSStation x={180} y={230} />
-      {/* ILS glide beam — triangular fill */}
-      <polygon
-        className="beam-grow"
-        points={`${tlsX},${tlsY - 4} ${tlsX},${tlsY + 4} ${acX + 30},${acY + 30} ${acX + 30},${acY - 30}`}
-        fill={`${color}22`}
-        stroke={color}
-        strokeWidth="1"
-        opacity=".85"
-      />
+      <Runway x={160} y={248} />
+      <GroundAntenna x={antX} y={antY} color={color} />
+
+      {/* ILS beam — triangular */}
+      <polygon className="beam-grow"
+        points={`${antX},${antY - 4} ${antX},${antY + 4} ${acX + 30},${acY + 35} ${acX + 30},${acY - 35}`}
+        fill={`${color}1a`} stroke={color} strokeWidth="1" opacity=".85" />
+
       {/* Centerline (ideal path) */}
-      <line
-        className="tls-fadein"
-        x1={tlsX} y1={tlsY}
-        x2={acX + 30} y2={acY}
-        stroke={color}
-        strokeWidth="1.5"
-        strokeDasharray="10 5"
-        opacity=".7"
-      />
-      {/* Aircraft — slightly off path */}
-      <AircraftShape x={acX} y={acY + 22} scale={1.1} color="#FFD700" />
+      <line x1={antX} y1={antY} x2={acX + 30} y2={acY}
+        stroke={color} strokeWidth="1.5" strokeDasharray="10 5" opacity=".6" />
+
+      {/* Aircraft off path */}
+      <Aircraft x={acX} y={acY + 24} scale={1} color={color} />
+
       {/* Deviation arrow */}
       <g className="tls-fadein" style={{ animationDelay: ".5s" }}>
-        <line x1={acX} y1={acY + 22} x2={acX} y2={acY} stroke={color} strokeWidth="2" markerEnd={`url(#arr-${color.replace('#','')})`} />
-        <text x={acX + 14} y={acY + 14} fill={color} fontSize="10" fontFamily="Courier New,monospace" fontWeight="700">Δ</text>
+        <line x1={acX} y1={acY + 24} x2={acX} y2={acY + 4}
+          stroke={color} strokeWidth="2.5" />
+        <polygon points={`${acX - 5},${acY + 6} ${acX + 5},${acY + 6} ${acX},${acY - 2}`}
+          fill={color} />
+        <text x={acX + 14} y={acY + 18} fill={color}
+          fontSize="11" fontFamily="Courier New,monospace" fontWeight="700">Δ</text>
       </g>
-      {/* CDI instrument (simplified SVG) */}
-      <g className="tls-fadein" style={{ animationDelay: ".7s" }} transform="translate(760,160)">
-        <circle cx="0" cy="0" r="60" fill="#0a0a0a" stroke={color} strokeWidth="1.5" />
-        <circle cx="0" cy="0" r="55" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="1" />
-        {/* CDI cross */}
-        <line x1="-40" y1="0" x2="40" y2="0" stroke="rgba(255,255,255,.3)" strokeWidth="1" />
-        <line x1="0" y1="-40" x2="0" y2="40" stroke="rgba(255,255,255,.3)" strokeWidth="1" />
-        {/* Localizer dots */}
-        {[-24, -12, 12, 24].map((dx) => (
-          <circle key={dx} cx={dx} cy="0" r="3" fill="rgba(255,255,255,.25)" />
+
+      {/* CDI instrument */}
+      <g className="tls-fadein" style={{ animationDelay: ".7s" }} transform="translate(770,155)">
+        <circle cx="0" cy="0" r="58" fill="#080808" stroke={color} strokeWidth="1.5" />
+        <line x1="-38" y1="0" x2="38" y2="0" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
+        <line x1="0" y1="-38" x2="0" y2="38" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
+        {[-22, -11, 11, 22].map((d) => (
+          <circle key={d} cx={d} cy="0" r="2.5" fill="rgba(255,255,255,.2)" />
         ))}
-        {/* Glide slope dots */}
-        {[-24, -12, 12, 24].map((dy) => (
-          <circle key={dy} cx="0" cy={dy} r="3" fill="rgba(255,255,255,.25)" />
+        {[-22, -11, 11, 22].map((d) => (
+          <circle key={d} cx="0" cy={d} r="2.5" fill="rgba(255,255,255,.2)" />
         ))}
-        {/* LOC needle — deflected */}
-        <rect className="needle-swing" x="-2" y="-38" width="4" height="76" rx="2" fill={color} opacity=".9" />
-        {/* GS needle — deflected */}
-        <rect x="-38" y="-2" width="76" height="4" rx="2" fill={color} opacity=".6" style={{ transform: "rotate(8deg)", transformOrigin: "center" }} />
-        {/* Center dot */}
+        <rect className="needle-swing" x="-2" y="-36" width="4" height="72" rx="2" fill={color} opacity=".9" />
+        <rect x="-36" y="-2" width="72" height="4" rx="2" fill={color} opacity=".55"
+          style={{ transform: "rotate(10deg)", transformOrigin: "center" }} />
         <circle cx="0" cy="0" r="5" fill={color} opacity=".9" />
-        {/* Label */}
-        <text x="0" y="72" textAnchor="middle" fill={color} fontSize="8" fontFamily="Courier New,monospace" fontWeight="700">CDI</text>
+        <text x="0" y="70" textAnchor="middle" fill={color}
+          fontSize="7.5" fontFamily="Courier New,monospace" fontWeight="700">CDI</text>
       </g>
+
       {/* Deviation readout */}
       <g className="tls-fadein" style={{ animationDelay: ".9s" }}>
-        <rect x="360" y="50" width="160" height="52" rx="5" fill="rgba(0,0,0,.75)" stroke={color} strokeWidth="1" />
-        <text x="440" y="68" textAnchor="middle" fill={color} fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">DEVIATION</text>
-        <text x="440" y="82" textAnchor="middle" fill="rgba(255,255,255,.7)" fontSize="9" fontFamily="Courier New,monospace">LOC: +0.08°  GS: -0.12°</text>
-        <text x="440" y="96" textAnchor="middle" fill="rgba(255,255,255,.5)" fontSize="8" fontFamily="Courier New,monospace">COMPUTING ILS SIGNAL…</text>
+        <rect x="330" y="50" width="170" height="52" rx="5"
+          fill="rgba(0,0,0,.75)" stroke={color} strokeWidth="1" />
+        <text x="415" y="68" textAnchor="middle" fill={color}
+          fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">DISPLACEMENT</text>
+        <text x="415" y="82" textAnchor="middle" fill="rgba(255,255,255,.7)"
+          fontSize="8.5" fontFamily="Courier New,monospace">LOC: +0.08°  GS: -0.12°</text>
+        <text x="415" y="96" textAnchor="middle" fill="rgba(255,255,255,.45)"
+          fontSize="8" fontFamily="Courier New,monospace">COMPUTING ADJUSTMENTS…</text>
       </g>
-      {/* Arrow defs */}
-      <defs>
-        <marker id={`arr-${color.replace('#','')}`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 Z" fill={color} />
-        </marker>
-      </defs>
     </g>
   );
 }
 
+// ── Step 5: Course Adjustment Calculation — RCU computer screen ───────────────
 function Step5Scene({ color }: { color: string }) {
-  const tlsX = 180, tlsY = 240;
+  const antX = 160, antY = 230;
   return (
     <g>
-      <Runway x={180} y={260} />
-      <TLSStation x={180} y={230} />
+      <Runway x={160} y={248} />
+      <GroundAntenna x={antX} y={antY} color={color} />
+      <Aircraft x={650} y={110} scale={1} color="#d0e8f8" />
+
+      {/* RCU / Computer screen */}
+      <g className="tls-fadein" transform="translate(350,130)">
+        {/* outer casing */}
+        <rect x="-60" y="-55" width="120" height="90" rx="6"
+          fill="#0a1a0a" stroke={color} strokeWidth="1.5" opacity=".95" />
+        {/* screen */}
+        <rect x="-50" y="-48" width="100" height="60" rx="3"
+          fill="#030d03" stroke={`${color}66`} strokeWidth="1" />
+        {/* screen header */}
+        <text x="0" y="-33" textAnchor="middle" fill={color}
+          fontSize="7" fontFamily="Courier New,monospace" fontWeight="700">RCU PROCESSOR</text>
+        {/* data lines */}
+        {["LOC ADJ: -0.08°", "GS  ADJ: +0.12°", "XPDR: A4721"].map((txt, i) => (
+          <text key={i} x="-44" y={-20 + i * 13} fill="rgba(255,255,255,.65)"
+            fontSize="7" fontFamily="Courier New,monospace">{txt}</text>
+        ))}
+        {/* computing dots */}
+        <text x="-10" y="22" fill={color} fontSize="7" fontFamily="Courier New,monospace">CALC</text>
+        <circle className="dot1" cx="20" cy="18" r="3" fill={color} />
+        <circle className="dot2" cx="28" cy="18" r="3" fill={color} />
+        <circle className="dot3" cx="36" cy="18" r="3" fill={color} />
+        {/* blinking cursor */}
+        <rect className="rcu-blink" x="-44" y="28" width="6" height="8" rx="1" fill={color} />
+        {/* base */}
+        <rect x="-20" y="35" width="40" height="6" rx="2" fill={color} opacity=".4" />
+      </g>
+
+      {/* Processing arrow from antenna to RCU */}
+      <line x1={antX + 10} y1={antY - 22} x2="290" y2="140"
+        stroke={color} strokeWidth="1.2" strokeDasharray="6 4" opacity=".45" />
+
+      {/* Arrow from RCU to aircraft */}
+      <line x1="410" y1="130" x2="610" y2="115"
+        stroke={color} strokeWidth="1.2" strokeDasharray="6 4" opacity=".45" />
+
+      {/* Status badge */}
+      <g className="tls-fadein" style={{ animationDelay: ".5s" }}>
+        <rect x="490" y="55" width="170" height="22" rx="5"
+          fill="rgba(0,0,0,.65)" stroke={color} strokeWidth="1" />
+        <circle cx="506" cy="66" r="5" fill={color} className="tls-blink" />
+        <text x="590" y="70" textAnchor="middle" fill={color}
+          fontSize="10" fontFamily="Courier New,monospace" fontWeight="700">COMPUTING…</text>
+      </g>
+    </g>
+  );
+}
+
+// ── Step 6: Guidance Signal — ILS beam + aircraft on path ────────────────────
+function Step6Scene({ color }: { color: string }) {
+  const antX = 160, antY = 230;
+  return (
+    <g>
+      <Runway x={160} y={248} />
+      <GroundAntenna x={antX} y={antY} color={color} />
+
       {/* ILS guidance beam */}
-      <polygon
-        className="guid-pulse"
-        points={`${tlsX},${tlsY - 6} ${tlsX},${tlsY + 6} 820,190 820,60`}
-        fill={`${color}18`}
-        stroke={color}
-        strokeWidth="1"
-      />
+      <polygon className="guid-pulse"
+        points={`${antX},${antY - 6} ${antX},${antY + 6} 820,195 820,55`}
+        fill={`${color}18`} stroke={color} strokeWidth="1" />
+
       {/* Centerline */}
-      <line
-        x1={tlsX} y1={tlsY}
-        x2={820} y2={125}
-        stroke={color}
-        strokeWidth="2"
-        strokeDasharray="12 6"
-        opacity=".7"
-      />
+      <line x1={antX} y1={antY} x2={820} y2={125}
+        stroke={color} strokeWidth="2" strokeDasharray="12 6" opacity=".65" />
+
       {/* Aircraft on correct path */}
       <g className="ac-glide">
-        <AircraftShape x={680} y={125} scale={1.15} color="#00AEEF" />
+        <Aircraft x={660} y={125} scale={1.05} color={color} />
       </g>
-      {/* Signal ripple from TLS */}
-      <g>
-        {[0, 1, 2].map((i) => (
-          <circle
-            key={i}
-            className="sig-ripple"
-            cx={tlsX} cy={tlsY}
-            r={4}
-            fill="none"
-            stroke={color}
-            strokeWidth="2"
-            style={{ animationDelay: `${i * 0.4}s` }}
-          />
-        ))}
-      </g>
+
+      {/* Signal ripples from antenna */}
+      {[0, 1, 2].map((i) => (
+        <circle key={i} className="sig-ripple"
+          cx={antX} cy={antY - 11} r={5}
+          fill="none" stroke={color} strokeWidth="2"
+          style={{ animationDelay: `${i * 0.47}s` }} />
+      ))}
+
       {/* ON GLIDEPATH badge */}
       <g className="tls-fadein" style={{ animationDelay: ".5s" }}>
-        <rect x="480" y="60" width="150" height="22" rx="5" fill="rgba(0,174,239,.15)" stroke={color} strokeWidth="1" />
-        <circle cx="496" cy="71" r="5" fill={color} className="tls-blink" />
-        <text x="575" y="75" textAnchor="middle" fill={color} fontSize="10" fontFamily="Courier New,monospace" fontWeight="700">ON GLIDEPATH</text>
+        <rect x="460" y="55" width="160" height="22" rx="5"
+          fill={`${color}18`} stroke={color} strokeWidth="1" />
+        <circle cx="476" cy="66" r="5" fill={color} className="tls-blink" />
+        <text x="560" y="70" textAnchor="middle" fill={color}
+          fontSize="10" fontFamily="Courier New,monospace" fontWeight="700">ON GLIDEPATH</text>
       </g>
-      {/* ILS signal info */}
+
+      {/* ILS / GCA info */}
       <g className="tls-fadein" style={{ animationDelay: ".8s" }}>
-        <rect x="310" y="180" width="200" height="56" rx="5" fill="rgba(0,0,0,.75)" stroke={color} strokeWidth="1" />
-        <text x="410" y="197" textAnchor="middle" fill={color} fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">ILS GUIDANCE ACTIVE</text>
-        <text x="410" y="211" textAnchor="middle" fill="rgba(255,255,255,.65)" fontSize="9" fontFamily="Courier New,monospace">LOC: 108.10 MHz</text>
-        <text x="410" y="225" textAnchor="middle" fill="rgba(255,255,255,.65)" fontSize="9" fontFamily="Courier New,monospace">GS:  334.70 MHz</text>
+        <rect x="290" y="185" width="200" height="52" rx="5"
+          fill="rgba(0,0,0,.75)" stroke={color} strokeWidth="1" />
+        <text x="390" y="202" textAnchor="middle" fill={color}
+          fontSize="9" fontFamily="Courier New,monospace" fontWeight="700">ILS GUIDANCE ACTIVE</text>
+        <text x="390" y="216" textAnchor="middle" fill="rgba(255,255,255,.65)"
+          fontSize="8.5" fontFamily="Courier New,monospace">LOC: 108.10 MHz</text>
+        <text x="390" y="230" textAnchor="middle" fill="rgba(255,255,255,.65)"
+          fontSize="8.5" fontFamily="Courier New,monospace">GS:  334.70 MHz  / GCA</text>
       </g>
-      {/* Cockpit instrument indicator */}
-      <g className="tls-fadein" style={{ animationDelay: "1s" }} transform="translate(800,160)">
-        <circle cx="0" cy="0" r="52" fill="#080808" stroke={color} strokeWidth="1.5" />
-        <line x1="-35" y1="0" x2="35" y2="0" stroke="rgba(255,255,255,.25)" strokeWidth="1" />
-        <line x1="0" y1="-35" x2="0" y2="35" stroke="rgba(255,255,255,.25)" strokeWidth="1" />
-        {[-20, -10, 10, 20].map((d) => (
-          <circle key={`lx${d}`} cx={d} cy="0" r="2.5" fill="rgba(255,255,255,.2)" />
+
+      {/* CDI centered */}
+      <g className="tls-fadein" style={{ animationDelay: "1s" }} transform="translate(790,155)">
+        <circle cx="0" cy="0" r="50" fill="#080808" stroke={color} strokeWidth="1.5" />
+        <line x1="-34" y1="0" x2="34" y2="0" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
+        <line x1="0" y1="-34" x2="0" y2="34" stroke="rgba(255,255,255,.2)" strokeWidth="1" />
+        {[-18, -9, 9, 18].map((d) => (
+          <circle key={d} cx={d} cy="0" r="2.2" fill="rgba(255,255,255,.2)" />
         ))}
-        {[-20, -10, 10, 20].map((d) => (
-          <circle key={`ly${d}`} cx="0" cy={d} r="2.5" fill="rgba(255,255,255,.2)" />
+        {[-18, -9, 9, 18].map((d) => (
+          <circle key={d} cx="0" cy={d} r="2.2" fill="rgba(255,255,255,.2)" />
         ))}
-        {/* Centered needles */}
-        <rect x="-1.5" y="-32" width="3" height="64" rx="1.5" fill={color} opacity=".95" />
-        <rect x="-32" y="-1.5" width="64" height="3" rx="1.5" fill={color} opacity=".7" />
+        <rect x="-1.5" y="-30" width="3" height="60" rx="1.5" fill={color} opacity=".95" />
+        <rect x="-30" y="-1.5" width="60" height="3" rx="1.5" fill={color} opacity=".7" />
         <circle cx="0" cy="0" r="5" fill={color} />
-        <text x="0" y="63" textAnchor="middle" fill={color} fontSize="7" fontFamily="Courier New,monospace" fontWeight="700">CENTERED</text>
+        <text x="0" y="60" textAnchor="middle" fill={color}
+          fontSize="7" fontFamily="Courier New,monospace" fontWeight="700">CENTERED</text>
       </g>
     </g>
   );
@@ -561,8 +511,8 @@ function Step5Scene({ color }: { color: string }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function TLSAnimation() {
-  const [cur, setCur]     = useState(0);
-  const [tick, setTick]   = useState(0);
+  const [cur, setCur]       = useState(0);
+  const [tick, setTick]     = useState(0);
   const [paused, setPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -585,7 +535,7 @@ export default function TLSAnimation() {
   const goTo = (idx: number) => {
     setCur(idx);
     setTick((t) => t + 1);
-    if (!paused) startTimer(); // reset timer
+    if (!paused) startTimer();
   };
 
   const step = STEPS[cur];
@@ -596,6 +546,7 @@ export default function TLSAnimation() {
     2: <Step3Scene color={step.color} />,
     3: <Step4Scene color={step.color} />,
     4: <Step5Scene color={step.color} />,
+    5: <Step6Scene color={step.color} />,
   };
 
   return (
@@ -608,22 +559,33 @@ export default function TLSAnimation() {
       {/* ── HEADER ── */}
       <div style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "8px 14px", flexShrink: 0,
-        background: "rgba(3,11,24,0.97)",
+        padding: "7px 14px", flexShrink: 0,
+        background: "rgba(3,11,24,.97)",
         borderBottom: `1px solid ${step.color}30`,
-        transition: "border-color 0.5s",
+        transition: "border-color .5s",
       }}>
         <BackButton />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#d0e8f8", letterSpacing: 2 }}>TLS OPERATION</div>
-          <div style={{ fontSize: 8, color: "rgba(0,174,239,.5)", letterSpacing: 3 }}>TECHNICAL OPERATIONAL SEQUENCE</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#d0e8f8", letterSpacing: 2 }}>
+            TLS OPERATION CYCLE
+          </div>
+          <div style={{ fontSize: 8, color: "rgba(0,174,239,.5)", letterSpacing: 3 }}>
+            FIGURE 4-1 — TECHNICAL OPERATIONAL SEQUENCE
+          </div>
+        </div>
+        {/* Phase badge */}
+        <div style={{
+          padding: "3px 10px", borderRadius: 4,
+          background: `${step.color}20`, border: `1px solid ${step.color}50`,
+          fontSize: 9, color: step.color, letterSpacing: "0.12em",
+        }}>
+          {step.phase}
         </div>
         {/* Step counter */}
-        <div style={{ textAlign: "center", marginRight: 4 }}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: step.color, lineHeight: 1, textShadow: `0 0 14px ${step.color}` }}>
-            {cur + 1}
-          </div>
-          <div style={{ fontSize: 7, color: "rgba(255,255,255,.35)", letterSpacing: 1 }}>OF 5</div>
+        <div style={{ textAlign: "center", marginLeft: 4, marginRight: 4 }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: step.color, lineHeight: 1,
+            textShadow: `0 0 14px ${step.color}` }}>{cur + 1}</div>
+          <div style={{ fontSize: 7, color: "rgba(255,255,255,.3)", letterSpacing: 1 }}>OF 6</div>
         </div>
         {/* Pause/Play */}
         <button
@@ -632,7 +594,7 @@ export default function TLSAnimation() {
             background: "rgba(255,255,255,.05)", border: `1px solid ${step.color}40`,
             borderRadius: 6, padding: "5px 10px", cursor: "pointer",
             color: step.color, fontSize: 10, letterSpacing: "0.1em",
-            transition: "all 0.2s",
+            fontFamily: "Courier New, monospace",
           }}
         >
           {paused ? "▶ PLAY" : "⏸ PAUSE"}
@@ -644,13 +606,12 @@ export default function TLSAnimation() {
         key={`l${tick}`}
         className="tls-fadein"
         style={{
-          padding: "6px 14px",
-          background: `linear-gradient(90deg, ${step.color}1a 0%, transparent 100%)`,
-          borderBottom: `1px solid ${step.color}22`,
+          padding: "5px 14px",
+          background: `linear-gradient(90deg, ${step.color}18 0%, transparent 100%)`,
+          borderBottom: `1px solid ${step.color}20`,
           borderLeft: `4px solid ${step.color}`,
           flexShrink: 0,
-          display: "flex", alignItems: "center", gap: 12,
-          transition: "border-color 0.4s",
+          display: "flex", alignItems: "center", gap: 10,
         }}
       >
         <span style={{ fontSize: 10, fontWeight: 700, color: step.color, letterSpacing: "0.15em" }}>
@@ -658,8 +619,8 @@ export default function TLSAnimation() {
         </span>
         <span style={{
           fontSize: 9, padding: "2px 8px", borderRadius: 4,
-          background: `${step.color}20`, border: `1px solid ${step.color}40`,
-          color: step.color, letterSpacing: "0.1em",
+          background: `${step.color}18`, border: `1px solid ${step.color}38`,
+          color: step.color, letterSpacing: "0.08em",
         }}>
           {step.freq}
         </span>
@@ -667,47 +628,42 @@ export default function TLSAnimation() {
 
       {/* ── SVG ANIMATION SCENE ── */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden", background: SURFACE }}>
-        {/* Subtle background grid */}
-        <svg
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.4 }}
-          preserveAspectRatio="xMidYMid slice"
-          viewBox={`0 0 ${VW} ${VH}`}
-        >
+        {/* Background grid */}
+        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: .35 }}
+          viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid slice">
           {Array.from({ length: 18 }, (_, i) => (
-            <line key={`bg-v${i}`} x1={i * 50} y1="0" x2={i * 50} y2={VH} stroke={GRID} strokeWidth="1" />
+            <line key={i} x1={i * 50} y1="0" x2={i * 50} y2={VH}
+              stroke="rgba(0,174,239,.06)" strokeWidth="1" />
           ))}
-          {Array.from({ length: 8 }, (_, i) => (
-            <line key={`bg-h${i}`} x1="0" y1={i * 50} x2={VW} y2={i * 50} stroke={GRID} strokeWidth="1" />
+          {Array.from({ length: 7 }, (_, i) => (
+            <line key={i} x1="0" y1={i * 50} x2={VW} y2={i * 50}
+              stroke="rgba(0,174,239,.06)" strokeWidth="1" />
           ))}
         </svg>
 
-        {/* Main animated scene */}
+        {/* Animated scene */}
         <svg
-          key={`scene${tick}`}
+          key={`sc${tick}`}
           className="tls-fadein"
           viewBox={`0 0 ${VW} ${VH}`}
           preserveAspectRatio="xMidYMid meet"
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         >
-          {/* Subtle vignette */}
           <defs>
-            <radialGradient id="vig" cx="50%" cy="50%" r="70%">
+            <radialGradient id="vig2" cx="50%" cy="50%" r="70%">
               <stop offset="0%" stopColor="transparent" />
-              <stop offset="100%" stopColor={BG} stopOpacity=".5" />
+              <stop offset="100%" stopColor={BG} stopOpacity=".45" />
             </radialGradient>
           </defs>
-
           {SceneMap[cur]}
-
-          {/* Vignette overlay */}
-          <rect x="0" y="0" width={VW} height={VH} fill="url(#vig)" />
+          <rect x="0" y="0" width={VW} height={VH} fill="url(#vig2)" />
         </svg>
 
-        {/* Step color inner glow */}
+        {/* Step color glow */}
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
-          boxShadow: `inset 0 0 80px ${step.color}10`,
-          transition: "box-shadow 0.6s",
+          boxShadow: `inset 0 0 80px ${step.color}0d`,
+          transition: "box-shadow .6s",
         }} />
       </div>
 
@@ -716,9 +672,9 @@ export default function TLSAnimation() {
         key={`d${tick}`}
         className="tls-fadein"
         style={{
-          padding: "8px 14px 6px", flexShrink: 0,
+          padding: "7px 14px 5px", flexShrink: 0,
           background: "rgba(3,11,24,.95)",
-          borderTop: `1px solid rgba(255,255,255,.06)`,
+          borderTop: "1px solid rgba(255,255,255,.05)",
         }}
       >
         <div style={{ fontSize: 12, lineHeight: 1.55, color: "rgba(255,255,255,.88)" }}>
@@ -748,35 +704,58 @@ export default function TLSAnimation() {
         )}
       </div>
 
-      {/* ── STEP DOTS ── */}
+      {/* ── STEP DOTS — split by phase ── */}
       <div style={{
         display: "flex", justifyContent: "center", alignItems: "center",
-        gap: 8, padding: "8px 0 10px", flexShrink: 0,
+        gap: 0, padding: "7px 0 9px", flexShrink: 0,
         background: "rgba(3,11,24,.97)",
       }}>
-        {STEPS.map((s, idx) => (
-          <button
-            key={idx}
-            onClick={() => goTo(idx)}
-            title={`Step ${s.n}: ${s.label}`}
-            style={{
-              width: idx === cur ? 28 : 8,
-              height: 8,
-              borderRadius: 4,
-              border: "none",
-              cursor: "pointer",
-              background: idx === cur
-                ? s.color
-                : idx < cur
-                  ? `${s.color}55`
-                  : "rgba(255,255,255,.12)",
-              boxShadow: idx === cur ? `0 0 10px ${s.color}` : "none",
-              transition: "all 0.4s ease",
-              padding: 0,
-            }}
-          />
-        ))}
-        <span style={{ fontSize: 8, color: "rgba(255,255,255,.25)", letterSpacing: "0.1em", marginLeft: 8 }}>
+        {/* Surveillance group */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 7, color: "rgba(255,255,255,.3)", letterSpacing: "0.08em", marginRight: 4 }}>
+            SURV
+          </span>
+          {STEPS.slice(0, 3).map((s, idx) => (
+            <button key={idx} onClick={() => goTo(idx)} title={`Step ${s.n}: ${s.label}`}
+              style={{
+                width: idx === cur ? 26 : 8, height: 8, borderRadius: 4, border: "none",
+                cursor: "pointer", padding: 0,
+                background: idx === cur ? s.color : idx < cur ? `${s.color}55` : "rgba(255,255,255,.12)",
+                boxShadow: idx === cur ? `0 0 10px ${s.color}` : "none",
+                transition: "all .4s ease",
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div style={{
+          width: 1, height: 16, background: "rgba(255,255,255,.15)",
+          margin: "0 12px",
+        }} />
+
+        {/* Guidance group */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 7, color: "rgba(255,255,255,.3)", letterSpacing: "0.08em", marginRight: 4 }}>
+            GUID
+          </span>
+          {STEPS.slice(3).map((s, idx) => {
+            const realIdx = idx + 3;
+            return (
+              <button key={realIdx} onClick={() => goTo(realIdx)} title={`Step ${s.n}: ${s.label}`}
+                style={{
+                  width: realIdx === cur ? 26 : 8, height: 8, borderRadius: 4, border: "none",
+                  cursor: "pointer", padding: 0,
+                  background: realIdx === cur ? s.color : realIdx < cur ? `${s.color}55` : "rgba(255,255,255,.12)",
+                  boxShadow: realIdx === cur ? `0 0 10px ${s.color}` : "none",
+                  transition: "all .4s ease",
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <span style={{ fontSize: 7, color: "rgba(255,255,255,.2)", letterSpacing: "0.08em", marginLeft: 12 }}>
           {paused ? "PAUSED" : "AUTO"}
         </span>
       </div>
