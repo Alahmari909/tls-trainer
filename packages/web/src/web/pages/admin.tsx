@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
-import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award } from "lucide-react";
-
+import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award, PenSquare } from "lucide-react";
 import Basics from "./basics";
 import Advanced from "./advanced";
 import { AdminNavContext } from "../lib/admin-context";
 import QuizList from "./quiz-list";
+import QuizEditor from "./quiz-editor";
 import Chat from "./chat";
 import PrivateChat from "./private-chat";
 import Status from "./status";
@@ -3529,10 +3529,10 @@ const NAV_ICON_MAP: Record<string, React.ReactNode> = {
   common_faults: <AlertTriangle size={14} strokeWidth={1.8} />,
   error_codes:   <Search size={14} strokeWidth={1.8} />,
   simulator:     <Plane size={14} strokeWidth={1.8} />,
-  "ai-knowledge":<Brain size={14} strokeWidth={1.8} />,
+    "ai-knowledge":<Brain size={14} strokeWidth={1.8} />,
   nav_manager:   <Map size={14} strokeWidth={1.8} />,
+  "quiz-editor": <PenSquare size={14} strokeWidth={1.8} />,
 };
-
 const NAV_LINKS = [
   { id: "dashboard",     label: "Dashboard",      divider: false },
   { id: "trainees",      label: "Trainees",       divider: false },
@@ -3550,11 +3550,11 @@ const NAV_LINKS = [
   { id: "error_codes",    label: "Error Codes",     divider: false },
   { id: "simulator",      label: "Simulator",      divider: false },
   { id: "ai-knowledge",  label: "AI Knowledge",   divider: false },
-  { id: "nav_manager",   label: "Nav Manager",    divider: true  },
+    { id: "nav_manager",   label: "Nav Manager",    divider: false },
+  { id: "quiz-editor",   label: "Quiz Editor",    divider: true  },
 ] as const;
-
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager" | "ai-knowledge" | "error_codes";
+  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager" | "ai-knowledge" | "error_codes" | "quiz-editor";
 
 // ─── Admin Documents Management ──────────────────────────────────────────────
 const DOC_CATEGORIES = ["Technical","Installation","Operations","Maintenance","Calibration","Logistics","ATC","Regulatory","Training","Other"];
@@ -5350,6 +5350,13 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {activeView === "nav_manager" && (
         <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh" }}>
           <NavManagerAdmin adminPw={adminPw} />
+        </div>
+      )}
+
+      {/* ── QUIZ EDITOR VIEW ── */}
+      {activeView === "quiz-editor" && (
+        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh" }}>
+          <QuizEditor />
         </div>
       )}
 

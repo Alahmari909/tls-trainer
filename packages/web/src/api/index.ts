@@ -4196,4 +4196,150 @@ app.delete('/admin/documents/:id', rateLimit({ windowMs: 60 * 60 * 1000, max: 20
   return c.json({ ok: true }, 200);
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// QUIZ EDITOR — Admin CRUD for questions
+// ═══════════════════════════════════════════════════════════════════════════
+
+// GET /api/admin/quiz/modules — list all modules (published + unpublished)
+app.get('/admin/quiz/modules', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql(
+    `SELECT id, title, subtitle, icon, color, "order", lesson_count as lessonCount, is_published as isPublished
+     FROM modules ORDER BY "order" ASC`,
+    []
+  );
+  return c.json(rows, 200);
+});
+
+// GET /api/admin/quiz/questions?moduleId=X — list questions for a module
+app.get('/admin/quiz/questions', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const moduleId = Number(c.req.query('moduleId') ?? 0);
+  if (!moduleId) return c.json({ error: 'moduleId required' }, 400);
+  const rows = await sql(
+    `SELECT id, module_id as moduleId, question,
+            option_a as optionA, option_b as optionB,
+            option_c as optionC, option_d as optionD,
+            correct_option as correctOption, explanation, "order"
+     FROM questions WHERE module_id=? ORDER BY "order" ASC`,
+    [moduleId]
+  );
+  return c.json(rows, 200);
+});
+
+// POST /api/admin/quiz/questions — create a new question
+app.post('/admin/quiz/questions', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json() as {
+    moduleId?: number;
+    question?: string;
+    optionA?: string; optionB?: string; optionC?: string; optionD?: string;
+    correctOption?: string;
+    explanation?: string;
+    order?: number;
+  };
+  const { moduleId, question, optionA, optionB, optionC, optionD, correctOption, explanation, order = 0 } = body;
+  if (!moduleId || !question || !optionA || !optionB || !optionC || !optionD || !correctOption) {
+    return c.json({ error: 'moduleId, question, optionA-D, and correctOption are required' }, 400);
+  }
+  if (!['A','B','C','D'].includes(correctOption.toUpperCase())) {
+    return c.json({ error: 'correctOption must be A, B, C, or D' }, 400);
+  }
+  // Verify module exists
+  const [mod] = await sql(`SELECT id FROM modules WHERE id=?`, [moduleId]);
+  if (!mod) return c.json({ error: 'Module not found' }, 404);
+
+  await sqlRun(
+    `INSERT INTO questions (module_id, question, option_a, option_b, option_c, option_d, correct_option, explanation, "order")
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [moduleId, question.trim(), optionA.trim(), optionB.trim(), optionC.trim(), optionD.trim(),
+     correctOption.toUpperCase(), explanation?.trim() ?? null, order]
+  );
+  const [created] = await sql(
+    `SELECT id, module_id as moduleId, question, option_a as optionA, option_b as optionB,
+            option_c as optionC, option_d as optionD, correct_option as correctOption,
+            explanation, "order" FROM questions WHERE rowid=last_insert_rowid()`,
+    []
+  );
+  await logAudit('quiz_question_create', `moduleId=${moduleId} q=${question.trim().slice(0,60)}`);
+  return c.json(created, 201);
+});
+
+// PUT /api/admin/quiz/questions/:id — update a question
+app.put('/admin/quiz/questions/:id', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = Number(c.req.param('id'));
+  const [existing] = await sql(`SELECT id FROM questions WHERE id=?`, [id]);
+  if (!existing) return c.json({ error: 'Question not found' }, 404);
+
+  const body = await c.req.json() as {
+    moduleId?: number;
+    question?: string;
+    optionA?: string; optionB?: string; optionC?: string; optionD?: string;
+    correctOption?: string;
+    explanation?: string;
+    order?: number;
+  };
+  const { moduleId, question, optionA, optionB, optionC, optionD, correctOption, explanation, order } = body;
+  if (correctOption && !['A','B','C','D'].includes(correctOption.toUpperCase())) {
+    return c.json({ error: 'correctOption must be A, B, C, or D' }, 400);
+  }
+
+  // Build dynamic update
+  const fields: string[] = [];
+  const vals: unknown[] = [];
+  if (moduleId   != null) { fields.push('module_id=?');      vals.push(moduleId); }
+  if (question   != null) { fields.push('question=?');       vals.push(question.trim()); }
+  if (optionA    != null) { fields.push('option_a=?');       vals.push(optionA.trim()); }
+  if (optionB    != null) { fields.push('option_b=?');       vals.push(optionB.trim()); }
+  if (optionC    != null) { fields.push('option_c=?');       vals.push(optionC.trim()); }
+  if (optionD    != null) { fields.push('option_d=?');       vals.push(optionD.trim()); }
+  if (correctOption != null) { fields.push('correct_option=?'); vals.push(correctOption.toUpperCase()); }
+  if (explanation != null) { fields.push('explanation=?');   vals.push(explanation.trim() || null); }
+  if (order      != null) { fields.push('"order"=?');       vals.push(order); }
+
+  if (fields.length === 0) return c.json({ error: 'No fields to update' }, 400);
+  vals.push(id);
+  await sqlRun(`UPDATE questions SET ${fields.join(', ')} WHERE id=?`, vals);
+
+  const [updated] = await sql(
+    `SELECT id, module_id as moduleId, question, option_a as optionA, option_b as optionB,
+            option_c as optionC, option_d as optionD, correct_option as correctOption,
+            explanation, "order" FROM questions WHERE id=?`,
+    [id]
+  );
+  await logAudit('quiz_question_update', `id=${id}`);
+  return c.json(updated, 200);
+});
+
+// DELETE /api/admin/quiz/questions/:id — delete a question
+app.delete('/admin/quiz/questions/:id', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = Number(c.req.param('id'));
+  const [existing] = await sql(`SELECT id, module_id as moduleId, question FROM questions WHERE id=?`, [id]);
+  if (!existing) return c.json({ error: 'Question not found' }, 404);
+  await sqlRun(`DELETE FROM questions WHERE id=?`, [id]);
+  await logAudit('quiz_question_delete', `id=${id} moduleId=${existing.moduleId}`);
+  return c.json({ ok: true }, 200);
+});
+
+// POST /api/admin/quiz/questions/reorder — reorder questions within a module
+app.post('/admin/quiz/questions/reorder', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json() as { moduleId?: number; order?: number[] };
+  const { moduleId, order: orderArr } = body;
+  if (!moduleId || !Array.isArray(orderArr)) return c.json({ error: 'moduleId and order[] required' }, 400);
+  for (let i = 0; i < orderArr.length; i++) {
+    await sqlRun(`UPDATE questions SET "order"=? WHERE id=? AND module_id=?`, [i, orderArr[i], moduleId]);
+  }
+  await logAudit('quiz_questions_reorder', `moduleId=${moduleId}`);
+  return c.json({ ok: true }, 200);
+});
+
 export default app;
