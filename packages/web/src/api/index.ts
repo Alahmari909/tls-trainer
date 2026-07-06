@@ -564,9 +564,12 @@ async function ensureTables() {
       dir_name TEXT NOT NULL DEFAULT '',
       chunk_index INTEGER NOT NULL,
       content TEXT NOT NULL,
+      page_number INTEGER NOT NULL DEFAULT 0,
       indexed_at INTEGER NOT NULL
     )`).catch(() => {});
     await client.execute(`CREATE INDEX IF NOT EXISTS idx_ai_chunks_fn ON ai_doc_chunks(filename)`).catch(() => {});
+    // Add page_number column to existing DBs that lack it (idempotent)
+    await client.execute(`ALTER TABLE ai_doc_chunks ADD COLUMN page_number INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     // ── Documents table ──────────────────────────────────────────────────────
     await client.execute(`CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -619,20 +622,83 @@ async function ensureTables() {
 ensureTables();
 
 // ── RAG helpers ───────────────────────────────────────────────────────────────
-async function searchKnowledgeChunks(query: string, limit = 8): Promise<string[]> {
+async function searchKnowledgeChunks(query: string, limit = 10): Promise<string[]> {
   const stopWords = new Set(['what','that','this','with','from','have','will','your','they','their',
     'ماهو','ماهي','كيف','ماذا','لماذا','هل','في','من','على','إلى','عن','مع']);
   const words = query.toLowerCase()
     .replace(/[^\w\s\u0600-\u06FF]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.has(w))
-    .slice(0, 6);
+    .slice(0, 8);
   if (words.length === 0) return [];
   const conditions = words.map(() => 'content LIKE ?').join(' OR ');
   const params = [...words.map(w => `%${w}%`), limit];
-  return sql(`SELECT content FROM ai_doc_chunks WHERE ${conditions} LIMIT ?`, params)
-    .then(rows => rows.map((r: any) => r.content as string))
+  return sql(`SELECT content, filename, page_number FROM ai_doc_chunks WHERE ${conditions} LIMIT ?`, params)
+    .then(rows => rows.map((r: any) => {
+      const page = Number(r.page_number) > 0 ? `, صفحة ${r.page_number}` : '';
+      return `[📄 ${r.filename}${page}]:\n${r.content as string}`;
+    }))
     .catch(() => []);
+}
+
+// ── Index a single PDF stored in DB as base64 ─────────────────────────────────
+async function indexDocumentFromDB(
+  docId: number, title: string, filename: string, reindex = false
+): Promise<{ chunks: number; pages: number; error?: string }> {
+  try {
+    const { spawnSync } = await import('child_process');
+    const os = await import('os');
+    const fsM = await import('fs');
+
+    // Get file data from DB
+    const [fileRow] = await sql('SELECT file_data FROM document_files WHERE document_id=?', [docId]);
+    if (!fileRow || !(fileRow as any).file_data) return { chunks: 0, pages: 0, error: 'No file data' };
+
+    if (!reindex) {
+      const exists = await sql('SELECT id FROM ai_doc_chunks WHERE doc_id=? LIMIT 1', [String(docId)]).catch(() => []);
+      if ((exists as any[]).length > 0) return { chunks: 0, pages: 0, error: 'Already indexed' };
+    }
+
+    // Write to temp file
+    const tmpPath = fsM.default.mkdtempSync(os.default.tmpdir() + '/tls_') + '/' + filename;
+    const buf = Buffer.from((fileRow as any).file_data as string, 'base64');
+    fsM.default.writeFileSync(tmpPath, buf);
+
+    // Extract text with pdftotext
+    const result = spawnSync('pdftotext', ['-enc', 'UTF-8', '-q', tmpPath, '-'], {
+      encoding: 'utf8', maxBuffer: 30 * 1024 * 1024,
+    });
+
+    // Clean up temp file
+    try { fsM.default.unlinkSync(tmpPath); fsM.default.rmdirSync(fsM.default.dirname(tmpPath)); } catch {}
+
+    const fullText = (result.status === 0 && result.stdout) ? result.stdout : '';
+    if (!fullText || fullText.trim().length < 30) {
+      return { chunks: 0, pages: 0, error: result.error ? 'pdftotext not installed' : 'No text extracted (scanned/encrypted PDF)' };
+    }
+
+    // Split by form-feed character (\f) to get per-page content
+    const pages = fullText.split('\f').map(p => p.trim()).filter(p => p.length > 20);
+    const now = Date.now();
+    await sqlRun('DELETE FROM ai_doc_chunks WHERE doc_id=?', [String(docId)]);
+
+    let totalChunks = 0;
+    let chunkIdx = 0;
+    for (let pi = 0; pi < pages.length; pi++) {
+      const pageNum = pi + 1;
+      const pageChunks = splitIntoChunks(pages[pi]);
+      for (const chunk of pageChunks) {
+        await sqlRun(
+          'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,page_number,indexed_at) VALUES (?,?,?,?,?,?,?)',
+          [String(docId), filename, 'documents', chunkIdx++, chunk, pageNum, now]
+        );
+        totalChunks++;
+      }
+    }
+    return { chunks: totalChunks, pages: pages.length };
+  } catch (e: any) {
+    return { chunks: 0, pages: 0, error: e?.message?.slice(0, 120) ?? 'unknown error' };
+  }
 }
 
 function splitIntoChunks(text: string, size = 700, overlap = 120): string[] {
@@ -1929,25 +1995,33 @@ const app = new Hono()
     const pdfContext = [...new Set(pdfChunks)].join('\n—\n');
     const hasRagContent = qaContext.length > 0 || lessonContext.length > 0 || pdfContext.length > 0;
 
-    const systemPrompt = `أنت مدرب خبير في منظومة TLS التابعة لسلاح الجو الملكي السعودي — وحدة الرادار الأرضي ANPC جدة.
+    // ── Build system prompt — strict when PDF chunks exist ─────────────────────
+    const systemPrompt = pdfContext.length > 0
+      ? `أنت مساعد تقني متخصص في منظومة TLS لمطار OEJN جدة.
 
-قواعد صارمة:
-1. أجب بنفس لغة السؤال — عربي إذا السؤال عربي، إنجليزي إذا إنجليزي.
-2. الإجابة مختصرة ودقيقة — 3-5 جمل أو نقاط.
-3. ابدأ بالإجابة المباشرة أولاً ثم الشرح.
-4. أسلوب مدرب عسكري: مختصر، دقيق، مباشر.
-5. استخدم المصطلحات التقنية الصحيحة (TLS, ILS, DDM, LOC, GP, VSWR, ESA...).
-6. تخصصك حصراً في TLS/ILS وأنظمة الملاحة الجوية وصيانة الرادار. إذا كان السؤال خارج هذا النطاق تماماً (مثل الطبخ، الرياضة، السياسة...)، أجب بـ: "هذا السؤال خارج نطاق تخصصي في منظومة TLS. يسعدني مساعدتك في أي سؤال تقني يتعلق بـ TLS أو ILS أو أنظمة الملاحة الجوية."
-7. عند مراجعة نقاط ضعف المتدرب، اشرح بأسلوب مبسط واسأل أسئلة تأكيدية (مثل: "هل فهمت الفرق بين...؟") للتأكد من الاستيعاب.
-8. إذا كان لديك بيانات أداء المتدرب، استخدمها لتخصيص إجاباتك واقتراح مراجعة المواضيع الضعيفة.
-9. عند ذكر مكون TLS معين (مثل Localizer, Glide Slope, ESA, ASA, Shelter, Interrogator)، يمكنك الإشارة لوجود صور توضيحية بقولك: "[📷 يمكنك الاطلاع على الصورة التوضيحية في قسم الكتيبات]"
+قواعد مطلقة لا استثناء:
+1. أجب بنفس لغة السؤال (عربي أو إنجليزي).
+2. أجب فقط وفقط مما ورد في قسم "الكتيبات التقنية" أدناه.
+3. اذكر دائماً المصدر هكذا: (المرجع: اسم_الملف، صفحة X).
+4. إذا لم تجد الإجابة في المحتوى المقدم، قل بالضبط: "هذه المعلومة غير موجودة في الكتيبات المفهرسة حالياً. راجع الكتيب الرسمي مباشرة."
+5. ممنوع منعاً باتاً الإجابة من معرفتك العامة أو اختراع أسماء ملفات أو أرقام صفحات.
+6. الإجابة مختصرة: 3-5 جمل أو نقاط فقط.
 ${performanceContext}
-${hasRagContent ? `
-=== قاعدة المعرفة ===
-${qaContext ? `[أسئلة وإجابات]:\n${qaContext.slice(0, 6000)}` : ''}
-${lessonContext ? `[دروس]:\n${lessonContext.slice(0, 3000)}` : ''}
-${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''}
-` : ''}`;
+=== الكتيبات التقنية المفهرسة ===
+${pdfContext.slice(0, 9000)}`
+      : `أنت مساعد تقني متخصص في منظومة TLS لمطار OEJN جدة.
+
+${performanceContext}
+⚠️ تنبيه: لم يُفهرس أي كتيب تقني بعد في قاعدة المعرفة لهذا السؤال.
+- يمكنك الإجابة على أسئلة عامة عن TLS وILS وأنظمة الملاحة من معرفتك التقنية.
+- إذا طُلب منك تحديد ملف أو صفحة بعينها، قل: "لا أستطيع تحديد الملف أو الصفحة لأن هذا الكتيب لم يُفهرس بعد. يرجى من المشرف فهرسة الكتيبات من لوحة الأدمن ← AI Knowledge."
+- ممنوع اختراع أسماء ملفات أو أرقام صفحات.
+- أجب بلغة السؤال، مختصر ودقيق.
+${hasRagContent ? \`
+=== قاعدة المعرفة (أسئلة ودروس) ===
+\${qaContext ? '[أسئلة وإجابات]:\n' + qaContext.slice(0, 5000) : ''}
+\${lessonContext ? '[دروس]:\n' + lessonContext.slice(0, 2000) : ''}
+\` : ''}`;
 
     try {
       const contextHistory = userId ? dbHistory : history.slice(-10);
@@ -2884,6 +2958,15 @@ ${pdfContext ? `[مستندات تقنية]:\n${pdfContext.slice(0, 3000)}` : ''
           errors.push({ file, err: e?.message?.slice(0, 100) ?? 'unknown error' });
         }
       }
+    }
+
+    // Also index documents stored in the database (uploaded via admin panel)
+    const dbDocs = await sql(`SELECT d.id, d.title, d.filename FROM documents d WHERE LOWER(d.filename) LIKE '%.pdf' ORDER BY d.created_at DESC`).catch(() => []);
+    for (const doc of dbDocs as any[]) {
+      const docResult = await indexDocumentFromDB(Number(doc.id), doc.title, doc.filename, reindex);
+      if (docResult.error === 'Already indexed') { skipped.push(`[DB] ${doc.filename}`); }
+      else if (docResult.error) { errors.push({ file: `[DB] ${doc.filename}`, err: docResult.error }); }
+      else { indexed.push(`[DB] ${doc.filename} (${docResult.chunks} chunks, ${docResult.pages} pages)`); }
     }
 
     return c.json({ ok: true, indexed, skipped, errors }, 200);
@@ -4434,6 +4517,14 @@ app.post('/admin/documents', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, mess
     }
   }
   await logAudit('document_upload', `id=${docId} title="${title}" size=${file.size}`);
+
+  // Auto-index PDF for AI knowledge base (non-blocking — runs in background)
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    indexDocumentFromDB(docId, title, file.name, true)
+      .then(res => console.log(`[AI-index] ${file.name}: ${res.chunks} chunks, ${res.pages} pages${res.error ? ' | ' + res.error : ''}`))
+      .catch(e => console.error('[AI-index] auto-index failed:', e?.message));
+  }
+
   return c.json({ ok: true, id: docId }, 201);
 });
 
