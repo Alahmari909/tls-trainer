@@ -641,15 +641,26 @@ async function searchKnowledgeChunks(query: string, limit = 10): Promise<string[
     .catch(() => []);
 }
 
+// ── Extract text from PDF buffer using unpdf (pure JS, no system tools) ─────────
+async function extractPdfPages(buffer: Buffer): Promise<string[]> {
+  try {
+    // @ts-ignore — dynamic import of unpdf
+    const { extractText } = await import('unpdf');
+    const uint8 = new Uint8Array(buffer);
+    const result = await extractText(uint8, { mergePages: false });
+    // result.text is string[] when mergePages:false — one entry per page
+    const pages: string[] = Array.isArray(result.text) ? result.text : [result.text ?? ''];
+    return pages.map((p: string) => (p ?? '').trim()).filter((p: string) => p.length > 20);
+  } catch (e: any) {
+    throw new Error('unpdf: ' + (e?.message?.slice(0, 100) ?? 'unknown'));
+  }
+}
+
 // ── Index a single PDF stored in DB as base64 ─────────────────────────────────
 async function indexDocumentFromDB(
   docId: number, title: string, filename: string, reindex = false
 ): Promise<{ chunks: number; pages: number; error?: string }> {
   try {
-    const { spawnSync } = await import('child_process');
-    const os = await import('os');
-    const fsM = await import('fs');
-
     // Get file data from DB
     const [fileRow] = await sql('SELECT file_data FROM document_files WHERE document_id=?', [docId]);
     if (!fileRow || !(fileRow as any).file_data) return { chunks: 0, pages: 0, error: 'No file data' };
@@ -659,34 +670,21 @@ async function indexDocumentFromDB(
       if ((exists as any[]).length > 0) return { chunks: 0, pages: 0, error: 'Already indexed' };
     }
 
-    // Write to temp file
-    const tmpPath = fsM.default.mkdtempSync(os.default.tmpdir() + '/tls_') + '/' + filename;
     const buf = Buffer.from((fileRow as any).file_data as string, 'base64');
-    fsM.default.writeFileSync(tmpPath, buf);
+    const pageTexts = await extractPdfPages(buf);
 
-    // Extract text with pdftotext
-    const result = spawnSync('pdftotext', ['-enc', 'UTF-8', '-q', tmpPath, '-'], {
-      encoding: 'utf8', maxBuffer: 30 * 1024 * 1024,
-    });
-
-    // Clean up temp file
-    try { fsM.default.unlinkSync(tmpPath); fsM.default.rmdirSync(fsM.default.dirname(tmpPath)); } catch {}
-
-    const fullText = (result.status === 0 && result.stdout) ? result.stdout : '';
-    if (!fullText || fullText.trim().length < 30) {
-      return { chunks: 0, pages: 0, error: result.error ? 'pdftotext not installed' : 'No text extracted (scanned/encrypted PDF)' };
+    if (pageTexts.length === 0) {
+      return { chunks: 0, pages: 0, error: 'No text extracted — PDF may be scanned/image-based or encrypted' };
     }
 
-    // Split by form-feed character (\f) to get per-page content
-    const pages = fullText.split('\f').map(p => p.trim()).filter(p => p.length > 20);
     const now = Date.now();
     await sqlRun('DELETE FROM ai_doc_chunks WHERE doc_id=?', [String(docId)]);
 
     let totalChunks = 0;
     let chunkIdx = 0;
-    for (let pi = 0; pi < pages.length; pi++) {
+    for (let pi = 0; pi < pageTexts.length; pi++) {
       const pageNum = pi + 1;
-      const pageChunks = splitIntoChunks(pages[pi]);
+      const pageChunks = splitIntoChunks(pageTexts[pi]);
       for (const chunk of pageChunks) {
         await sqlRun(
           'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,page_number,indexed_at) VALUES (?,?,?,?,?,?,?)',
@@ -695,7 +693,7 @@ async function indexDocumentFromDB(
         totalChunks++;
       }
     }
-    return { chunks: totalChunks, pages: pages.length };
+    return { chunks: totalChunks, pages: pageTexts.length };
   } catch (e: any) {
     return { chunks: 0, pages: 0, error: e?.message?.slice(0, 120) ?? 'unknown error' };
   }
@@ -1996,32 +1994,33 @@ const app = new Hono()
     const hasRagContent = qaContext.length > 0 || lessonContext.length > 0 || pdfContext.length > 0;
 
     // ── Build system prompt — strict when PDF chunks exist ─────────────────────
-    const systemPrompt = pdfContext.length > 0
-      ? `أنت مساعد تقني متخصص في منظومة TLS لمطار OEJN جدة.
-
-قواعد مطلقة لا استثناء:
-1. أجب بنفس لغة السؤال (عربي أو إنجليزي).
-2. أجب فقط وفقط مما ورد في قسم "الكتيبات التقنية" أدناه.
-3. اذكر دائماً المصدر هكذا: (المرجع: اسم_الملف، صفحة X).
-4. إذا لم تجد الإجابة في المحتوى المقدم، قل بالضبط: "هذه المعلومة غير موجودة في الكتيبات المفهرسة حالياً. راجع الكتيب الرسمي مباشرة."
-5. ممنوع منعاً باتاً الإجابة من معرفتك العامة أو اختراع أسماء ملفات أو أرقام صفحات.
-6. الإجابة مختصرة: 3-5 جمل أو نقاط فقط.
-${performanceContext}
-=== الكتيبات التقنية المفهرسة ===
-${pdfContext.slice(0, 9000)}`
-      : `أنت مساعد تقني متخصص في منظومة TLS لمطار OEJN جدة.
-
-${performanceContext}
-⚠️ تنبيه: لم يُفهرس أي كتيب تقني بعد في قاعدة المعرفة لهذا السؤال.
-- يمكنك الإجابة على أسئلة عامة عن TLS وILS وأنظمة الملاحة من معرفتك التقنية.
-- إذا طُلب منك تحديد ملف أو صفحة بعينها، قل: "لا أستطيع تحديد الملف أو الصفحة لأن هذا الكتيب لم يُفهرس بعد. يرجى من المشرف فهرسة الكتيبات من لوحة الأدمن ← AI Knowledge."
-- ممنوع اختراع أسماء ملفات أو أرقام صفحات.
-- أجب بلغة السؤال، مختصر ودقيق.
-${hasRagContent ? \`
-=== قاعدة المعرفة (أسئلة ودروس) ===
-\${qaContext ? '[أسئلة وإجابات]:\n' + qaContext.slice(0, 5000) : ''}
-\${lessonContext ? '[دروس]:\n' + lessonContext.slice(0, 2000) : ''}
-\` : ''}`;
+    let systemPrompt: string;
+    if (pdfContext.length > 0) {
+      systemPrompt = 'أنت مساعد تقني متخصص في منظومة TLS لمطار OEJN جدة.\n\n' +
+        'قواعد مطلقة لا استثناء:\n' +
+        '1. أجب بنفس لغة السؤال (عربي أو إنجليزي).\n' +
+        '2. أجب فقط وفقط مما ورد في قسم الكتيبات التقنية أدناه.\n' +
+        '3. اذكر دائماً المصدر هكذا: (المرجع: اسم_الملف، صفحة X).\n' +
+        '4. إذا لم تجد الإجابة في المحتوى المقدم، قل بالضبط: هذه المعلومة غير موجودة في الكتيبات المفهرسة حالياً. راجع الكتيب الرسمي مباشرة.\n' +
+        '5. ممنوع منعاً باتاً الإجابة من معرفتك العامة أو اختراع أسماء ملفات أو أرقام صفحات.\n' +
+        '6. الإجابة مختصرة: 3-5 جمل أو نقاط فقط.\n' +
+        performanceContext +
+        '\n=== الكتيبات التقنية المفهرسة ===\n' +
+        pdfContext.slice(0, 9000);
+    } else {
+      systemPrompt = 'أنت مساعد تقني متخصص في منظومة TLS لمطار OEJN جدة.\n\n' +
+        performanceContext +
+        '\nتنبيه: لم يُفهرس أي كتيب تقني بعد لهذا السؤال.\n' +
+        '- يمكنك الإجابة على أسئلة عامة عن TLS وILS وأنظمة الملاحة من معرفتك التقنية.\n' +
+        '- إذا طُلب منك تحديد ملف أو صفحة بعينها، قل: لا أستطيع تحديد الملف أو الصفحة لأن هذا الكتيب لم يُفهرس بعد. يرجى من المشرف فهرسة الكتيبات من لوحة الأدمن AI Knowledge.\n' +
+        '- ممنوع اختراع أسماء ملفات أو أرقام صفحات.\n' +
+        '- أجب بلغة السؤال، مختصر ودقيق.\n' +
+        (hasRagContent
+          ? '\n=== قاعدة المعرفة (أسئلة ودروس) ===\n' +
+            (qaContext ? '[أسئلة وإجابات]:\n' + qaContext.slice(0, 5000) : '') +
+            (lessonContext ? '\n[دروس]:\n' + lessonContext.slice(0, 2000) : '')
+          : '');
+    }
 
     try {
       const contextHistory = userId ? dbHistory : history.slice(-10);
@@ -2893,10 +2892,6 @@ ${hasRagContent ? \`
     const body = await c.req.json().catch(() => ({})) as { reindex?: boolean };
     const reindex = !!body.reindex;
 
-    // Lazy-load spawnSync and dirs to avoid any top-level module issues
-    let spawnSyncFn: typeof import('child_process').spawnSync | null = null;
-    try { spawnSyncFn = (await import('child_process')).spawnSync; } catch {}
-
     const STATIC_PDF_DIRS = (() => {
       try {
         return [
@@ -2930,30 +2925,27 @@ ${hasRagContent ? \`
         }
 
         try {
-          if (!spawnSyncFn) {
-            errors.push({ file, err: 'pdftotext not available on this server' });
+          const fileBuf = Buffer.from(fs.readFileSync(filePath));
+          const pageTexts = await extractPdfPages(fileBuf);
+          if (pageTexts.length === 0) {
+            errors.push({ file, err: 'No text extracted (scanned/image-based or encrypted PDF)' });
             continue;
           }
-          const result = spawnSyncFn('pdftotext', ['-enc', 'UTF-8', '-q', filePath, '-'], {
-            encoding: 'utf8',
-            maxBuffer: 30 * 1024 * 1024,
-          });
-          const text = (result.status === 0 && result.stdout) ? result.stdout : '';
-
-          if (!text || text.trim().length < 50) {
-            errors.push({ file, err: result.error ? 'pdftotext not installed on server' : 'No text extracted (PDF may be image-based or encrypted)' });
-            continue;
-          }
-
-          const chunks = splitIntoChunks(text);
           await sqlRun('DELETE FROM ai_doc_chunks WHERE filename=?', [file]);
-          for (let i = 0; i < chunks.length; i++) {
-            await sqlRun(
-              'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,indexed_at) VALUES (?,?,?,?,?,?)',
-              [docId, file, dirName, i, chunks[i], now]
-            );
+          let chunkIdx = 0;
+          let totalChunks = 0;
+          for (let pi = 0; pi < pageTexts.length; pi++) {
+            const pageNum = pi + 1;
+            const pageChunks = splitIntoChunks(pageTexts[pi]);
+            for (const chunk of pageChunks) {
+              await sqlRun(
+                'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,page_number,indexed_at) VALUES (?,?,?,?,?,?,?)',
+                [docId, file, dirName, chunkIdx++, chunk, pageNum, now]
+              );
+              totalChunks++;
+            }
           }
-          indexed.push(`${file} (${chunks.length} chunks)`);
+          indexed.push(`${file} (${totalChunks} chunks, ${pageTexts.length} pages)`);
         } catch (e: any) {
           errors.push({ file, err: e?.message?.slice(0, 100) ?? 'unknown error' });
         }

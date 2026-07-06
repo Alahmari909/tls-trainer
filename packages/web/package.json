@@ -35,7 +35,8 @@
     "tailwind-merge": "^3.5.0",
     "wouter": "^3.9.0",
     "xlsx": "^0.18.5",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "unpdf": "^0.12.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
