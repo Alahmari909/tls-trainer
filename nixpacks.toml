@@ -1,5 +1,0 @@
-# Force Nixpacks to run a normal install so the lockfile can regenerate on
-# each build. Railway's default is `bun install --frozen-lockfile`, which
-# fails the build whenever the committed lockfile differs at all.
-[phases.install]
-cmds = ['bun install']
