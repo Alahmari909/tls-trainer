@@ -642,7 +642,7 @@ async function searchKnowledgeChunks(query: string, limit = 10): Promise<string[
 }
 
 // ── Extract text from PDF buffer using Claude API (no system tools needed) ───────
-async function extractPdfPages(buffer: Buffer): Promise<string[]> {
+async function extractPdfPages(buffer: Buffer): Promise<{ text: string; page: number }[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
 
@@ -656,7 +656,7 @@ async function extractPdfPages(buffer: Buffer): Promise<string[]> {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5',
+      model: 'claude-3-5-haiku-20241022',
       max_tokens: 8000,
       system: 'You are a PDF text extractor. Extract ALL text from the provided PDF exactly as written. ' +
         'Format your response with each page separated by the exact marker ===PAGE N=== ' +
@@ -680,15 +680,32 @@ async function extractPdfPages(buffer: Buffer): Promise<string[]> {
 
   if (!response.ok) {
     const err = await response.text().catch(() => 'unknown');
-    throw new Error(`Claude API error ${response.status}: ${err.slice(0, 120)}`);
+    throw new Error('Claude API error ' + response.status + ': ' + err.slice(0, 120));
   }
 
   const data = await response.json() as any;
-  const raw = (data.content?.[0]?.text ?? '') as string;
+  // Concatenate ALL text blocks (Claude may return multiple content items)
+  const raw = (data.content ?? [])
+    .filter((b: any) => b.type === 'text')
+    .map((b: any) => b.text as string)
+    .join('') as string;
 
-  // Split by ===PAGE N=== markers — each element is one page's text
-  const parts = raw.split(/===PAGE \d+===/);
-  return parts.map((p: string) => p.trim()).filter((p: string) => p.length > 30);
+  // Parse ===PAGE N=== markers with capture groups to preserve actual page numbers
+  const results: { text: string; page: number }[] = [];
+  const regex = /===PAGE (\d+)===([\s\S]*?)(?====PAGE \d+===|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(raw)) !== null) {
+    const pageNum = parseInt(match[1], 10);
+    const pageText = match[2].trim();
+    if (pageText.length > 30) {
+      results.push({ text: pageText, page: pageNum });
+    }
+  }
+  // Fallback: if no markers found, treat entire response as page 1
+  if (results.length === 0 && raw.trim().length > 30) {
+    results.push({ text: raw.trim(), page: 1 });
+  }
+  return results;
 }
 
 // ── Index a single PDF stored in DB as base64 ─────────────────────────────────
@@ -706,9 +723,9 @@ async function indexDocumentFromDB(
     }
 
     const buf = Buffer.from((fileRow as any).file_data as string, 'base64');
-    const pageTexts = await extractPdfPages(buf);
+    const pageData = await extractPdfPages(buf);
 
-    if (pageTexts.length === 0) {
+    if (pageData.length === 0) {
       return { chunks: 0, pages: 0, error: 'No text extracted — PDF may be scanned/image-based or encrypted' };
     }
 
@@ -717,18 +734,17 @@ async function indexDocumentFromDB(
 
     let totalChunks = 0;
     let chunkIdx = 0;
-    for (let pi = 0; pi < pageTexts.length; pi++) {
-      const pageNum = pi + 1;
-      const pageChunks = splitIntoChunks(pageTexts[pi]);
+    for (const { text, page } of pageData) {
+      const pageChunks = splitIntoChunks(text);
       for (const chunk of pageChunks) {
         await sqlRun(
           'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,page_number,indexed_at) VALUES (?,?,?,?,?,?,?)',
-          [String(docId), filename, 'documents', chunkIdx++, chunk, pageNum, now]
+          [String(docId), filename, 'documents', chunkIdx++, chunk, page, now]
         );
         totalChunks++;
       }
     }
-    return { chunks: totalChunks, pages: pageTexts.length };
+    return { chunks: totalChunks, pages: pageData.length };
   } catch (e: any) {
     return { chunks: 0, pages: 0, error: e?.message?.slice(0, 120) ?? 'unknown error' };
   }
@@ -2961,26 +2977,25 @@ const app = new Hono()
 
         try {
           const fileBuf = Buffer.from(fs.readFileSync(filePath));
-          const pageTexts = await extractPdfPages(fileBuf);
-          if (pageTexts.length === 0) {
+          const pageData = await extractPdfPages(fileBuf);
+          if (pageData.length === 0) {
             errors.push({ file, err: 'No text extracted (scanned/image-based or encrypted PDF)' });
             continue;
           }
-          await sqlRun('DELETE FROM ai_doc_chunks WHERE filename=?', [file]);
+          await sqlRun('DELETE FROM ai_doc_chunks WHERE doc_id=?', [docId]);
           let chunkIdx = 0;
           let totalChunks = 0;
-          for (let pi = 0; pi < pageTexts.length; pi++) {
-            const pageNum = pi + 1;
-            const pageChunks = splitIntoChunks(pageTexts[pi]);
+          for (const { text, page } of pageData) {
+            const pageChunks = splitIntoChunks(text);
             for (const chunk of pageChunks) {
               await sqlRun(
                 'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,page_number,indexed_at) VALUES (?,?,?,?,?,?,?)',
-                [docId, file, dirName, chunkIdx++, chunk, pageNum, now]
+                [docId, file, dirName, chunkIdx++, chunk, page, now]
               );
               totalChunks++;
             }
           }
-          indexed.push(`${file} (${totalChunks} chunks, ${pageTexts.length} pages)`);
+          indexed.push(`${file} (${totalChunks} chunks, ${pageData.length} pages)`);
         } catch (e: any) {
           errors.push({ file, err: e?.message?.slice(0, 100) ?? 'unknown error' });
         }
