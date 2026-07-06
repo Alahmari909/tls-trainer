@@ -641,19 +641,54 @@ async function searchKnowledgeChunks(query: string, limit = 10): Promise<string[
     .catch(() => []);
 }
 
-// ── Extract text from PDF buffer using unpdf (pure JS, no system tools) ─────────
+// ── Extract text from PDF buffer using Claude API (no system tools needed) ───────
 async function extractPdfPages(buffer: Buffer): Promise<string[]> {
-  try {
-    // @ts-ignore — dynamic import of unpdf
-    const { extractText } = await import('unpdf');
-    const uint8 = new Uint8Array(buffer);
-    const result = await extractText(uint8, { mergePages: false });
-    // result.text is string[] when mergePages:false — one entry per page
-    const pages: string[] = Array.isArray(result.text) ? result.text : [result.text ?? ''];
-    return pages.map((p: string) => (p ?? '').trim()).filter((p: string) => p.length > 20);
-  } catch (e: any) {
-    throw new Error('unpdf: ' + (e?.message?.slice(0, 100) ?? 'unknown'));
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
+
+  const base64 = buffer.toString('base64');
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 8000,
+      system: 'You are a PDF text extractor. Extract ALL text from the provided PDF exactly as written. ' +
+        'Format your response with each page separated by the exact marker ===PAGE N=== ' +
+        '(e.g., ===PAGE 1===, ===PAGE 2===, etc.). ' +
+        'Include all text content from every page. Do not summarize. Do not skip pages.',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+          },
+          {
+            type: 'text',
+            text: 'Extract all text from this PDF with ===PAGE N=== markers for each page.',
+          },
+        ],
+      }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text().catch(() => 'unknown');
+    throw new Error(`Claude API error ${response.status}: ${err.slice(0, 120)}`);
   }
+
+  const data = await response.json() as any;
+  const raw = (data.content?.[0]?.text ?? '') as string;
+
+  // Split by ===PAGE N=== markers — each element is one page's text
+  const parts = raw.split(/===PAGE \d+===/);
+  return parts.map((p: string) => p.trim()).filter((p: string) => p.length > 30);
 }
 
 // ── Index a single PDF stored in DB as base64 ─────────────────────────────────
