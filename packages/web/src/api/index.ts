@@ -515,6 +515,30 @@ async function ensureTables() {
       await sqlRun(`INSERT INTO nav_items (label, href, icon, sort_order, is_visible, created_at) VALUES (?,?,?,?,1,?)`,
         ['Error Codes', '/error-codes', 'Search', nextOrd, Date.now()]);
     }
+
+    // ── Media Items table ───────────────────────────────────────────────────────
+    await client.execute(`CREATE TABLE IF NOT EXISTS media_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL DEFAULT 'video',
+      title TEXT NOT NULL,
+      description TEXT,
+      source_type TEXT NOT NULL DEFAULT 'url',
+      url TEXT,
+      file_data TEXT,
+      mime_type TEXT,
+      filename TEXT,
+      thumbnail_url TEXT,
+      created_at INTEGER NOT NULL
+    )`);
+
+    // Ensure Media nav item exists
+    const mediaNavRow = await sql(`SELECT id FROM nav_items WHERE href='/media' LIMIT 1`);
+    if (mediaNavRow.length === 0) {
+      const maxOrdMedia = await sql(`SELECT MAX(sort_order) as m FROM nav_items`);
+      const nextOrdMedia = ((maxOrdMedia[0] as any)?.m ?? 14) + 1;
+      await sqlRun(`INSERT INTO nav_items (label, href, icon, sort_order, is_visible, created_at) VALUES (?,?,?,?,1,?)`,
+        ['Media', '/media', 'Film', nextOrdMedia, Date.now()]);
+    }
     // Default simulator config if not exists
     const cfgRows = await sql(`SELECT key FROM simulator_config WHERE key='enabled'`);
     if (cfgRows.length === 0) {
@@ -4087,6 +4111,114 @@ app.delete('/admin/error-codes/media/:mediaId', async (c) => {
   await sqlRun(`DELETE FROM error_code_media WHERE id=?`, [mediaId]);
   return c.json({ ok: true }, 200);
 });
+
+
+// ── Media Library ─────────────────────────────────────────────────────────────
+
+// GET /api/media — list all media items (no file_data blob)
+app.get('/media', async (c) => {
+  const rows = await sql(
+    `SELECT id, type, title, description, source_type, url, mime_type, filename, thumbnail_url, created_at
+     FROM media_items ORDER BY created_at DESC`
+  );
+  return c.json(rows, 200);
+});
+
+// GET /api/media/:id/file — serve uploaded file
+app.get('/media/:id/file', async (c) => {
+  const id = c.req.param('id');
+  const [row] = await sql(`SELECT file_data, mime_type, filename FROM media_items WHERE id=?`, [id]);
+  if (!row) return c.json({ error: 'Not found' }, 404);
+  const r = row as any;
+  if (!r.file_data) return c.json({ error: 'No file data' }, 404);
+  const buf = Buffer.from(r.file_data as string, 'base64');
+  return new Response(buf, {
+    headers: {
+      'Content-Type': r.mime_type ?? 'application/octet-stream',
+      'Cache-Control': 'public,max-age=86400',
+      'Content-Disposition': `inline; filename="${r.filename ?? 'media'}"`,
+    },
+  });
+});
+
+// POST /api/admin/media — add media (URL or file upload, up to 50MB)
+app.post('/admin/media',
+  bodyLimit({ maxSize: 50 * 1024 * 1024 }),
+  async (c) => {
+    const pw = c.req.header('x-admin-pw') ?? '';
+    if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
+
+    const ct = c.req.header('content-type') ?? '';
+    const now = Date.now();
+
+    if (ct.includes('multipart/form-data')) {
+      // File upload
+      const form = await c.req.formData();
+      const file = form.get('file') as File | null;
+      const title = (form.get('title') as string | null) ?? 'Untitled';
+      const description = (form.get('description') as string | null) ?? null;
+      const thumbnailUrl = (form.get('thumbnail_url') as string | null) ?? null;
+      if (!file) return c.json({ error: 'No file provided' }, 400);
+
+      const mimeType = file.type;
+      const filename = file.name;
+      const type = mimeType.startsWith('video/') ? 'video'
+        : mimeType === 'image/gif' ? 'gif'
+        : mimeType.startsWith('image/') ? 'image'
+        : 'video';
+      const buf = await file.arrayBuffer();
+      const b64 = Buffer.from(buf).toString('base64');
+
+      await sqlRun(
+        `INSERT INTO media_items (type, title, description, source_type, file_data, mime_type, filename, thumbnail_url, created_at)
+         VALUES (?,?,?,'upload',?,?,?,?,?)`,
+        [type, title, description, b64, mimeType, filename, thumbnailUrl, now]
+      );
+    } else {
+      // URL-based
+      const body = await c.req.json();
+      const { type = 'video', title, description, url, thumbnail_url } = body as any;
+      if (!title || !url) return c.json({ error: 'Missing title or url' }, 400);
+      await sqlRun(
+        `INSERT INTO media_items (type, title, description, source_type, url, thumbnail_url, created_at)
+         VALUES (?,?,?,'url',?,?,?)`,
+        [type, title, description ?? null, url, thumbnail_url ?? null, now]
+      );
+    }
+
+    const [row] = await sql(`SELECT id FROM media_items WHERE rowid=last_insert_rowid()`);
+    return c.json({ id: (row as any).id }, 201);
+  }
+);
+
+// PATCH /api/admin/media/:id — update metadata
+app.patch('/admin/media/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  const body = await c.req.json() as any;
+  const fields: string[] = [];
+  const vals: any[] = [];
+  if (body.title       !== undefined) { fields.push('title=?');         vals.push(body.title); }
+  if (body.description !== undefined) { fields.push('description=?');   vals.push(body.description); }
+  if (body.url         !== undefined) { fields.push('url=?');           vals.push(body.url); }
+  if (body.thumbnail_url !== undefined) { fields.push('thumbnail_url=?'); vals.push(body.thumbnail_url); }
+  if (body.type        !== undefined) { fields.push('type=?');          vals.push(body.type); }
+  if (fields.length === 0) return c.json({ error: 'Nothing to update' }, 400);
+  vals.push(id);
+  await sqlRun(`UPDATE media_items SET ${fields.join(',')} WHERE id=?`, vals);
+  return c.json({ ok: true }, 200);
+});
+
+// DELETE /api/admin/media/:id
+app.delete('/admin/media/:id', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  await sqlRun(`DELETE FROM media_items WHERE id=?`, [id]);
+  return c.json({ ok: true }, 200);
+});
+
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 

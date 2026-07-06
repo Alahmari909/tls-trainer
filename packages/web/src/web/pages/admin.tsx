@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import BackButton from "../components/BackButton";
-import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award, PenSquare } from "lucide-react";
+import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award, PenSquare, Film } from "lucide-react";
 import Basics from "./basics";
 import Advanced from "./advanced";
 import { AdminNavContext } from "../lib/admin-context";
@@ -3532,6 +3532,7 @@ const NAV_ICON_MAP: Record<string, React.ReactNode> = {
     "ai-knowledge":<Brain size={14} strokeWidth={1.8} />,
   nav_manager:   <Map size={14} strokeWidth={1.8} />,
   "quiz-editor": <PenSquare size={14} strokeWidth={1.8} />,
+  "media":       <Film size={14} strokeWidth={1.8} />,
 };
 const NAV_LINKS = [
   { id: "dashboard",     label: "Dashboard",      divider: false },
@@ -3552,9 +3553,10 @@ const NAV_LINKS = [
   { id: "ai-knowledge",  label: "AI Knowledge",   divider: false },
     { id: "nav_manager",   label: "Nav Manager",    divider: false },
   { id: "quiz-editor",   label: "Quiz Editor",    divider: true  },
+  { id: "media",         label: "Media",          divider: false },
 ] as const;
 type AdminView = "dashboard" | "trainees" | "reports" | "settings"
-  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager" | "ai-knowledge" | "error_codes" | "quiz-editor";
+  | "basics" | "advanced" | "quiz" | "chat" | "status" | "notifications" | "about" | "documents" | "common_faults" | "simulator" | "nav_manager" | "ai-knowledge" | "error_codes" | "quiz-editor" | "media";
 
 // ─── Admin Documents Management ──────────────────────────────────────────────
 const DOC_CATEGORIES = ["Technical","Installation","Operations","Maintenance","Calibration","Logistics","ATC","Regulatory","Training","Other"];
@@ -4819,6 +4821,205 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
 }
 
 
+
+// ─── Admin Media Management ───────────────────────────────────────────────────
+interface MediaItem { id: number; type: string; title: string; description: string | null; source_type: string; url: string | null; mime_type: string | null; filename: string | null; thumbnail_url: string | null; created_at: number; }
+
+function AdminMedia({ adminPw }: { adminPw: string }) {
+  const [items, setItems] = React.useState<MediaItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [showForm, setShowForm] = React.useState(false);
+  const [formType, setFormType] = React.useState<"url" | "upload">("url");
+  const [saving, setSaving] = React.useState(false);
+  const [deleting, setDeleting] = React.useState<number | null>(null);
+  const [form, setForm] = React.useState({ type: "video", title: "", description: "", url: "", thumbnail_url: "" });
+  const [fileInput, setFileInput] = React.useState<File | null>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/media");
+      if (r.ok) setItems(await r.json());
+    } finally { setLoading(false); }
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      if (formType === "url") {
+        if (!form.url.trim()) { setSaving(false); return; }
+        await fetch("/api/admin/media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-pw": adminPw },
+          body: JSON.stringify({ type: form.type, title: form.title, description: form.description || null, url: form.url, thumbnail_url: form.thumbnail_url || null }),
+        });
+      } else {
+        if (!fileInput) { setSaving(false); return; }
+        const fd = new FormData();
+        fd.append("file", fileInput);
+        fd.append("title", form.title);
+        fd.append("description", form.description);
+        if (form.thumbnail_url) fd.append("thumbnail_url", form.thumbnail_url);
+        await fetch("/api/admin/media", { method: "POST", headers: { "x-admin-pw": adminPw }, body: fd });
+      }
+      setForm({ type: "video", title: "", description: "", url: "", thumbnail_url: "" });
+      setFileInput(null);
+      if (fileRef.current) fileRef.current.value = "";
+      setShowForm(false);
+      await load();
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this media item?")) return;
+    setDeleting(id);
+    await fetch(`/api/admin/media/${id}`, { method: "DELETE", headers: { "x-admin-pw": adminPw } });
+    setItems(prev => prev.filter(i => i.id !== id));
+    setDeleting(null);
+  };
+
+  const inp = (style: React.CSSProperties = {}) => ({
+    style: {
+      width: "100%", padding: "8px 12px", borderRadius: 8, fontFamily: "Inter", fontSize: 12,
+      background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.2)",
+      color: "#fff", outline: "none", boxSizing: "border-box" as const, ...style,
+    },
+  });
+
+  return (
+    <div style={{ padding: "24px 20px", minHeight: "100vh" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 4 }}>CONTENT MANAGEMENT</div>
+          <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#fff" }}>MEDIA LIBRARY</div>
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          style={{
+            padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontFamily: "Inter",
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+            background: showForm ? "rgba(255,68,68,0.15)" : "rgba(0,255,136,0.15)",
+            border: `1px solid ${showForm ? "rgba(255,68,68,0.4)" : "rgba(0,255,136,0.4)"}`,
+            color: showForm ? "#FF4444" : "#00FF88",
+          }}
+        >
+          {showForm ? "✕ CANCEL" : "+ ADD MEDIA"}
+        </button>
+      </div>
+
+      {/* Add Form */}
+      {showForm && (
+        <div style={{ background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+          {/* Source type tabs */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {(["url", "upload"] as const).map(t => (
+              <button key={t} onClick={() => setFormType(t)} style={{
+                padding: "6px 16px", borderRadius: 20, cursor: "pointer", fontFamily: "Inter",
+                fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em",
+                background: formType === t ? "rgba(0,255,136,0.2)" : "transparent",
+                border: `1px solid ${formType === t ? "rgba(0,255,136,0.5)" : "rgba(255,255,255,0.1)"}`,
+                color: formType === t ? "#00FF88" : "rgba(255,255,255,0.4)",
+              }}>
+                {t === "url" ? "🔗 Direct URL" : "📁 Upload File"}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 4, fontFamily: "Inter", letterSpacing: "0.08em" }}>TYPE</div>
+              <select {...inp()} value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                <option value="video">Video</option>
+                <option value="image">Image</option>
+                <option value="gif">GIF</option>
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 4, fontFamily: "Inter", letterSpacing: "0.08em" }}>TITLE *</div>
+              <input {...inp()} placeholder="Media title" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+          </div>
+          {formType === "url" ? (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 4, fontFamily: "Inter", letterSpacing: "0.08em" }}>URL *</div>
+              <input {...inp()} placeholder="https://youtube.com/watch?v=... or direct image URL" value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} />
+            </div>
+          ) : (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 4, fontFamily: "Inter", letterSpacing: "0.08em" }}>FILE *</div>
+              <input ref={fileRef} type="file" accept="video/*,image/*" onChange={e => setFileInput(e.target.files?.[0] ?? null)}
+                style={{ color: "#fff", fontFamily: "Inter", fontSize: 12 }} />
+            </div>
+          )}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 4, fontFamily: "Inter", letterSpacing: "0.08em" }}>THUMBNAIL URL (optional)</div>
+            <input {...inp()} placeholder="https://..." value={form.thumbnail_url} onChange={e => setForm(p => ({ ...p, thumbnail_url: e.target.value }))} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", marginBottom: 4, fontFamily: "Inter", letterSpacing: "0.08em" }}>DESCRIPTION</div>
+            <textarea {...inp({ height: 70, resize: "none" })} placeholder="Explain the content of this media…" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          </div>
+          <button onClick={handleSubmit} disabled={saving} style={{
+            padding: "10px 24px", borderRadius: 8, cursor: saving ? "wait" : "pointer",
+            fontFamily: "Orbitron, monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
+            background: saving ? "rgba(0,255,136,0.1)" : "rgba(0,255,136,0.2)",
+            border: "1px solid rgba(0,255,136,0.4)", color: "#00FF88",
+          }}>
+            {saving ? "UPLOADING…" : "SAVE MEDIA"}
+          </button>
+        </div>
+      )}
+
+      {/* Items list */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontFamily: "Inter", fontSize: 12 }}>Loading…</div>
+      ) : items.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 0" }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>📽️</div>
+          <div style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Inter", fontSize: 12 }}>No media items yet. Click "+ ADD MEDIA" to start.</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {items.map(item => (
+            <div key={item.id} style={{
+              display: "flex", alignItems: "center", gap: 14,
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10, padding: "12px 16px",
+            }}>
+              <div style={{
+                width: 48, height: 36, borderRadius: 6, flexShrink: 0,
+                background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, overflow: "hidden",
+              }}>
+                {item.thumbnail_url ? <img src={item.thumbnail_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> :
+                 item.url && item.url.includes("youtube") ? "🎬" :
+                 item.type === "image" ? "🖼️" : item.type === "gif" ? "🎞️" : "🎬"}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 11, fontWeight: 600, color: "#fff", marginBottom: 2 }}>{item.title}</div>
+                {item.description && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "Inter", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</div>}
+                <div style={{ fontSize: 9, color: "rgba(0,255,136,0.5)", fontFamily: "Inter", marginTop: 2 }}>
+                  {item.type.toUpperCase()} · {item.source_type === "upload" ? item.filename ?? "uploaded" : item.url ?? ""}
+                </div>
+              </div>
+              <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} style={{
+                padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "Inter",
+                fontSize: 10, background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.3)",
+                color: "#FF4444",
+              }}>
+                {deleting === item.id ? "…" : "DELETE"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () => void }) {
   const [trainees, setTrainees] = useState<Trainee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5357,6 +5558,12 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {activeView === "quiz-editor" && (
         <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh" }}>
           <QuizEditor />
+        </div>
+      )}
+
+      {activeView === "media" && (
+        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh" }}>
+          <AdminMedia adminPw={adminPw} />
         </div>
       )}
 

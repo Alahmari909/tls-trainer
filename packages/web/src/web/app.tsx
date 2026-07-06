@@ -81,6 +81,7 @@ const Faults = lazy(() => import("./pages/faults"));
 const Simulator = lazy(() => import("./pages/simulator"));
 const ErrorCodes = lazy(() => import("./pages/error-codes"));
 const Specs = lazy(() => import("./pages/specs"));
+const Media = lazy(() => import("./pages/media"));
 
 // ── V2 Pages (new kimi-style UI) ──────────────────────────────────────────────
 const V2Home = lazy(() => import("./pages/v2/index"));
@@ -504,6 +505,7 @@ function App() {
                 <Route path="/error-codes" component={ErrorCodes} />
                 <Route path="/simulator" component={Simulator} />
                 <Route path="/specs" component={Specs} />
+                <Route path="/media" component={Media} />
                 {/* Redirect legacy/deep-link routes to dashboard */}
                 <Route path="/menu">{() => <Redirect to="/" />}</Route>
                 <Route path="/modules">{() => <Redirect to="/" />}</Route>
