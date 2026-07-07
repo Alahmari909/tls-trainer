@@ -641,6 +641,65 @@ async function searchKnowledgeChunks(query: string, limit = 10): Promise<string[
     .catch(() => []);
 }
 
+// ── Semantic retrieval over indexed slides (OpenAI embeddings + cosine) ──────────
+type RetrievedChunk = { content: string; filename: string; page: number; imagePath: string | null; score: number };
+
+async function embedQuery(query: string): Promise<number[] | null> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: query.slice(0, 8000) }),
+    });
+    if (!res.ok) return null;
+    const d = await res.json() as any;
+    return d?.data?.[0]?.embedding ?? null;
+  } catch { return null; }
+}
+
+function cosineSim(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-8);
+}
+
+// In-memory cache of embeddings (145 rows) — refreshed every 5 min
+let _embCache: { content: string; filename: string; page: number; imagePath: string | null; emb: number[] }[] | null = null;
+let _embCacheTs = 0;
+async function loadEmbeddings() {
+  if (_embCache && Date.now() - _embCacheTs < 5 * 60 * 1000) return _embCache;
+  const rows = await sql(`SELECT content, filename, page_number, embedding, image_path FROM ai_doc_chunks WHERE embedding IS NOT NULL`).catch(() => []);
+  const parsed: { content: string; filename: string; page: number; imagePath: string | null; emb: number[] }[] = [];
+  for (const r of rows as any[]) {
+    try {
+      const emb = JSON.parse(r.embedding);
+      if (Array.isArray(emb) && emb.length > 0) {
+        parsed.push({ content: r.content, filename: r.filename, page: Number(r.page_number) || 0, imagePath: r.image_path ?? null, emb });
+      }
+    } catch { /* skip bad row */ }
+  }
+  _embCache = parsed;
+  _embCacheTs = Date.now();
+  return parsed;
+}
+
+async function searchKnowledgeSemantic(query: string, topK = 5): Promise<RetrievedChunk[]> {
+  const qv = await embedQuery(query);
+  const store = await loadEmbeddings();
+  if (!qv || store.length === 0) {
+    // Fallback to keyword search when embeddings unavailable
+    const kw = await searchKnowledgeChunks(query, topK).catch(() => []);
+    return kw.map((c) => ({ content: c, filename: '', page: 0, imagePath: null, score: 0 }));
+  }
+  return store
+    .map((r) => ({ content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: cosineSim(qv, r.emb) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+}
+
 // ── Extract text from PDF buffer using Claude API (no system tools needed) ───────
 async function extractPdfPages(buffer: Buffer): Promise<{ text: string; page: number }[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -2018,13 +2077,20 @@ const app = new Hono()
       } catch (e) { /* ignore performance fetch errors */ }
     }
 
-    // ── Build RAG context ────────────────────────────────────────────────────
-    const [dbQuestions, dbLessons, pdfChunks] = await Promise.all([
+    // ── Build RAG context (semantic retrieval over indexed slides) ─────────────
+    const [dbQuestions, dbLessons, retrieved] = await Promise.all([
       sql(`SELECT question, correct_option, option_a, option_b, option_c, option_d, explanation
            FROM questions ORDER BY module_id, "order" LIMIT 150`).catch(() => []),
       sql(`SELECT title, content FROM lessons ORDER BY module_id, "order" LIMIT 25`).catch(() => []),
-      searchKnowledgeChunks(message),
+      searchKnowledgeSemantic(message, 5),
     ]);
+    // Keep only sufficiently relevant chunks (cosine threshold)
+    const relevant = retrieved.filter((r) => r.score >= 0.18 || r.filename === '');
+    const pdfChunks = relevant.map((r) => {
+      const page = r.page > 0 ? `, صفحة ${r.page}` : '';
+      const src = r.filename ? `[📄 ${r.filename}${page}]` : '[📄 مرجع]';
+      return `${src}:\n${r.content}`;
+    });
 
     let qaContext = '';
     for (const q of dbQuestions as any[]) {
@@ -2121,41 +2187,31 @@ const app = new Hono()
         await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
           [userId, 'assistant', text, now]);
       }
-      // ── Detect relevant images to attach ──────────────────────────────────────
-      const IMAGE_MAP: Record<string, { path: string; label: string }[]> = {
-        'localizer': [{ path: '/tip-loc.webp', label: 'Localizer Diagram' }],
-        'loc': [{ path: '/tip-loc.webp', label: 'Localizer Diagram' }],
-        'glide slope': [{ path: '/tip-glide-slope.webp', label: 'Glide Slope Diagram' }],
-        'glide path': [{ path: '/tip-glide-slope.webp', label: 'Glide Slope Diagram' }],
-        'gp': [{ path: '/tip-glide-slope.webp', label: 'Glide Slope Diagram' }],
-        'ddm': [{ path: '/tip-ddm.webp', label: 'DDM Explanation' }],
-        'marker': [{ path: '/tip-marker.webp', label: 'Marker Beacons' }],
-        'ils': [{ path: '/tip-ils-cat.webp', label: 'ILS Categories' }],
-        'category': [{ path: '/tip-ils-cat.webp', label: 'ILS Categories' }],
-        'vswr': [{ path: '/tip-vswr.webp', label: 'VSWR Diagram' }],
-        'rf safety': [{ path: '/tip-rf-safety.webp', label: 'RF Safety' }],
-        'rf': [{ path: '/tip-rf-safety.webp', label: 'RF Safety' }],
-        'critical area': [{ path: '/tip-critical-area.webp', label: 'Critical Area' }],
-        'self test': [{ path: '/tip-self-test.webp', label: 'Self Test Procedure' }],
-        'self-test': [{ path: '/tip-self-test.webp', label: 'Self Test Procedure' }],
-        'startup': [{ path: '/tip-startup.webp', label: 'Startup Procedure' }],
-        'gtu': [{ path: '/manual-gtu-status.jpg', label: 'GTU Status Panel' }],
-        'integrity': [{ path: '/manual-integrity.jpg', label: 'Integrity Monitor' }],
-        'rcu': [{ path: '/manual-rcu-interface.jpg', label: 'RCU Interface' }],
-        'modes': [{ path: '/manual-modes-flow.jpg', label: 'Operating Modes Flow' }],
-      };
-      const msgLower = message.toLowerCase();
-      const replyLower = text.toLowerCase();
+      // ── Attach REAL slide images of the cited pages ────────────────────────────
+      // Prefer pages the model explicitly cited (صفحة X / page X); fall back to top retrieved pages.
       const matchedImages: { path: string; label: string }[] = [];
       const seenPaths = new Set<string>();
-      for (const [keyword, imgs] of Object.entries(IMAGE_MAP)) {
-        if (msgLower.includes(keyword) || replyLower.includes(keyword)) {
-          for (const img of imgs) {
-            if (!seenPaths.has(img.path)) {
-              seenPaths.add(img.path);
-              matchedImages.push(img);
-            }
-          }
+      const pushImg = (imgPath: string | null, filename: string, page: number) => {
+        if (!imgPath || seenPaths.has(imgPath)) return;
+        seenPaths.add(imgPath);
+        const label = filename ? `${filename} — صفحة ${page}` : `صفحة ${page}`;
+        matchedImages.push({ path: imgPath, label });
+      };
+      // Only attach images when the answer was actually grounded in the manuals
+      const answeredFromManual = pdfChunks.length > 0 && !/غير موجودة في الكتيبات المفهرسة/.test(text);
+      if (answeredFromManual) {
+        // 1) pages explicitly cited in the reply
+        const citedPages = new Set<number>();
+        const re = /(?:صفحة|page)\s*[:#]?\s*(\d{1,3})/gi;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(text)) !== null) citedPages.add(Number(m[1]));
+        for (const p of citedPages) {
+          const hit = relevant.find((r) => r.page === p && r.imagePath);
+          if (hit) pushImg(hit.imagePath, hit.filename, hit.page);
+        }
+        // 2) fall back to top retrieved pages if nothing explicitly matched
+        if (matchedImages.length === 0) {
+          for (const r of relevant.slice(0, 2)) pushImg(r.imagePath, r.filename, r.page);
         }
       }
 

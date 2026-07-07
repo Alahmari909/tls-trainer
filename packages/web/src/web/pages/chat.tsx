@@ -526,6 +526,7 @@ function AIInstructor() {
   const [attachment, setAttachment] = useState<{ data: string; type: string; name: string; preview?: string } | null>(null);
   const [summary, setSummary] = useState<TraineeSummary | null>(null);
   const [smartGreeting, setSmartGreeting] = useState<string | null>(null);
+  const [imgZoom, setImgZoom] = useState<{ path: string; label: string } | null>(null);
   const bottomRef    = useRef<HTMLDivElement>(null);
   const inputRef     = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -797,12 +798,13 @@ function AIInstructor() {
               {/* Illustrative images from AI response */}
               {msg.role === "assistant" && msg.images && msg.images.length > 0 && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ fontSize: 9, color: C, letterSpacing: "0.08em", fontFamily: "Inter" }}>📷 REFERENCE IMAGES</div>
+                  <div style={{ fontSize: 9, color: C, letterSpacing: "0.08em", fontFamily: "Inter" }}>📷 REFERENCE SLIDES · اضغط للتكبير</div>
                   {msg.images.map((img, idx) => (
-                    <div key={idx} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C}25` }}>
+                    <div key={idx} onClick={() => setImgZoom(img)} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C}25`, cursor: "zoom-in", position: "relative" }}>
                       <img src={img.path} alt={img.label}
-                        style={{ width: "100%", maxHeight: 200, objectFit: "contain", background: "rgba(0,0,0,0.3)", display: "block" }}
+                        style={{ width: "100%", maxHeight: 220, objectFit: "contain", background: "rgba(0,0,0,0.3)", display: "block" }}
                         loading="lazy" />
+                      <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.55)", borderRadius: 6, padding: "2px 6px", fontSize: 11, color: "#fff" }}>⛶</div>
                       <div style={{ padding: "5px 8px", background: "rgba(0,0,0,0.4)", fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>
                         {img.label}
                       </div>
@@ -937,6 +939,13 @@ function AIInstructor() {
           </button>
         </div>
       </div>
+      {imgZoom && (
+        <div onClick={() => setImgZoom(null)} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={imgZoom.path} alt={imgZoom.label} onClick={e => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, boxShadow: `0 0 40px ${C}30`, objectFit: "contain" }} />
+          <div style={{ marginTop: 12, color: "#fff", fontSize: 13, fontFamily: "Inter", textAlign: "center" }}>{imgZoom.label}</div>
+          <button onClick={() => setImgZoom(null)} style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", width: 36, height: 36, color: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        </div>
+      )}
     </div>
   );
 }
