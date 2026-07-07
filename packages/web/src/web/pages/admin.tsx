@@ -3377,12 +3377,20 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
 type AiDocEntry = { filename: string; dir_name: string; chunks: number; last_indexed: number };
 type AiIndexStatus = { chunkCount: number; docCount: number; docs: AiDocEntry[] };
 type AiIndexResult = { indexed: string[]; skipped: string[]; errors: { file: string; err: string }[] };
+type AiIndexProgress = {
+  running: boolean; startedAt: number; finishedAt: number;
+  totalDocs: number; doneDocs: number; currentFile: string;
+  currentPage: number; currentPages: number;
+  indexed: string[]; skipped: string[]; errors: { file: string; err: string }[];
+};
 
 function AiKnowledgePanel({ adminPw }: { adminPw: string }) {
   const [status, setStatus] = React.useState<AiIndexStatus | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [result, setResult] = React.useState<AiIndexResult | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [progress, setProgress] = React.useState<AiIndexProgress | null>(null);
+  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadStatus = React.useCallback(async () => {
     try {
@@ -3391,21 +3399,45 @@ function AiKnowledgePanel({ adminPw }: { adminPw: string }) {
     } catch {}
   }, [adminPw]);
 
-  React.useEffect(() => { loadStatus(); }, [loadStatus]);
-
-  const runIndex = async (reindex = false) => {
-    setBusy(true); setResult(null); setMsg(null);
+  const pollProgress = React.useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/ai/index-pdfs', {
+      const res = await fetch('/api/admin/ai/index-progress', { headers: { 'x-admin-password': adminPw } });
+      if (!res.ok) return;
+      const p = await res.json() as AiIndexProgress;
+      setProgress(p);
+      if (!p.running) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        setBusy(false);
+        setResult({ indexed: p.indexed, skipped: p.skipped, errors: p.errors });
+        await loadStatus();
+      }
+    } catch {}
+  }, [adminPw, loadStatus]);
+
+  React.useEffect(() => {
+    loadStatus();
+    // Resume progress view if a job is already running on the server
+    pollProgress();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [loadStatus, pollProgress]);
+
+  // Full pipeline: renders page images + embeddings + citations (background job).
+  const runIndex = async (reindex = false) => {
+    setBusy(true); setResult(null); setMsg(null); setProgress(null);
+    try {
+      const res = await fetch('/api/admin/ai/index-all-full', {
         method: 'POST',
         headers: { 'x-admin-password': adminPw, 'Content-Type': 'application/json' },
         body: JSON.stringify({ reindex }),
       });
       const data = await res.json() as any;
-      if (data.error) setMsg(`خطأ: ${data.error}. ${data.detail ?? ''}`);
-      else { setResult(data as AiIndexResult); await loadStatus(); }
-    } catch { setMsg('خطأ في الشبكة'); }
-    finally { setBusy(false); }
+      if (data.error) { setMsg(`خطأ: ${data.error}`); setBusy(false); return; }
+      if (data.running) { setMsg('الفهرسة جارية بالفعل...'); }
+      // Start polling progress
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(pollProgress, 1500);
+      pollProgress();
+    } catch { setMsg('خطأ في الشبكة'); setBusy(false); }
   };
 
   const CC = { green: '#00FF88', gold: '#FFD700', red: '#FF4444', blue: '#4FC3F7', dim: 'rgba(255,255,255,0.38)' };
@@ -3567,7 +3599,59 @@ type DocRow = {
   created_at: number; sharedWith: string[];
 };
 
+// In-app PDF viewer that renders pages as images (works inside the Capacitor
+// webview, which cannot open PDFs inline or in a new tab). Lazy-loads each page.
+function DocImageViewer({ docId, title, onClose }: { docId: number; title: string; onClose: () => void }) {
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [err, setErr] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [loaded, setLoaded] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/documents/${docId}/page-count`)
+      .then(r => r.json())
+      .then(d => { if (!alive) return; if (d.pages > 0) setPageCount(d.pages); else setErr(d.error || "تعذّر قراءة الملف"); })
+      .catch(() => { if (alive) setErr("خطأ في الشبكة"); });
+    return () => { alive = false; };
+  }, [docId]);
+
+  const fileUrl = `/api/documents/${docId}/file`;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.7rem 1rem", background: "#0f172a", borderBottom: "1px solid rgba(0,255,136,0.15)", flexShrink: 0 }}>
+        <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.9rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📄 {title}</span>
+        <div style={{ display: "flex", gap: 6, marginLeft: 12, alignItems: "center" }}>
+          <button onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))} style={{ padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 14, fontWeight: 700 }}>−</button>
+          <span style={{ color: "#94a3b8", fontSize: 11, minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(3, +(z + 0.2).toFixed(2)))} style={{ padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 14, fontWeight: 700 }}>+</button>
+          <a href={fileUrl} download style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", color: "#00aeef", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>⬇</a>
+          <button onClick={onClose} style={{ padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)", color: "#ff5555", fontSize: 12, fontWeight: 700 }}>✕</button>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "12px 0", textAlign: "center" }}>
+        {err && <div style={{ color: "#ff6b6b", padding: 40, fontSize: 14 }}>{err}</div>}
+        {!err && pageCount === null && <div style={{ color: "#94a3b8", padding: 40, fontSize: 14 }}>جاري التحميل…</div>}
+        {!err && pageCount !== null && Array.from({ length: pageCount }, (_, i) => i + 1).map(p => (
+          <div key={p} style={{ marginBottom: 14 }}>
+            <img
+              src={`/api/documents/${docId}/page/${p}`}
+              loading="lazy"
+              onLoad={() => setLoaded(s => ({ ...s, [p]: true }))}
+              alt={`page ${p}`}
+              style={{ width: `min(${Math.round(94 * zoom)}%, ${Math.round(1100 * zoom)}px)`, height: "auto", borderRadius: 6, boxShadow: "0 4px 24px rgba(0,0,0,0.5)", background: "#fff", minHeight: loaded[p] ? undefined : 300 }}
+            />
+            <div style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>{p} / {pageCount}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id: string; name: string }[] }) {
+  const [viewDoc, setViewDoc] = useState<{ id: number; title: string } | null>(null);
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -3714,6 +3798,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
 
   return (
     <div style={{ fontFamily: "Inter" }}>
+      {viewDoc && <DocImageViewer docId={viewDoc.id} title={viewDoc.title} onClose={() => setViewDoc(null)} />}
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
@@ -3871,10 +3956,10 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
                 {doc.description && <div style={{ fontSize: 11, color: C.muted, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.description}</div>}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <a href={`/api/documents/${doc.id}/file`} target="_blank" rel="noopener noreferrer"
-                  style={{ padding: "5px 12px", background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.25)", borderRadius: 6, color: "#00bfff", fontSize: 10, fontWeight: 700, textDecoration: "none" }}>
+                <button onClick={() => setViewDoc({ id: doc.id, title: doc.title })}
+                  style={{ padding: "5px 12px", background: "rgba(0,191,255,0.08)", border: "1px solid rgba(0,191,255,0.25)", borderRadius: 6, color: "#00bfff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   VIEW
-                </a>
+                </button>
                 <button onClick={() => openEdit(doc)}
                   style={{ padding: "5px 12px", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.25)", borderRadius: 6, color: C.green, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   EDIT

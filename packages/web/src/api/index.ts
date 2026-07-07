@@ -9,6 +9,7 @@ import { db } from "./database";
 import * as fflate from 'fflate';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as mupdf from 'mupdf';
 import {
   modules, questions, achievements, userAchievements,
   moduleProgress, streaks, messages, users, sessions, quizAnswers,
@@ -570,6 +571,16 @@ async function ensureTables() {
     await client.execute(`CREATE INDEX IF NOT EXISTS idx_ai_chunks_fn ON ai_doc_chunks(filename)`).catch(() => {});
     // Add page_number column to existing DBs that lack it (idempotent)
     await client.execute(`ALTER TABLE ai_doc_chunks ADD COLUMN page_number INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+    // Add embedding + image_path columns for semantic retrieval + cited-page images (idempotent)
+    await client.execute(`ALTER TABLE ai_doc_chunks ADD COLUMN embedding TEXT`).catch(() => {});
+    await client.execute(`ALTER TABLE ai_doc_chunks ADD COLUMN image_path TEXT`).catch(() => {});
+    // ── Rendered page images for AI citations (stored in DB; Railway FS is ephemeral) ──
+    await client.execute(`CREATE TABLE IF NOT EXISTS ai_doc_page_images (
+      doc_id TEXT NOT NULL,
+      page_number INTEGER NOT NULL,
+      image_data TEXT NOT NULL,
+      PRIMARY KEY (doc_id, page_number)
+    )`).catch(() => {});
     // ── Documents table ──────────────────────────────────────────────────────
     await client.execute(`CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -819,6 +830,216 @@ function splitIntoChunks(text: string, size = 700, overlap = 120): string[] {
     start += size - overlap;
   }
   return chunks;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// FULL IN-APP INDEXING PIPELINE — renders PDF pages in-server (mupdf WASM),
+// stores page images in DB, extracts text (structured + OpenAI vision fallback),
+// embeds each chunk (text-embedding-3-small), and stores everything so the AI
+// can cite (المرجع: الملف، صفحة X) and attach the real page image. Works on
+// Railway (no poppler / libreoffice / persistent filesystem needed).
+// ════════════════════════════════════════════════════════════════════════════
+
+// Embed one piece of text → 1536-dim vector (reuses OpenAI text-embedding-3-small).
+async function embedText(text: string): Promise<number[] | null> {
+  return embedQuery(text);
+}
+
+// OCR/vision extraction for image-based or scanned pages via gpt-4o-mini.
+async function openaiVisionExtract(jpegBase64: string): Promise<string> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return '';
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 1500,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extract ALL readable text from this technical manual page exactly as written, preserving numbers, labels, and terminology. If it is a diagram, briefly describe the diagram and list every label/callout. Output plain text only, no commentary.' },
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${jpegBase64}` } },
+          ],
+        }],
+      }),
+    });
+    if (!res.ok) return '';
+    const d = await res.json() as any;
+    return (d?.choices?.[0]?.message?.content ?? '').trim();
+  } catch { return ''; }
+}
+
+// Render every page of a PDF buffer → { page, text, imageBase64 (JPEG) }.
+// Uses structured text when the page has real text; falls back to vision OCR
+// when the text layer is too thin (scanned / image-based pages).
+// Render a single PDF page to a JPEG (base64). Used by the on-demand in-app
+// document viewer so any uploaded PDF is viewable inside the Capacitor webview
+// (plain <img>, no inline-PDF support needed).
+function renderSinglePdfPage(buf: Buffer, pageIndex: number): string {
+  const doc = mupdf.Document.openDocument(buf, 'application/pdf');
+  const page = doc.loadPage(pageIndex);
+  const bounds = page.getBounds();
+  const w = bounds[2] - bounds[0];
+  const scale = w > 0 ? Math.min(2.2, 1300 / w) : 1.8;
+  const mat = mupdf.Matrix.scale(scale, scale);
+  const pix = page.toPixmap(mat, mupdf.ColorSpace.DeviceRGB, false, true);
+  const jpg = pix.asJPEG(78);
+  return Buffer.from(jpg).toString('base64');
+}
+
+function countPdfPages(buf: Buffer): number {
+  const doc = mupdf.Document.openDocument(buf, 'application/pdf');
+  return doc.countPages();
+}
+
+async function renderAndExtractPdf(
+  buf: Buffer,
+  onProgress?: (page: number, total: number) => void,
+): Promise<{ page: number; text: string; imageBase64: string }[]> {
+  const doc = mupdf.Document.openDocument(buf, 'application/pdf');
+  const n = doc.countPages();
+  const out: { page: number; text: string; imageBase64: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    const pageNum = i + 1;
+    try {
+      const page = doc.loadPage(i);
+      const bounds = page.getBounds();
+      const w = bounds[2] - bounds[0];
+      const scale = w > 0 ? Math.min(2.2, 1300 / w) : 1.8;
+      const mat = mupdf.Matrix.scale(scale, scale);
+      const pix = page.toPixmap(mat, mupdf.ColorSpace.DeviceRGB, false, true);
+      const jpg = pix.asJPEG(78);
+      const imageBase64 = Buffer.from(jpg).toString('base64');
+      let text = '';
+      try {
+        text = page.toStructuredText('preserve-whitespace').asText().trim();
+      } catch { text = ''; }
+      // Thin text layer → vision OCR fallback
+      if (text.replace(/\s/g, '').length < 80) {
+        const vision = await openaiVisionExtract(imageBase64);
+        if (vision.replace(/\s/g, '').length > text.replace(/\s/g, '').length) text = vision;
+      }
+      out.push({ page: pageNum, text, imageBase64 });
+    } catch (e) {
+      console.error(`[full-index] page ${pageNum} render error:`, (e as any)?.message);
+    }
+    onProgress?.(pageNum, n);
+  }
+  return out;
+}
+
+// Full-index a single document: render pages, store images, chunk + embed text.
+// citationName is the exact filename cited to the user (المرجع: <citationName>).
+async function indexDocumentFull(
+  docId: string,
+  citationName: string,
+  buf: Buffer,
+  onProgress?: (page: number, total: number) => void,
+): Promise<{ chunks: number; pages: number; error?: string }> {
+  try {
+    const pages = await renderAndExtractPdf(buf, onProgress);
+    if (pages.length === 0) return { chunks: 0, pages: 0, error: 'No pages rendered' };
+    const now = Date.now();
+    // Replace any prior indexing of this doc
+    await sqlRun('DELETE FROM ai_doc_chunks WHERE doc_id=?', [docId]);
+    await sqlRun('DELETE FROM ai_doc_page_images WHERE doc_id=?', [docId]);
+    let chunkIdx = 0;
+    let totalChunks = 0;
+    for (const { page, text, imageBase64 } of pages) {
+      // Always store the page image (so citations can show the page even if text is a diagram)
+      await sqlRun(
+        'INSERT OR REPLACE INTO ai_doc_page_images (doc_id, page_number, image_data) VALUES (?,?,?)',
+        [docId, page, imageBase64]
+      );
+      const imagePath = `/api/doc-page/${encodeURIComponent(docId)}/${page}`;
+      const pageChunks = splitIntoChunks(text);
+      for (const chunk of pageChunks) {
+        const emb = await embedText(chunk);
+        await sqlRun(
+          'INSERT INTO ai_doc_chunks (doc_id,filename,dir_name,chunk_index,content,page_number,indexed_at,embedding,image_path) VALUES (?,?,?,?,?,?,?,?,?)',
+          [docId, citationName, 'documents', chunkIdx++, chunk, page, now, emb ? JSON.stringify(emb) : null, imagePath]
+        );
+        totalChunks++;
+      }
+    }
+    // Invalidate the embeddings cache so new content is retrievable immediately
+    _embCache = null; _embCacheTs = 0;
+    return { chunks: totalChunks, pages: pages.length };
+  } catch (e: any) {
+    return { chunks: 0, pages: 0, error: e?.message?.slice(0, 160) ?? 'unknown error' };
+  }
+}
+
+// ── Background job state for "Index all files" ─────────────────────────────────
+type IndexJob = {
+  running: boolean;
+  startedAt: number;
+  finishedAt: number;
+  totalDocs: number;
+  doneDocs: number;
+  currentFile: string;
+  currentPage: number;
+  currentPages: number;
+  indexed: string[];
+  skipped: string[];
+  errors: { file: string; err: string }[];
+};
+let _indexJob: IndexJob = {
+  running: false, startedAt: 0, finishedAt: 0, totalDocs: 0, doneDocs: 0,
+  currentFile: '', currentPage: 0, currentPages: 0, indexed: [], skipped: [], errors: [],
+};
+
+// Fetch a document's PDF bytes from DB (document_files, fallback documents).
+async function getDocumentBuffer(docId: number): Promise<Buffer | null> {
+  const fileRows = await sql('SELECT file_data FROM document_files WHERE document_id=?', [docId]).catch(() => []);
+  let b64 = (fileRows as any[])[0]?.file_data as string | undefined;
+  if (!b64) {
+    const rows = await sql('SELECT file_data FROM documents WHERE id=?', [docId]).catch(() => []);
+    b64 = (rows as any[])[0]?.file_data as string | undefined;
+  }
+  if (!b64) return null;
+  return Buffer.from(b64, 'base64');
+}
+
+// Run the full-index job over all PDF documents. reindex=false skips already-indexed docs.
+async function runIndexAllFull(reindex: boolean) {
+  if (_indexJob.running) return;
+  _indexJob = {
+    running: true, startedAt: Date.now(), finishedAt: 0, totalDocs: 0, doneDocs: 0,
+    currentFile: '', currentPage: 0, currentPages: 0, indexed: [], skipped: [], errors: [],
+  };
+  try {
+    const dbDocs = await sql(
+      `SELECT id, title, filename FROM documents
+       WHERE LOWER(filename) LIKE '%.pdf' ORDER BY created_at DESC`
+    ).catch(() => []) as any[];
+    _indexJob.totalDocs = dbDocs.length;
+    for (const doc of dbDocs) {
+      const docId = String(doc.id);
+      const citationName = doc.filename || doc.title || `document_${docId}`;
+      _indexJob.currentFile = citationName;
+      _indexJob.currentPage = 0;
+      _indexJob.currentPages = 0;
+      if (!reindex) {
+        const exists = await sql('SELECT id FROM ai_doc_chunks WHERE doc_id=? LIMIT 1', [docId]).catch(() => []);
+        if ((exists as any[]).length > 0) { _indexJob.skipped.push(citationName); _indexJob.doneDocs++; continue; }
+      }
+      const buf = await getDocumentBuffer(Number(doc.id));
+      if (!buf) { _indexJob.errors.push({ file: citationName, err: 'No file data' }); _indexJob.doneDocs++; continue; }
+      const r = await indexDocumentFull(docId, citationName, buf, (p, t) => { _indexJob.currentPage = p; _indexJob.currentPages = t; });
+      if (r.error) _indexJob.errors.push({ file: citationName, err: r.error });
+      else _indexJob.indexed.push(`${citationName} (${r.chunks} chunks, ${r.pages} pages)`);
+      _indexJob.doneDocs++;
+    }
+  } catch (e: any) {
+    _indexJob.errors.push({ file: '(job)', err: e?.message?.slice(0, 160) ?? 'unknown' });
+  } finally {
+    _indexJob.running = false;
+    _indexJob.finishedAt = Date.now();
+    _indexJob.currentFile = '';
+  }
 }
 
 
@@ -4501,6 +4722,127 @@ app.get('/documents/:id/file', async (c) => {
   });
 });
 
+// GET /api/doc-page/:docId/:page — serve a rendered page image (JPEG) from DB
+app.get('/doc-page/:docId/:page', async (c) => {
+  const docId = c.req.param('docId');
+  const page = c.req.param('page');
+  const rows = await sql(
+    'SELECT image_data FROM ai_doc_page_images WHERE doc_id=? AND page_number=?',
+    [docId, Number(page)]
+  ).catch(() => []);
+  const b64 = (rows as any[])[0]?.image_data as string | undefined;
+  if (!b64) return c.json({ error: 'Not found' }, 404);
+  const buf = Buffer.from(b64, 'base64');
+  return new Response(buf, {
+    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
+  });
+});
+
+// GET /api/documents/:id/page-count — number of pages in a document's PDF.
+// Cached in ai_doc_page_meta so we don't re-open the blob every time.
+app.get('/documents/:id/page-count', async (c) => {
+  const id = c.req.param('id');
+  // Fast path: if we already rendered/cached page images, use the max page.
+  const cached = await sql(
+    'SELECT MAX(page_number) AS mx FROM ai_doc_page_images WHERE doc_id=?',
+    [String(id)]
+  ).catch(() => []);
+  const mx = Number((cached as any[])[0]?.mx || 0);
+  if (mx > 0) return c.json({ pages: mx });
+  // Otherwise open the blob and count.
+  const buf = await getDocumentBuffer(Number(id)).catch(() => null);
+  if (!buf) return c.json({ error: 'Not found' }, 404);
+  try {
+    const pages = countPdfPages(buf);
+    return c.json({ pages });
+  } catch (e) {
+    return c.json({ error: 'Cannot read PDF', detail: (e as any)?.message }, 500);
+  }
+});
+
+// GET /api/documents/:id/page/:page — serve a single rendered page as JPEG.
+// Checks the cache first (ai_doc_page_images), else renders on demand via mupdf
+// and caches the result. Makes every uploaded PDF viewable in-app as images.
+app.get('/documents/:id/page/:page', async (c) => {
+  const id = String(c.req.param('id'));
+  const pageNum = Number(c.req.param('page'));
+  if (!pageNum || pageNum < 1) return c.json({ error: 'Bad page' }, 400);
+  // Cache hit
+  const rows = await sql(
+    'SELECT image_data FROM ai_doc_page_images WHERE doc_id=? AND page_number=?',
+    [id, pageNum]
+  ).catch(() => []);
+  let b64 = (rows as any[])[0]?.image_data as string | undefined;
+  if (!b64) {
+    // Render on demand from the PDF blob
+    const buf = await getDocumentBuffer(Number(id)).catch(() => null);
+    if (!buf) return c.json({ error: 'Not found' }, 404);
+    try {
+      b64 = renderSinglePdfPage(buf, pageNum - 1);
+    } catch (e) {
+      return c.json({ error: 'Render failed', detail: (e as any)?.message }, 500);
+    }
+    // Cache for next time (fire-and-forget)
+    sqlRun(
+      'INSERT OR REPLACE INTO ai_doc_page_images (doc_id, page_number, image_data) VALUES (?,?,?)',
+      [id, pageNum, b64]
+    ).catch(() => {});
+  }
+  const out = Buffer.from(b64, 'base64');
+  return new Response(out, {
+    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
+  });
+});
+
+// POST /api/admin/ai/index-all-full — full-index all PDF documents (background job)
+app.post('/admin/ai/index-all-full', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  if (_indexJob.running) return c.json({ ok: false, running: true, message: 'Indexing already in progress' }, 200);
+  const body = await c.req.json().catch(() => ({})) as { reindex?: boolean };
+  const reindex = !!body.reindex;
+  // Fire-and-forget: run in background, client polls /admin/ai/index-progress
+  runIndexAllFull(reindex).catch((e) => console.error('[index-all-full] error:', e?.message));
+  return c.json({ ok: true, started: true }, 200);
+});
+
+// GET /api/admin/ai/index-progress — live progress of the full-index job
+app.get('/admin/ai/index-progress', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  return c.json(_indexJob, 200);
+});
+
+// GET /api/admin/ai/doc-status — per-document indexed/not-indexed status
+app.get('/admin/ai/doc-status', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const rows = await sql(
+    `SELECT doc_id, COUNT(*) AS chunks,
+            SUM(CASE WHEN embedding IS NOT NULL THEN 1 ELSE 0 END) AS embedded
+     FROM ai_doc_chunks GROUP BY doc_id`
+  ).catch(() => []) as any[];
+  const status: Record<string, { chunks: number; embedded: number }> = {};
+  for (const r of rows) status[String(r.doc_id)] = { chunks: Number(r.chunks), embedded: Number(r.embedded) };
+  return c.json({ status }, 200);
+});
+
+// POST /api/admin/ai/index-one/:id — full-index a single document by id
+app.post('/admin/ai/index-one/:id', async (c) => {
+  const pw = c.req.header('x-admin-password');
+  if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+  const rows = await sql('SELECT id, title, filename FROM documents WHERE id=?', [id]).catch(() => []) as any[];
+  const doc = rows[0];
+  if (!doc) return c.json({ error: 'Document not found' }, 404);
+  const buf = await getDocumentBuffer(Number(id));
+  if (!buf) return c.json({ error: 'No file data' }, 404);
+  const citationName = doc.filename || doc.title || `document_${id}`;
+  const r = await indexDocumentFull(String(id), citationName, buf);
+  if (r.error) return c.json({ ok: false, error: r.error }, 200);
+  return c.json({ ok: true, chunks: r.chunks, pages: r.pages }, 200);
+});
+
 // GET /api/admin/stats — quick system overview for admin settings
 app.get('/admin/stats', async (c) => {
   const pw = c.req.header('x-admin-password');
@@ -4611,11 +4953,16 @@ app.post('/admin/documents', rateLimit({ windowMs: 60 * 60 * 1000, max: 20, mess
   }
   await logAudit('document_upload', `id=${docId} title="${title}" size=${file.size}`);
 
-  // Auto-index PDF for AI knowledge base (non-blocking — runs in background)
+  // Auto-index PDF for AI knowledge base (non-blocking — full pipeline: page
+  // images + embeddings + citations). Runs in background so upload returns fast.
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-    indexDocumentFromDB(docId, title, file.name, true)
-      .then(res => console.log(`[AI-index] ${file.name}: ${res.chunks} chunks, ${res.pages} pages${res.error ? ' | ' + res.error : ''}`))
-      .catch(e => console.error('[AI-index] auto-index failed:', e?.message));
+    const citationName = file.name || title;
+    (async () => {
+      const buf = await getDocumentBuffer(docId);
+      if (!buf) { console.error('[AI-index] no buffer for', file.name); return; }
+      const res = await indexDocumentFull(String(docId), citationName, buf);
+      console.log(`[AI-index] ${file.name}: ${res.chunks} chunks, ${res.pages} pages${res.error ? ' | ' + res.error : ''}`);
+    })().catch(e => console.error('[AI-index] auto-index failed:', e?.message));
   }
 
   return c.json({ ok: true, id: docId }, 201);
