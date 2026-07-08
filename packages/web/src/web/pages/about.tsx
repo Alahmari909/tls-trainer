@@ -189,11 +189,11 @@ const SKILL_GROUPS_WITH_PCT = [
 ];
 
 // ── Company logo placeholders ─────────────────────────────────────────────────
-const COMPANY_LOGOS: Record<string, { letter: string; bg: string; fg: string }> = {
-  Westinghouse:             { letter: "W", bg: "#1a2a4a", fg: "#C9A66B" },
-  "Northrop Grumman Company": { letter: "NG", bg: "#0a1e38", fg: "#00AEEF" },
-  Thales:                   { letter: "T", bg: "#0d1a2e", fg: "#35D4FF" },
-  ANPC:                     { letter: "A", bg: "#0a1f14", fg: "#00D26A" },
+const COMPANY_LOGOS: Record<string, { img: string; bg: string; glow: string; fallback: string }> = {
+  Westinghouse:             { img: "/logos/westinghouse-logo.png",      bg: "rgba(26,42,74,0.7)",  glow: "rgba(201,166,107,0.35)", fallback: "W"  },
+  "Northrop Grumman Company": { img: "/logos/northrop-grumman-logo.png", bg: "rgba(10,30,56,0.7)",  glow: "rgba(0,174,239,0.35)",   fallback: "NG" },
+  Thales:                   { img: "/logos/thales-logo.png",            bg: "rgba(13,26,46,0.7)",  glow: "rgba(53,212,255,0.35)",  fallback: "T"  },
+  ANPC:                     { img: "/logos/anpc-logo.png",              bg: "rgba(10,31,20,0.7)",  glow: "rgba(0,210,106,0.35)",   fallback: "A"  },
 };
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -243,23 +243,49 @@ function useCopy() {
 }
 
 // ── Profile Photo ─────────────────────────────────────────────────────────────
-// ── Company Logo Placeholder ──────────────────────────────────────────────────────────
-function CompanyLogo({ company, size = 36 }: { company: string; size?: number }) {
+// ── Company Logo (real image) ─────────────────────────────────────────────────────────
+function CompanyLogo({ company, size = 44 }: { company: string; size?: number }) {
   const logo = COMPANY_LOGOS[company];
+  const [imgErr, setImgErr] = useState(false);
   if (!logo) return null;
+
   return (
     <div style={{
-      width: size, height: size, borderRadius: 8, flexShrink: 0,
+      width: size * 2.2,
+      height: size,
+      borderRadius: 8,
+      flexShrink: 0,
       background: logo.bg,
-      border: `1px solid ${logo.fg}40`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "Inter", fontWeight: 800,
-      fontSize: logo.letter.length > 1 ? size * 0.28 : size * 0.38,
-      color: logo.fg,
-      letterSpacing: logo.letter.length > 1 ? "-0.04em" : "0",
-      boxShadow: `0 0 8px ${logo.fg}25`,
+      border: `1px solid ${logo.glow}`,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      boxShadow: `0 0 10px ${logo.glow}, inset 0 0 8px rgba(0,0,0,0.3)`,
+      padding: "4px 8px",
     }}>
-      {logo.letter}
+      {!imgErr ? (
+        <img
+          src={logo.img}
+          alt={company}
+          onError={() => setImgErr(true)}
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+            filter: `brightness(1.2) drop-shadow(0 0 4px ${logo.glow})`,
+          }}
+        />
+      ) : (
+        <span style={{
+          fontFamily: "Inter", fontWeight: 800,
+          fontSize: logo.fallback.length > 1 ? size * 0.28 : size * 0.38,
+          color: "white",
+          letterSpacing: logo.fallback.length > 1 ? "-0.04em" : "0",
+        }}>
+          {logo.fallback}
+        </span>
+      )}
     </div>
   );
 }
@@ -449,7 +475,7 @@ function ExperienceCard({ exp, index }: { exp: typeof EXPERIENCE[0]; index: numb
           <div>
             <div className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.12em", color: "var(--text-muted)", marginBottom: 3 }}>COMPANY</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-              <CompanyLogo company={exp.company} size={30} />
+              <CompanyLogo company={exp.company} size={36} />
               <div>
                 <div style={{ fontSize: 11, color: "var(--text-primary)", fontFamily: "Inter", fontWeight: 600, lineHeight: 1.2 }}>
                   {exp.flag} {exp.company}
