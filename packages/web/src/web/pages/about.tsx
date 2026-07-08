@@ -674,7 +674,7 @@ export default function About() {
 
         {/* ── Quick stats row ── */}
         <div style={{
-          display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 16,
+          display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginTop: 16,
         }}>
           {[
             { label: "SYSTEMS", value: "4", sub: "Radar platforms" },
@@ -741,7 +741,7 @@ export default function About() {
            ══════════════════════════════════════════════════════ */}
         <div style={{ marginTop: 28 }}>
           <SectionHeader label="TECHNICAL SKILLS" icon="⚙️" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
             {SKILL_GROUPS.map((group, gi) => {
               const rgb = hexToRgb(group.color);
               return (
@@ -784,7 +784,7 @@ export default function About() {
            ══════════════════════════════════════════════════════ */}
         <div style={{ marginTop: 28 }}>
           <SectionHeader label="LANGUAGES" icon="🌐" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
             {[
               { lang: "Arabic", level: "Native", pct: 100, color: "#00D26A", flag: "🇸🇦" },
               { lang: "English", level: "Professional Working", pct: 75, color: "#00AEEF", flag: "🇺🇸" },
@@ -838,7 +838,7 @@ export default function About() {
            ══════════════════════════════════════════════════════ */}
         {showCV && <CVModal onClose={() => setShowCV(false)} />}
         <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
             <button
               onClick={() => setShowCV(true)}
               className="tac-btn tac-btn-primary"

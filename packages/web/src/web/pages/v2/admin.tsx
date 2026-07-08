@@ -52,7 +52,7 @@ export default function V2Admin() {
 
   return (
     <V2Layout role="admin">
-      <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" as const }}>
         <div>
           <div style={{ fontSize: "0.72rem", letterSpacing: "0.15em", color: "#ef4444", marginBottom: "0.25rem" }}>INSTRUCTOR PANEL</div>
           <h2 style={{ fontSize: "1.9rem", fontWeight: 900, color: "#e2e8f0", margin: 0 }}>Admin Dashboard</h2>
@@ -85,7 +85,7 @@ export default function V2Admin() {
       {/* Overview */}
       {!loading && activeSection === "overview" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
             {[
               { label: "TOTAL TRAINEES", value: trainees.length, color: "#00ff88" },
               { label: "ONLINE NOW", value: onlineCount, color: "#00d4ff" },
@@ -130,22 +130,20 @@ export default function V2Admin() {
       {!loading && activeSection === "trainees" && (
         <div>
           <div style={{ background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", overflow: "hidden" }}>
-            <div style={{ padding: "0.75rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 80px 60px", gap: "1rem", fontSize: "0.68rem", letterSpacing: "0.1em", color: "#475569" }}>
-              <span>NAME</span><span>RANK</span><span>UNIT</span><span>LOGINS</span><span>STATUS</span>
+            <div style={{ padding: "0.75rem 1.25rem", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "grid", gridTemplateColumns: "1fr 1fr 60px", gap: "0.75rem", fontSize: "0.68rem", letterSpacing: "0.1em", color: "#475569" }}>
+              <span>NAME</span><span>RANK / UNIT</span><span>STATUS</span>
             </div>
             {trainees.map(t => (
               <div key={t.id} style={{
-                padding: "0.85rem 1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 80px 60px",
-                gap: "1rem", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                padding: "0.85rem 1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr 60px",
+                gap: "0.75rem", borderBottom: "1px solid rgba(255,255,255,0.04)",
                 alignItems: "center", fontSize: "0.82rem",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
                   <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: t.is_online ? "#00ff88" : "#334155", flexShrink: 0 }} />
-                  <span style={{ color: "#e2e8f0", fontWeight: 500 }}>{t.name}</span>
+                  <span style={{ color: "#e2e8f0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
                 </div>
-                <span style={{ color: "#64748b" }}>{t.rank || "—"}</span>
-                <span style={{ color: "#64748b" }}>{t.unit || "—"}</span>
-                <span style={{ color: "#64748b" }}>{t.login_count || 0}</span>
+                <span style={{ color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.rank || t.unit || "—"}</span>
                 <span style={{
                   fontSize: "0.65rem", padding: "0.15rem 0.5rem", borderRadius: "4px",
                   background: t.status === "blocked" ? "rgba(239,68,68,0.1)" : "rgba(0,255,136,0.08)",
@@ -177,13 +175,13 @@ export default function V2Admin() {
             </div>
             {attempts.slice(0, 20).map(a => (
               <div key={a.id} style={{
-                display: "flex", gap: "1rem", alignItems: "center",
+                display: "flex", gap: "0.75rem", alignItems: "center",
                 padding: "0.5rem 0", borderBottom: "1px solid rgba(255,255,255,0.04)",
-                fontSize: "0.78rem",
+                fontSize: "0.78rem", flexWrap: "wrap" as const,
               }}>
-                <span style={{ color: "#475569" }}>{new Date(a.ts).toLocaleDateString()}</span>
-                <span style={{ color: "#94a3b8", flex: 1 }}>{a.module_name}</span>
-                <div style={{ width: "120px", height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "2px" }}>
+                <span style={{ color: "#475569", flexShrink: 0 }}>{new Date(a.ts).toLocaleDateString()}</span>
+                <span style={{ color: "#94a3b8", flex: 1, minWidth: "80px" }}>{a.module_name}</span>
+                <div style={{ width: "80px", height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "2px", flexShrink: 0 }}>
                   <div style={{ width: `${a.pct}%`, height: "100%", background: a.pct >= 70 ? "#00ff88" : "#ef4444", borderRadius: "2px" }} />
                 </div>
                 <span style={{ color: a.pct >= 70 ? "#00ff88" : "#ef4444", fontWeight: 600, width: "40px", textAlign: "right" }}>{Math.round(a.pct)}%</span>

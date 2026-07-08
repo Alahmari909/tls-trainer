@@ -2630,7 +2630,7 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
   return (
     <div>
       {/* Stat Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 20 }}>
         {stats.map(s => (
           <div key={s.label} style={{
             textAlign: "center",
@@ -2646,7 +2646,7 @@ function ReportStats({ trainees }: { trainees: Trainee[] }) {
       </div>
 
       {trainees.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 20 }}>
 
           {/* XP Bar Chart */}
           <div style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.06), rgba(255,215,0,0.02))", border: "1px solid rgba(255,215,0,0.18)", borderRadius: 12, padding: "14px" }}>
@@ -2845,9 +2845,9 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
   const fmtTime = (ts: number) => { if (!ts) return "—"; const d = new Date(ts); return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
 
   return (
-    <div style={{ background: "#030d03", minHeight: "100vh", color: "#fff", fontFamily: "Inter" }}>
+    <div style={{ background: "#030d03", minHeight: "100vh", color: "#fff", fontFamily: "Inter", overflowX: "hidden" as const }}>
       {/* Header */}
-      <div style={{ borderBottom: "1px solid rgba(0,255,136,0.15)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ borderBottom: "1px solid rgba(0,255,136,0.15)", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" as const }}>
         <div>
           <div style={{ fontFamily: "Orbitron, monospace", fontSize: 14, color: "#00FF88", letterSpacing: "0.12em" }}>SIMULATOR CONTROL</div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Full admin control over TLS simulator</div>
@@ -2895,7 +2895,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
         </div>
       )}
 
-      <div style={{ padding: "20px 24px", maxWidth: 1100, display: tab === "preview" ? "none" : undefined }}>
+      <div style={{ padding: "16px", maxWidth: 1100, display: tab === "preview" ? "none" : undefined }}>
 
         {/* ── OVERVIEW ── */}
         {tab === "overview" && (
@@ -3276,7 +3276,7 @@ function SimulatorAdmin({ adminPw }: { adminPw: string }) {
 
         {/* ── CHAT ── */}
         {tab === "chat" && (
-          <div style={{ display: "flex", gap: 16, height: "calc(100vh - 180px)", minHeight: 400 }}>
+          <div style={{ display: "flex", gap: 16, height: "calc(100vh - 180px)", minHeight: 400, flexWrap: "wrap" as const }}>
             {/* Trainee list */}
             <div style={{ ...card, width: 200, flexShrink: 0, overflowY: "auto" as const, padding: 0 }}>
               <div style={{ padding: "10px 14px", fontSize: 10, color: "rgba(0,255,136,0.6)", fontFamily: "Orbitron, monospace", letterSpacing: "0.1em", borderBottom: "1px solid rgba(0,255,136,0.1)" }}>TRAINEES</div>
@@ -3825,7 +3825,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       {showUpload && (
         <div style={{ background: "rgba(0,255,136,0.04)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 12, padding: 20, marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.green, marginBottom: 16 }}>Upload New Document</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 12 }}>
             <div>
               <span style={labelStyle}>TITLE *</span>
               <input style={inputStyle} value={uTitle} onChange={e => setUTitle(e.target.value)} placeholder="Document title" />
@@ -3941,7 +3941,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {docs.map(doc => (
-            <div key={doc.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div key={doc.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" as const }}>
               <span style={{ fontSize: 22, flexShrink: 0 }}>📄</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
@@ -5223,6 +5223,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       minHeight: "100vh",
       paddingTop: 0,
       overflowY: "auto",
+      overflowX: "hidden",
       WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
       paddingBottom: "calc(80px + env(safe-area-inset-bottom))",
     } as React.CSSProperties}>
@@ -5364,7 +5365,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                 <div style={{ fontSize: 11, color: "rgba(0,255,136,0.6)", fontFamily: "Inter" }}>{lastRefresh.toLocaleTimeString()}</div>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
               {[
                 { label: "TOTAL", value: String(trainees.length), color: "#00FF88", sub: "registered", icon: <Users size={16} strokeWidth={1.8} /> },
                 { label: "LIVE NOW", value: String(online.length), color: "#00CC66", sub: "online", icon: <Activity size={16} strokeWidth={1.8} /> },
@@ -5386,7 +5387,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
           </div>
 
           {/* Quick stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>
             {[
               { label: "PENDING RETAKES", value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.2)", urgent: retakeRequests.length > 0 },
               { label: "REG REQUESTS",   value: String(regRequests.filter(r=>r.status==="pending").length), color: regRequests.filter(r=>r.status==="pending").length > 0 ? "#FF9500" : "rgba(255,255,255,0.2)", urgent: regRequests.filter(r=>r.status==="pending").length > 0 },
@@ -5606,7 +5607,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
       </AdminNavContext.Provider>
       {activeView === "documents" && (
-        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh", padding: "24px 32px" }}>
+        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh", padding: "16px" }}>
           <AdminDocuments adminPw={adminPw} trainees={trainees.map(t => ({ id: t.id, name: t.name }))} />
         </div>
       )}
@@ -5629,7 +5630,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       )}
 
       {activeView === "ai-knowledge" && (
-        <div className="admin-view" style={{ padding: '24px 32px', minHeight: '100vh' }}>
+        <div className="admin-view" style={{ padding: '16px', minHeight: '100vh' }}>
           <AiKnowledgePanel adminPw={adminPw} />
         </div>
       )}
@@ -5688,7 +5689,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
         {/* Stat cards — only show in trainees view (dashboard has its own) */}
         {!loading && activeView === "trainees" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>
             {[
               { label: "TRAINEES", value: String(trainees.length), color: C.primary },
               { label: "ONLINE", value: String(online.length), color: C.green },
@@ -5972,7 +5973,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               </div>
 
               {/* Stats row */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 12 }}>
                 {[
                   { label: "XP", value: String(t.xp), color: "#FFD700" },
                   { label: "MODULES", value: `${t.completedModules}/${t.totalModules}`, color: "#00FF88" },

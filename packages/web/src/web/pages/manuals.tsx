@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getSession } from "../hooks/useTelegramTrack";
+import BackButton from "../components/BackButton";
 
 type Manual = {
   id: number;
@@ -153,6 +154,7 @@ export default function Manuals() {
         ))}
 
         <div style={{ position: "relative", zIndex: 2 }}>
+          <BackButton style={{ marginBottom: 12 }} />
           <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.25em", color: "#C9A66B", marginBottom: 6 }}>
             TECHNICAL LIBRARY
           </div>
