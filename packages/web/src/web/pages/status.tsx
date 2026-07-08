@@ -305,7 +305,7 @@ export default function Status() {
       </div>
 
       {/* Radar + Overall */}
-      <div style={{ padding: "20px 16px 0", display: "flex", gap: 16, alignItems: "center" }}>
+      <div style={{ padding: "20px 16px 0", display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" as const }}>
         <div style={{
           position: "relative", flexShrink: 0,
           background: "rgba(0,10,20,0.7)",
@@ -328,7 +328,7 @@ export default function Status() {
           ))}
         </div>
 
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: "min(100%, 240px)" }}>
           {/* Overall banner — only show degraded/outage if real */}
           <div style={{
             padding: "14px 16px", borderRadius: 14, marginBottom: 10,

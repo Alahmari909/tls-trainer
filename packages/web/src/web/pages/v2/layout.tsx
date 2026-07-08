@@ -2,21 +2,33 @@ import { Link, useLocation } from "wouter";
 import { ReactNode, useState } from "react";
 
 // Reusable back button — use at top of any inner page
-export function BackButton({ to = "/v2/trainee", label = "← Back" }: { to?: string; label?: string }) {
+export function BackButton({ to = "/v2/trainee", label = "Back" }: { to?: string; label?: string }) {
   const [, setLocation] = useLocation();
   return (
     <button
       onClick={() => setLocation(to)}
       style={{
-        display: "inline-flex", alignItems: "center", gap: "0.4rem",
-        padding: "0.45rem 1rem", borderRadius: "8px", cursor: "pointer",
-        background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
-        color: "#94a3b8", fontSize: "0.85rem", fontWeight: 500,
+        display: "inline-flex", alignItems: "center", gap: "0.5rem",
+        padding: "0.5rem 1.1rem", borderRadius: "8px", cursor: "pointer",
+        background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.2)",
+        color: "#00ff88", fontSize: "0.82rem", fontWeight: 600,
         marginBottom: "1.25rem", transition: "all 0.15s",
+        letterSpacing: "0.04em",
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,136,0.08)"; (e.currentTarget as HTMLButtonElement).style.color = "#00ff88"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,136,0.3)"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,136,0.14)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,136,0.45)";
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 10px rgba(0,255,136,0.12)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,255,136,0.06)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,255,136,0.2)";
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+      }}
     >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
       {label}
     </button>
   );
