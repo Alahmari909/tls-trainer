@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── Radar Systems Experience ──────────────────────────────────────────────────
 const EXPERIENCE = [
@@ -139,6 +139,91 @@ const SKILL_GROUPS = [
   },
 ];
 
+// ── Skill data with percentages ─────────────────────────────────────────────
+const SKILL_GROUPS_WITH_PCT = [
+  {
+    label: "Radar & Navigation",
+    color: "#00AEEF",
+    icon: "📡",
+    skills: [
+      { name: "TLS Operation", pct: 95 },
+      { name: "Ground Radar TPS Series", pct: 98 },
+      { name: "GM-200 Radar", pct: 82 },
+      { name: "Transponder Systems", pct: 90 },
+    ],
+  },
+  {
+    label: "Electronics & Repair",
+    color: "#35D4FF",
+    icon: "🔧",
+    skills: [
+      { name: "PCB Soldering", pct: 95 },
+      { name: "SMT Rework", pct: 88 },
+      { name: "Circuit Repair", pct: 85 },
+      { name: "Electronic Assembly", pct: 90 },
+      { name: "Conformal Coating", pct: 78 },
+    ],
+  },
+  {
+    label: "Field Operations",
+    color: "#00D26A",
+    icon: "🛡️",
+    skills: [
+      { name: "Preventive Maintenance", pct: 97 },
+      { name: "Fault Diagnosis", pct: 92 },
+      { name: "System Troubleshooting", pct: 90 },
+      { name: "Aviation Environment", pct: 88 },
+    ],
+  },
+  {
+    label: "Training & Documentation",
+    color: "#FFD166",
+    icon: "📋",
+    skills: [
+      { name: "Technical Reporting", pct: 90 },
+      { name: "Maintenance Logs", pct: 92 },
+      { name: "IPC Training Delivery", pct: 85 },
+      { name: "Structured Training", pct: 88 },
+    ],
+  },
+];
+
+// ── Company logo placeholders ─────────────────────────────────────────────────
+const COMPANY_LOGOS: Record<string, { letter: string; bg: string; fg: string }> = {
+  Westinghouse:             { letter: "W", bg: "#1a2a4a", fg: "#C9A66B" },
+  "Northrop Grumman Company": { letter: "NG", bg: "#0a1e38", fg: "#00AEEF" },
+  Thales:                   { letter: "T", bg: "#0d1a2e", fg: "#35D4FF" },
+  ANPC:                     { letter: "A", bg: "#0a1f14", fg: "#00D26A" },
+};
+
+// ── Hooks ─────────────────────────────────────────────────────────────────────
+
+/** Counts from 0 to `target` over `duration` ms once `start` is true */
+function useCountUp(target: number, duration = 1200, start = false): number {
+  const [count, setCount] = useState(0);
+  const raf = useRef<number>(0);
+  const startTime = useRef<number>(0);
+
+  const animate = useCallback((ts: number) => {
+    if (!startTime.current) startTime.current = ts;
+    const elapsed = ts - startTime.current;
+    const progress = Math.min(elapsed / duration, 1);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    setCount(Math.round(eased * target));
+    if (progress < 1) raf.current = requestAnimationFrame(animate);
+  }, [target, duration]);
+
+  useEffect(() => {
+    if (!start) return;
+    startTime.current = 0;
+    raf.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf.current);
+  }, [start, animate]);
+
+  return count;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function hexToRgb(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -158,6 +243,79 @@ function useCopy() {
 }
 
 // ── Profile Photo ─────────────────────────────────────────────────────────────
+// ── Company Logo Placeholder ──────────────────────────────────────────────────────────
+function CompanyLogo({ company, size = 36 }: { company: string; size?: number }) {
+  const logo = COMPANY_LOGOS[company];
+  if (!logo) return null;
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 8, flexShrink: 0,
+      background: logo.bg,
+      border: `1px solid ${logo.fg}40`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "Inter", fontWeight: 800,
+      fontSize: logo.letter.length > 1 ? size * 0.28 : size * 0.38,
+      color: logo.fg,
+      letterSpacing: logo.letter.length > 1 ? "-0.04em" : "0",
+      boxShadow: `0 0 8px ${logo.fg}25`,
+    }}>
+      {logo.letter}
+    </div>
+  );
+}
+
+// ── Animated Skill Bar ─────────────────────────────────────────────────────────────────
+function SkillBar({ name, pct, color, delay = 0, animate: shouldAnimate = false }: {
+  name: string; pct: number; color: string; delay?: number; animate?: boolean;
+}) {
+  const [width, setWidth] = useState(0);
+  const rgb = hexToRgb(color);
+
+  useEffect(() => {
+    if (!shouldAnimate) return;
+    const t = setTimeout(() => setWidth(pct), delay);
+    return () => clearTimeout(t);
+  }, [shouldAnimate, pct, delay]);
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter" }}>{name}</span>
+        <span style={{ fontSize: 10, color, fontFamily: "Inter", fontWeight: 700 }}>{pct}%</span>
+      </div>
+      <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+        <div style={{
+          height: "100%",
+          width: `${width}%`,
+          background: `linear-gradient(90deg, ${color}, rgba(${rgb},0.5))`,
+          borderRadius: 3,
+          boxShadow: `0 0 6px rgba(${rgb},0.6)`,
+          transition: `width 0.9s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms`,
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Animated Stats Card ────────────────────────────────────────────────────────────────
+function StatCard({ label, target, sub, started }: { label: string; target: number; sub: string; started: boolean }) {
+  const count = useCountUp(target, 1000 + target * 20, started);
+  return (
+    <div style={{
+      background: "rgba(8,15,28,0.9)",
+      border: "1px solid rgba(0,174,239,0.15)",
+      borderRadius: 10, padding: "10px 4px",
+      textAlign: "center",
+    }}>
+      <div className="font-orbitron" style={{ fontSize: 22, fontWeight: 700, color: "var(--accent-cyan)", lineHeight: 1 }}>
+        {count}
+      </div>
+      <div className="font-orbitron" style={{ fontSize: 8, color: "var(--text-muted)", letterSpacing: "0.1em", marginTop: 4 }}>{label}</div>
+      <div style={{ fontSize: 9, color: "var(--text-secondary)", marginTop: 2, fontFamily: "Inter" }}>{sub}</div>
+    </div>
+  );
+}
+
 function ProfilePhoto({ size = 90 }: { size?: number }) {
   const [imgErr, setImgErr] = useState(false);
   if (!imgErr) {
@@ -290,10 +448,15 @@ function ExperienceCard({ exp, index }: { exp: typeof EXPERIENCE[0]; index: numb
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", marginTop: 12 }}>
           <div>
             <div className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.12em", color: "var(--text-muted)", marginBottom: 3 }}>COMPANY</div>
-            <div style={{ fontSize: 12, color: "var(--text-primary)", fontFamily: "Inter", fontWeight: 600 }}>
-              {exp.flag} {exp.company}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <CompanyLogo company={exp.company} size={30} />
+              <div>
+                <div style={{ fontSize: 11, color: "var(--text-primary)", fontFamily: "Inter", fontWeight: 600, lineHeight: 1.2 }}>
+                  {exp.flag} {exp.company}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>{exp.country}</div>
+              </div>
             </div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>{exp.country}</div>
           </div>
           <div>
             <div className="font-orbitron" style={{ fontSize: 8, letterSpacing: "0.12em", color: "var(--text-muted)", marginBottom: 3 }}>PERIOD</div>
@@ -545,6 +708,26 @@ export default function About() {
   const phone = "+966 59 456 6660";
   const whatsapp = "https://wa.me/966594566660";
   const [showCV, setShowCV] = useState(false);
+  const [statsStarted, setStatsStarted] = useState(false);
+  const [skillsVisible, setSkillsVisible] = useState(false);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const skillsRef = useRef<HTMLDivElement>(null);
+
+  // Trigger counter animation when stats section enters viewport
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(e => {
+          if (e.target === statsRef.current && e.isIntersecting) setStatsStarted(true);
+          if (e.target === skillsRef.current && e.isIntersecting) setSkillsVisible(true);
+        });
+      },
+      { threshold: 0.3 }
+    );
+    if (statsRef.current) observer.observe(statsRef.current);
+    if (skillsRef.current) observer.observe(skillsRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="page" style={{ background: "var(--bg-primary)", paddingBottom: 90 }}>
@@ -595,26 +778,44 @@ export default function About() {
             RSAF · GROUND RADAR UNIT
           </div>
 
-          {/* Photo + glow ring */}
-          <div style={{ position: "relative", width: 100, height: 100, marginBottom: 14 }}>
+          {/* Photo + animated border */}
+          <div style={{ position: "relative", width: 110, height: 110, marginBottom: 16 }}>
+            {/* Outer pulsing glow halo */}
             <div style={{
-              position: "absolute", inset: -4,
+              position: "absolute", inset: -10,
               borderRadius: "50%",
-              background: "conic-gradient(from 0deg, #00AEEF, #35D4FF, #00D26A, #00AEEF)",
-              animation: "rotate-slow 8s linear infinite",
-              opacity: 0.5,
+              background: "radial-gradient(circle, rgba(0,174,239,0.18) 0%, transparent 70%)",
+              animation: "pulse-glow 2.5s ease-in-out infinite",
+              pointerEvents: "none",
             }} />
+            {/* Outer rotating gradient ring (thick) */}
+            <div style={{
+              position: "absolute", inset: -5,
+              borderRadius: "50%",
+              background: "conic-gradient(from 0deg, #00AEEF 0%, #35D4FF 30%, #00D26A 55%, #FFD166 75%, #00AEEF 100%)",
+              animation: "rotate-slow 5s linear infinite",
+            }} />
+            {/* Gap ring */}
             <div style={{
               position: "absolute", inset: -2, borderRadius: "50%",
               background: "var(--bg-primary)",
             }} />
+            {/* Inner counter-rotating accent ring */}
             <div style={{
-              position: "absolute", inset: 0, borderRadius: "50%",
-              border: "2px solid rgba(0,174,239,0.4)",
-              boxShadow: "0 0 24px rgba(0,174,239,0.35), 0 0 48px rgba(0,174,239,0.12)",
+              position: "absolute", inset: 1,
+              borderRadius: "50%",
+              background: "conic-gradient(from 180deg, transparent 0%, rgba(53,212,255,0.5) 30%, transparent 60%)",
+              animation: "rotate-slow 8s linear infinite reverse",
+              pointerEvents: "none",
+            }} />
+            {/* Photo container */}
+            <div style={{
+              position: "absolute", inset: 3, borderRadius: "50%",
+              border: "1.5px solid rgba(0,174,239,0.5)",
+              boxShadow: "0 0 20px rgba(0,174,239,0.4), 0 0 40px rgba(0,174,239,0.15), inset 0 0 12px rgba(0,174,239,0.08)",
               overflow: "hidden",
             }}>
-              <ProfilePhoto size={96} />
+              <ProfilePhoto size={104} />
             </div>
           </div>
 
@@ -672,27 +873,15 @@ export default function About() {
          ══════════════════════════════════════════════════════ */}
       <div style={{ padding: "0 14px" }}>
 
-        {/* ── Quick stats row ── */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginTop: 16,
-        }}>
-          {[
-            { label: "SYSTEMS", value: "4", sub: "Radar platforms" },
-            { label: "ACTIVE", value: "3", sub: "Current systems" },
-            { label: "YEARS", value: "24", sub: "Field experience" },
-            { label: "CERTS", value: "5", sub: "Qualifications" },
-          ].map(s => (
-            <div key={s.label} style={{
-              background: "rgba(8,15,28,0.9)",
-              border: "1px solid rgba(0,174,239,0.15)",
-              borderRadius: 10, padding: "10px 4px",
-              textAlign: "center",
-            }}>
-              <div className="font-orbitron" style={{ fontSize: 16, fontWeight: 700, color: "var(--accent-cyan)" }}>{s.value}</div>
-              <div className="font-orbitron" style={{ fontSize: 8, color: "var(--text-muted)", letterSpacing: "0.1em", marginTop: 2 }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: "var(--text-secondary)", marginTop: 2, fontFamily: "Inter" }}>{s.sub}</div>
-            </div>
-          ))}
+        {/* ── Quick stats row (animated counter) ── */}
+        <div
+          ref={statsRef}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginTop: 16 }}
+        >
+          <StatCard label="SYSTEMS" target={4}  sub="Radar platforms"  started={statsStarted} />
+          <StatCard label="ACTIVE"  target={3}  sub="Current systems"  started={statsStarted} />
+          <StatCard label="YEARS"   target={24} sub="Field experience" started={statsStarted} />
+          <StatCard label="CERTS"   target={5}  sub="Qualifications"   started={statsStarted} />
         </div>
 
         {/* ══════════════════════════════════════════════════════
@@ -739,40 +928,34 @@ export default function About() {
         {/* ══════════════════════════════════════════════════════
             TECHNICAL SKILLS
            ══════════════════════════════════════════════════════ */}
-        <div style={{ marginTop: 28 }}>
+        <div ref={skillsRef} style={{ marginTop: 28 }}>
           <SectionHeader label="TECHNICAL SKILLS" icon="⚙️" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-            {SKILL_GROUPS.map((group, gi) => {
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {SKILL_GROUPS_WITH_PCT.map((group, gi) => {
               const rgb = hexToRgb(group.color);
               return (
                 <div key={group.label} style={{
                   background: `rgba(${rgb},0.05)`,
                   border: `1px solid rgba(${rgb},0.22)`,
-                  borderRadius: 12, padding: "14px 12px",
+                  borderRadius: 12, padding: "14px 14px",
                   animation: `fadeIn 0.4s ease ${gi * 0.08}s both`,
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
                     <span style={{ fontSize: 14 }}>{group.icon}</span>
                     <div className="font-orbitron" style={{ fontSize: 9, color: group.color, letterSpacing: "0.1em" }}>
                       {group.label}
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {group.skills.map(skill => (
-                      <div key={skill} style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                      }}>
-                        <span style={{
-                          width: 4, height: 4, borderRadius: "50%",
-                          background: group.color, flexShrink: 0,
-                          boxShadow: `0 0 4px ${group.color}`,
-                        }} />
-                        <span style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "Inter" }}>
-                          {skill}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {group.skills.map((skill, si) => (
+                    <SkillBar
+                      key={skill.name}
+                      name={skill.name}
+                      pct={skill.pct}
+                      color={group.color}
+                      delay={gi * 80 + si * 60}
+                      animate={skillsVisible}
+                    />
+                  ))}
                 </div>
               );
             })}
