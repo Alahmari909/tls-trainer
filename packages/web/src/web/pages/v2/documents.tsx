@@ -21,39 +21,32 @@ function PdfModal({ docId, title, onClose }: { docId: number; title: string; onC
   }, [docId]);
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column",
-    }}>
+    <div className="pdf-modal-overlay">
       {/* Header */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0.75rem 1rem", background: "#0f172a",
-        borderBottom: "1px solid rgba(0,255,136,0.15)", flexShrink: 0,
-      }}>
-        <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.9rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div className="pdf-modal-header">
+        <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           📄 {title}
         </span>
-        <div style={{ display: "flex", gap: "0.4rem", marginLeft: "1rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.4rem", marginLeft: "1rem", alignItems: "center", flexShrink: 0 }}>
           <button onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))}
-            style={{ padding: "0.25rem 0.6rem", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: "0.9rem", fontWeight: 700 }}>−</button>
-          <span style={{ color: "#94a3b8", fontSize: "0.68rem", minWidth: 34, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+            style={{ padding: "0.25rem 0.5rem", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: "0.85rem", fontWeight: 700 }}>−</button>
+          <span style={{ color: "#94a3b8", fontSize: "0.65rem", minWidth: 30, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(3, +(z + 0.2).toFixed(2)))}
-            style={{ padding: "0.25rem 0.6rem", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: "0.9rem", fontWeight: 700 }}>+</button>
+            style={{ padding: "0.25rem 0.5rem", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: "0.85rem", fontWeight: 700 }}>+</button>
           <a href={fileUrl} download
-            style={{ padding: "0.25rem 0.6rem", borderRadius: 6, background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", color: "#00aeef", fontSize: "0.72rem", fontWeight: 600, textDecoration: "none" }}>
+            style={{ padding: "0.25rem 0.5rem", borderRadius: 6, background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", color: "#00aeef", fontSize: "0.68rem", fontWeight: 600, textDecoration: "none" }}>
             ⬇
           </a>
           <button onClick={onClose}
-            style={{ padding: "0.25rem 0.6rem", borderRadius: 6, cursor: "pointer", background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)", color: "#ff5555", fontSize: "0.75rem", fontWeight: 600 }}>
+            style={{ padding: "0.25rem 0.5rem", borderRadius: 6, cursor: "pointer", background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)", color: "#ff5555", fontSize: "0.72rem", fontWeight: 600 }}>
             ✕
           </button>
         </div>
       </div>
       {/* Viewer */}
-      <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "12px 0", textAlign: "center" }}>
-        {err && <div style={{ color: "#ff6b6b", padding: 40, fontSize: "0.9rem" }}>{err}</div>}
-        {!err && pageCount === null && <div style={{ color: "#94a3b8", padding: 40, fontSize: "0.9rem" }}>Loading…</div>}
+      <div className="pdf-modal-scroll">
+        {err && <div style={{ color: "#ff6b6b", padding: 40, fontSize: "0.85rem" }}>{err}</div>}
+        {!err && pageCount === null && <div style={{ color: "#94a3b8", padding: 40, fontSize: "0.85rem" }}>Loading…</div>}
         {!err && pageCount !== null && Array.from({ length: pageCount }, (_, i) => i + 1).map(p => (
           <div key={p} style={{ marginBottom: 14 }}>
             <img
@@ -61,9 +54,10 @@ function PdfModal({ docId, title, onClose }: { docId: number; title: string; onC
               loading="lazy"
               onLoad={() => setLoaded(s => ({ ...s, [p]: true }))}
               alt={`page ${p}`}
-              style={{ width: `min(${Math.round(94 * zoom)}%, ${Math.round(1100 * zoom)}px)`, height: "auto", borderRadius: 6, boxShadow: "0 4px 24px rgba(0,0,0,0.5)", background: "#fff", minHeight: loaded[p] ? undefined : 300 }}
+              className="pdf-modal-page-img"
+              style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center", minHeight: loaded[p] ? undefined : 200 }}
             />
-            <div style={{ color: "#64748b", fontSize: "0.62rem", marginTop: 4 }}>{p} / {pageCount}</div>
+            <div style={{ color: "#64748b", fontSize: "0.6rem", marginTop: zoom !== 1 ? `${(zoom - 1) * 100}%` : 4 }}>{p} / {pageCount}</div>
           </div>
         ))}
       </div>

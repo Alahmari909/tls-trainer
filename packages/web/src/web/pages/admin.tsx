@@ -3619,20 +3619,20 @@ function DocImageViewer({ docId, title, onClose }: { docId: number; title: strin
   const fileUrl = `/api/documents/${docId}/file`;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.7rem 1rem", background: "#0f172a", borderBottom: "1px solid rgba(0,255,136,0.15)", flexShrink: 0 }}>
-        <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.9rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📄 {title}</span>
-        <div style={{ display: "flex", gap: 6, marginLeft: 12, alignItems: "center" }}>
-          <button onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))} style={{ padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 14, fontWeight: 700 }}>−</button>
-          <span style={{ color: "#94a3b8", fontSize: 11, minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(z => Math.min(3, +(z + 0.2).toFixed(2)))} style={{ padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 14, fontWeight: 700 }}>+</button>
-          <a href={fileUrl} download style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", color: "#00aeef", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>⬇</a>
-          <button onClick={onClose} style={{ padding: "4px 10px", borderRadius: 6, cursor: "pointer", background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)", color: "#ff5555", fontSize: 12, fontWeight: 700 }}>✕</button>
+    <div className="admin-pdf-viewer">
+      <div className="admin-pdf-header">
+        <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📄 {title}</span>
+        <div style={{ display: "flex", gap: 6, marginLeft: 12, alignItems: "center", flexShrink: 0 }}>
+          <button onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))} style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 13, fontWeight: 700 }}>−</button>
+          <span style={{ color: "#94a3b8", fontSize: 10, minWidth: 34, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(3, +(z + 0.2).toFixed(2)))} style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 13, fontWeight: 700 }}>+</button>
+          <a href={fileUrl} download style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", color: "#00aeef", fontSize: 10, fontWeight: 700, textDecoration: "none" }}>⬇</a>
+          <button onClick={onClose} style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)", color: "#ff5555", fontSize: 11, fontWeight: 700 }}>✕</button>
         </div>
       </div>
-      <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "12px 0", textAlign: "center" }}>
-        {err && <div style={{ color: "#ff6b6b", padding: 40, fontSize: 14 }}>{err}</div>}
-        {!err && pageCount === null && <div style={{ color: "#94a3b8", padding: 40, fontSize: 14 }}>جاري التحميل…</div>}
+      <div className="admin-pdf-scroll">
+        {err && <div style={{ color: "#ff6b6b", padding: 40, fontSize: 13 }}>{err}</div>}
+        {!err && pageCount === null && <div style={{ color: "#94a3b8", padding: 40, fontSize: 13 }}>جاري التحميل…</div>}
         {!err && pageCount !== null && Array.from({ length: pageCount }, (_, i) => i + 1).map(p => (
           <div key={p} style={{ marginBottom: 14 }}>
             <img
@@ -3640,9 +3640,10 @@ function DocImageViewer({ docId, title, onClose }: { docId: number; title: strin
               loading="lazy"
               onLoad={() => setLoaded(s => ({ ...s, [p]: true }))}
               alt={`page ${p}`}
-              style={{ width: `min(${Math.round(94 * zoom)}%, ${Math.round(1100 * zoom)}px)`, height: "auto", borderRadius: 6, boxShadow: "0 4px 24px rgba(0,0,0,0.5)", background: "#fff", minHeight: loaded[p] ? undefined : 300 }}
+              className="admin-pdf-page-img"
+              style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center", minHeight: loaded[p] ? undefined : 200 }}
             />
-            <div style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>{p} / {pageCount}</div>
+            <div style={{ color: "#64748b", fontSize: 10, marginTop: zoom !== 1 ? `${(zoom - 1) * 100}%` : 4 }}>{p} / {pageCount}</div>
           </div>
         ))}
       </div>
@@ -5136,21 +5137,6 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
   // ── Theme toggle ─────────────────────────────────────────────────────────────
   const [theme, setTheme] = useState<"dark" | "light">(() => (localStorage.getItem("tls_theme") as "dark" | "light") ?? "dark");
-  useEffect(() => {
-    if (theme === "light") {
-      document.documentElement.classList.add("light-mode");
-    } else {
-      document.documentElement.classList.remove("light-mode");
-    }
-    // Remove stale inline overrides from old approach
-    const root = document.documentElement;
-    ["--bg-primary","--bg-secondary","--bg-card","--bg-elevated",
-     "--text-primary","--text-secondary","--text-muted","--border-color","--card-bg"]
-      .forEach(v => root.style.removeProperty(v));
-    localStorage.setItem("tls_theme", theme);
-  }, [theme]);
-
-
 
   // ── Admin mode flag — suppresses Telegram tracking inside imported pages ──────
   const IMPORTED_VIEWS = ["basics", "advanced", "quiz", "chat", "status", "notifications", "about", "documents", "simulator"];
@@ -5162,24 +5148,52 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
     }
   }, [activeView]);
 
-  // ── Inject admin green CSS variables — overrides shared styles.css blue theme ─
+  // ── Inject admin CSS variables + handle theme toggle ─────────────────────────
+  // This single effect owns ALL CSS variable writes so theme and admin vars
+  // never fight each other. It runs on mount AND whenever theme changes.
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--bg-primary",    "#030f03");
-    root.style.setProperty("--bg-secondary",  "#071a07");
-    root.style.setProperty("--bg-card",       "rgba(0,255,136,0.04)");
-    root.style.setProperty("--bg-elevated",   "#0a1a0a");
-    root.style.setProperty("--accent-blue",   "#00FF88");
-    root.style.setProperty("--accent-cyan",   "#00CC66");
-    root.style.setProperty("--border-color",  "rgba(0,255,136,0.15)");
     root.setAttribute("data-theme", "admin");
+
+    if (theme === "light") {
+      root.classList.add("light-mode");
+      // Light admin: brighter military green
+      root.style.setProperty("--bg-primary",   "#1a2a1a");
+      root.style.setProperty("--bg-secondary", "#223322");
+      root.style.setProperty("--bg-card",      "rgba(0,200,100,0.07)");
+      root.style.setProperty("--bg-elevated",  "#2a3d2a");
+      root.style.setProperty("--accent-blue",  "#00CC66");
+      root.style.setProperty("--accent-cyan",  "#00AA55");
+      root.style.setProperty("--border-color", "rgba(0,204,102,0.25)");
+      root.style.setProperty("--text-primary",   "#e8f5e8");
+      root.style.setProperty("--text-secondary", "rgba(200,240,200,0.7)");
+      root.style.setProperty("--text-muted",     "rgba(180,220,180,0.5)");
+    } else {
+      root.classList.remove("light-mode");
+      // Dark admin: original dark military green
+      root.style.setProperty("--bg-primary",   "#030f03");
+      root.style.setProperty("--bg-secondary", "#071a07");
+      root.style.setProperty("--bg-card",      "rgba(0,255,136,0.04)");
+      root.style.setProperty("--bg-elevated",  "#0a1a0a");
+      root.style.setProperty("--accent-blue",  "#00FF88");
+      root.style.setProperty("--accent-cyan",  "#00CC66");
+      root.style.setProperty("--border-color", "rgba(0,255,136,0.15)");
+      root.style.setProperty("--text-primary",   "#e8f5e8");
+      root.style.setProperty("--text-secondary", "rgba(200,240,200,0.5)");
+      root.style.setProperty("--text-muted",     "rgba(0,255,136,0.35)");
+    }
+
+    localStorage.setItem("tls_theme", theme);
+
     return () => {
       // cleanup when admin unmounts (user logs out)
       ["--bg-primary","--bg-secondary","--bg-card","--bg-elevated",
-       "--accent-blue","--accent-cyan","--border-color"].forEach(v => root.style.removeProperty(v));
+       "--accent-blue","--accent-cyan","--border-color",
+       "--text-primary","--text-secondary","--text-muted"].forEach(v => root.style.removeProperty(v));
       root.removeAttribute("data-theme");
+      root.classList.remove("light-mode");
     };
-  }, []);
+  }, [theme]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -5214,8 +5228,10 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const avgScore = trainees.length ? Math.round(trainees.reduce((s, t) => s + (t.completedModules / Math.max(t.totalModules, 1)) * 100, 0) / trainees.length) : 0;
   const levelFromXp = (xp: number) => Math.floor(xp / 500) + 1;
 
-  // ── Admin-specific background: dark green military ──────────────────────────
-  const adminBg = "linear-gradient(160deg, #050f05 0%, #080f08 40%, #050a05 100%)";
+  // ── Admin-specific background: adapts to theme ─────────────────────────────
+  const adminBg = theme === "light"
+    ? "linear-gradient(160deg, #1a2a1a 0%, #1e2e1e 40%, #1a2a1a 100%)"
+    : "linear-gradient(160deg, #050f05 0%, #080f08 40%, #050a05 100%)";
 
   return (
     <div style={{
@@ -5242,8 +5258,10 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       {/* ── TOPBAR ── */}
       <div style={{
-        background: "linear-gradient(180deg, #030d03 0%, #050f05 100%)",
-        borderBottom: "1px solid rgba(0,255,136,0.15)",
+        background: theme === "light"
+          ? "linear-gradient(180deg, #162016 0%, #1e2e1e 100%)"
+          : "linear-gradient(180deg, #030d03 0%, #050f05 100%)",
+        borderBottom: theme === "light" ? "1px solid rgba(0,204,102,0.25)" : "1px solid rgba(0,255,136,0.15)",
         padding: "0 16px",
         position: "sticky", top: 0, zIndex: 100,
       }}>
@@ -5599,15 +5617,15 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {/* setActiveView("dashboard") instead of wouter navigate("/") which would  */}
       {/* render the trainee login screen.                                         */}
       <AdminNavContext.Provider value={{ goBack: () => setActiveView("dashboard") }}>
-        {activeView === "basics"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Basics /></div>}
-        {activeView === "advanced"      && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Advanced /></div>}
-        {activeView === "quiz"          && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><QuizList adminMode={true} /></div>}
-        {activeView === "status"        && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Status /></div>}
-        {activeView === "notifications" && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><Notifications adminMode={true} /></div>}
-        {activeView === "about"         && <div className="admin-view" style={{ background: "#050f05", minHeight: "100vh" }}><About /></div>}
+        {activeView === "basics"        && <div className="admin-view" style={{ background: adminBg, minHeight: "100vh" }}><Basics /></div>}
+        {activeView === "advanced"      && <div className="admin-view" style={{ background: adminBg, minHeight: "100vh" }}><Advanced /></div>}
+        {activeView === "quiz"          && <div className="admin-view" style={{ background: adminBg, minHeight: "100vh" }}><QuizList adminMode={true} /></div>}
+        {activeView === "status"        && <div className="admin-view" style={{ background: adminBg, minHeight: "100vh" }}><Status /></div>}
+        {activeView === "notifications" && <div className="admin-view" style={{ background: adminBg, minHeight: "100vh" }}><Notifications adminMode={true} /></div>}
+        {activeView === "about"         && <div className="admin-view" style={{ background: adminBg, minHeight: "100vh" }}><About /></div>}
       </AdminNavContext.Provider>
       {activeView === "documents" && (
-        <div className="admin-view" style={{ background: "#030f03", minHeight: "100vh", padding: "16px" }}>
+        <div className="admin-view" style={{ background: adminBg, minHeight: "100vh", padding: "16px" }}>
           <AdminDocuments adminPw={adminPw} trainees={trainees.map(t => ({ id: t.id, name: t.name }))} />
         </div>
       )}
