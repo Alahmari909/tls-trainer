@@ -3621,14 +3621,34 @@ function DocImageViewer({ docId, title, onClose }: { docId: number; title: strin
   return (
     <div className="admin-pdf-viewer">
       <div className="admin-pdf-header">
+        <button onClick={onClose} className="admin-pdf-back-btn" style={{
+          display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
+          padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+          background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.35)",
+          color: "#00FF88", fontSize: 13, fontWeight: 700, marginRight: 10,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
+          Back
+        </button>
         <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📄 {title}</span>
         <div style={{ display: "flex", gap: 6, marginLeft: 12, alignItems: "center", flexShrink: 0 }}>
           <button onClick={() => setZoom(z => Math.max(0.6, +(z - 0.2).toFixed(2)))} style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 13, fontWeight: 700 }}>−</button>
           <span style={{ color: "#94a3b8", fontSize: 10, minWidth: 34, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(3, +(z + 0.2).toFixed(2)))} style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", fontSize: 13, fontWeight: 700 }}>+</button>
           <a href={fileUrl} download style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(0,174,239,0.1)", border: "1px solid rgba(0,174,239,0.3)", color: "#00aeef", fontSize: 10, fontWeight: 700, textDecoration: "none" }}>⬇</a>
-          <button onClick={onClose} style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,50,50,0.1)", border: "1px solid rgba(255,50,50,0.3)", color: "#ff5555", fontSize: 11, fontWeight: 700 }}>✕</button>
         </div>
+      </div>
+      {/* Bottom back bar — always visible, thumb-reachable on mobile */}
+      <div className="admin-pdf-bottom-back">
+        <button onClick={onClose} style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          width: "100%", padding: "12px", borderRadius: 10, cursor: "pointer",
+          background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.35)",
+          color: "#00FF88", fontSize: 14, fontWeight: 700,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
+          Back to Documents
+        </button>
       </div>
       <div className="admin-pdf-scroll">
         {err && <div style={{ color: "#ff6b6b", padding: 40, fontSize: 13 }}>{err}</div>}
@@ -5234,7 +5254,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
     : "linear-gradient(160deg, #050f05 0%, #080f08 40%, #050a05 100%)";
 
   return (
-    <div style={{
+    <div className="admin-root" style={{
       background: adminBg,
       minHeight: "100vh",
       paddingTop: 0,

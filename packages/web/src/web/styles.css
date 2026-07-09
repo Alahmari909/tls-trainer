@@ -1212,6 +1212,26 @@ input:focus, textarea:focus, select:focus {
   margin: 0 auto 14px;
 }
 
+/* Persistent bottom back bar in doc viewer — thumb-reachable on mobile */
+.admin-pdf-bottom-back {
+  flex-shrink: 0;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: #0f172a;
+  border-top: 1px solid rgba(0,255,136,0.15);
+}
+
+/* ── Admin panel: scale down to match trainee app density on mobile ── */
+@media (max-width: 768px) {
+  .admin-root {
+    zoom: 0.82;
+  }
+}
+@media (max-width: 480px) {
+  .admin-root {
+    zoom: 0.72;
+  }
+}
+
 /* ── Trainee PDF viewer safe area ── */
 .pdf-modal-overlay {
   position: fixed;

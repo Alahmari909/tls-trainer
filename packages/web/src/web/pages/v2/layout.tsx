@@ -77,7 +77,8 @@ export default function V2Layout({ children, role = "trainee", traineeId, traine
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(5,10,14,0.95)", borderBottom: "1px solid rgba(0,255,136,0.12)",
         backdropFilter: "blur(20px)",
-        padding: "0 1.5rem", display: "flex", alignItems: "center", height: "56px", gap: "1.5rem"
+        padding: "env(safe-area-inset-top, 0px) 1.5rem 0", display: "flex", alignItems: "center",
+        height: "calc(56px + env(safe-area-inset-top, 0px))", gap: "1.5rem", boxSizing: "border-box",
       }}>
         {/* Logo */}
         <Link href="/v2">
