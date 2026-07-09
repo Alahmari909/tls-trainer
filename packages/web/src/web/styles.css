@@ -189,7 +189,7 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; }
 /* ── Page wrapper ── */
 .page {
   min-height: 100vh;
-  padding-top: 52px;
+  padding-top: calc(52px + env(safe-area-inset-top, 0px));
   padding-bottom: 24px;
   background: var(--bg-primary);
 }

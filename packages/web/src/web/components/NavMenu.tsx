@@ -204,7 +204,8 @@ export default function NavMenu() {
         WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(0,174,239,0.2)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 12px", height: 52,
+        padding: "env(safe-area-inset-top, 0px) 12px 0",
+        height: "calc(52px + env(safe-area-inset-top, 0px))",
         gap: 8,
       }}>
         {/* Decorative top accent line */}
@@ -329,7 +330,7 @@ export default function NavMenu() {
       }}>
         {/* Drawer header */}
         <div style={{
-          padding: "20px 20px 16px",
+          padding: "calc(20px + env(safe-area-inset-top, 0px)) 20px 16px",
           borderBottom: "1px solid rgba(0,174,239,0.12)",
           background: "linear-gradient(180deg, rgba(0,174,239,0.08) 0%, transparent 100%)",
         }}>
