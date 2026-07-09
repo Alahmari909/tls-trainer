@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import BackButton from "../components/BackButton";
 import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award, PenSquare, Film } from "lucide-react";
 import Basics from "./basics";
@@ -546,7 +547,7 @@ function TraineeDetailModal({
     setTimeout(() => setActionResult(null), 3000);
   };
 
-  return (
+  return createPortal((
     <div style={{
       position: "fixed", inset: 0, zIndex: 2000,
       background: "rgba(0,0,0,0.82)", backdropFilter: "blur(6px)",
@@ -1732,7 +1733,7 @@ ${weaknessSection}${strengthSection}
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 // ─── Telegram Settings Panel ──────────────────────────────────────────────────
@@ -2283,7 +2284,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
           )}
 
           {/* ── Restore confirmation modal ── */}
-          {confirmRestore && (
+          {confirmRestore && createPortal((
             <div style={{
               position: "fixed", inset: 0, zIndex: 9999,
               background: "rgba(0,0,0,0.88)", backdropFilter: "blur(8px)",
@@ -2315,10 +2316,10 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 </div>
               </div>
             </div>
-          )}
+          ), document.body)}
 
           {/* ── Import confirmation modal ── */}
-          {confirmImport && importFile && (
+          {confirmImport && importFile && createPortal((
             <div style={{
               position: "fixed", inset: 0, zIndex: 9999,
               background: "rgba(0,0,0,0.88)", backdropFilter: "blur(8px)",
@@ -2349,7 +2350,7 @@ function BackupPanel({ adminPw }: { adminPw: string }) {
                 </div>
               </div>
             </div>
-          )}
+          ), document.body)}
 
         </div>
       )}
@@ -3618,7 +3619,7 @@ function DocImageViewer({ docId, title, onClose }: { docId: number; title: strin
 
   const fileUrl = `/api/documents/${docId}/file`;
 
-  return (
+  return createPortal((
     <div className="admin-pdf-viewer">
       <div className="admin-pdf-header">
         <button onClick={onClose} className="admin-pdf-back-btn" style={{
@@ -3668,7 +3669,7 @@ function DocImageViewer({ docId, title, onClose }: { docId: number; title: strin
         ))}
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id: string; name: string }[] }) {
@@ -3895,7 +3896,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
       )}
 
       {/* Edit Modal */}
-      {editDoc && (
+      {editDoc && createPortal((
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "#0a1628", border: "1px solid rgba(0,255,136,0.2)", borderRadius: 14, padding: 24, width: "100%", maxWidth: 500, maxHeight: "80vh", overflowY: "auto" }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.green, marginBottom: 16 }}>✏️ Edit Document</div>
@@ -3937,7 +3938,7 @@ function AdminDocuments({ adminPw, trainees }: { adminPw: string; trainees: { id
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* Documents List */}
       {loading ? (
