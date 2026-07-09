@@ -43,10 +43,12 @@ html, body {
   overflow-x: hidden;
 }
 
-/* ── PWA Standalone: safe area insets to avoid status bar overlap ── */
+/* ── PWA Standalone: safe area insets to avoid status bar overlap ──
+   NOTE: top inset is intentionally NOT applied on <body>. Each app's own
+   sticky header/nav (v2 nav + admin header) already pads env(safe-area-inset-top).
+   Applying it here too caused a DOUBLE top gap in standalone PWA mode. */
 @media all and (display-mode: standalone) {
   body {
-    padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
@@ -1220,15 +1222,26 @@ input:focus, textarea:focus, select:focus {
   border-top: 1px solid rgba(0,255,136,0.15);
 }
 
-/* ── Admin panel: scale down to match trainee app density on mobile ── */
+/* ── Unified mobile scaling: admin + trainee same apparent size & density ──
+   Admin content is intrinsically larger than the trainee app, so it gets a
+   slightly smaller zoom than the trainee layout to make both look the same
+   on a phone. Values chosen to stay comfortably readable (no more "need
+   glasses"). Trainee has no position:fixed overlays so zoom is safe; admin
+   overlays are portaled to <body> so they are unaffected by this zoom. */
 @media (max-width: 768px) {
+  .v2-layout {
+    zoom: 0.96;
+  }
   .admin-root {
-    zoom: 0.82;
+    zoom: 0.88;
   }
 }
-@media (max-width: 480px) {
+@media (max-width: 400px) {
+  .v2-layout {
+    zoom: 0.92;
+  }
   .admin-root {
-    zoom: 0.72;
+    zoom: 0.84;
   }
 }
 
