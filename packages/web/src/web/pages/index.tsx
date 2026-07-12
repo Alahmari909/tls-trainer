@@ -400,25 +400,33 @@ function HowTlsWorks() {
   const [imgOpen, setImgOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragX, setDragX] = useState(0);
+  const [snap, setSnap] = useState(false);
   const lastDist = useRef(0);
   const lastPan  = useRef({ x: 0, y: 0 });
+  const swipeStart = useRef({ x: 0, y: 0 });
+  const swipeAxis = useRef<"" | "x" | "y">("");
 
   const total = HOW_TLS_SLIDES.length;
   const slide = HOW_TLS_SLIDES[idx];
 
-  const goNext = () => { setDir(1);  setIdx(i => (i + 1) % total); };
-  const goPrev = () => { setDir(-1); setIdx(i => (i - 1 + total) % total); };
+  const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); setDragX(0); };
+  const goNext = () => { setDir(1);  resetView(); setIdx(i => (i + 1) % total); };
+  const goPrev = () => { setDir(-1); resetView(); setIdx(i => (i - 1 + total) % total); };
 
-  const openLightbox  = () => { setZoom(1); setPan({ x: 0, y: 0 }); setImgOpen(true); };
+  const openLightbox  = () => { resetView(); setImgOpen(true); };
   const closeLightbox = () => setImgOpen(false);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    setSnap(false);
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastDist.current = Math.sqrt(dx * dx + dy * dy);
     } else if (e.touches.length === 1) {
       lastPan.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      swipeAxis.current = "";
     }
   };
   const onTouchMove = (e: React.TouchEvent) => {
@@ -431,11 +439,32 @@ function HowTlsWorks() {
       lastDist.current = dist;
     } else if (e.touches.length === 1) {
       const nx = e.touches[0].clientX; const ny = e.touches[0].clientY;
-      setPan(p => ({ x: p.x + nx - lastPan.current.x, y: p.y + ny - lastPan.current.y }));
-      lastPan.current = { x: nx, y: ny };
+      if (zoom > 1) {
+        // Panning around a zoomed-in image
+        setPan(p => ({ x: p.x + nx - lastPan.current.x, y: p.y + ny - lastPan.current.y }));
+        lastPan.current = { x: nx, y: ny };
+      } else {
+        // At natural size → horizontal swipe navigates between slides
+        const totalDx = nx - swipeStart.current.x;
+        const totalDy = ny - swipeStart.current.y;
+        if (swipeAxis.current === "") {
+          if (Math.abs(totalDx) > 8 || Math.abs(totalDy) > 8)
+            swipeAxis.current = Math.abs(totalDx) > Math.abs(totalDy) ? "x" : "y";
+        }
+        if (swipeAxis.current === "x") setDragX(totalDx);
+      }
     }
   };
-  const onTouchEnd = () => { lastDist.current = 0; };
+  const onTouchEnd = () => {
+    lastDist.current = 0;
+    if (zoom === 1 && swipeAxis.current === "x") {
+      const threshold = 55;
+      if (dragX <= -threshold) { goNext(); }
+      else if (dragX >= threshold) { goPrev(); }
+      else { setSnap(true); setDragX(0); }
+    }
+    swipeAxis.current = "";
+  };
 
   const navBtn: React.CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -458,27 +487,54 @@ function HowTlsWorks() {
           onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
           onClick={e => { if (e.target === e.currentTarget) closeLightbox(); }}
         >
-          <img src={slide.src} alt={slide.label} draggable={false}
+          <img key={idx} src={slide.src} alt={slide.label} draggable={false}
+            className="how-lightbox-fade"
             style={{ maxWidth: "100vw", maxHeight: "100vh", objectFit: "contain",
               userSelect: "none",
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "center center", transition: "none" }} />
+              transform: `translate(${pan.x + dragX}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center center",
+              transition: snap ? "transform 0.25s ease" : "none" }} />
+          {/* Close */}
           <div onClick={closeLightbox}
             style={{ position: "absolute", top: 20, right: 20, width: 40, height: 40,
-              borderRadius: "50%", background: "rgba(255,255,255,0.18)",
+              borderRadius: "50%", background: "rgba(255,255,255,0.18)", zIndex: 5,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer" }}><X size={20} color="#fff" strokeWidth={2} /></div>
-          {zoom > 1 && (
+          {/* Prev / Next arrows (hidden while zoomed) */}
+          {zoom === 1 && (
+            <>
+              <div onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                  width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.14)",
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5,
+                  backdropFilter: "blur(4px)" }}>
+                <ChevronRight size={24} color="#fff" strokeWidth={2.2} style={{ transform: "rotate(180deg)" }} />
+              </div>
+              <div onClick={(e) => { e.stopPropagation(); goNext(); }}
+                style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+                  width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.14)",
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5,
+                  backdropFilter: "blur(4px)" }}>
+                <ChevronRight size={24} color="#fff" strokeWidth={2.2} />
+              </div>
+            </>
+          )}
+          {/* Counter */}
+          <div style={{ position: "absolute", top: 24, left: 20, fontFamily: "Orbitron, monospace",
+            fontSize: 13, color: "rgba(255,255,255,0.85)", letterSpacing: "0.1em",
+            background: "rgba(0,0,0,0.45)", borderRadius: 12, padding: "4px 12px", zIndex: 5 }}>
+            {idx + 1} / {total}
+          </div>
+          {zoom > 1 ? (
             <div onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
               style={{ position: "absolute", bottom: 28, background: "rgba(255,255,255,0.15)",
                 borderRadius: 20, padding: "6px 16px", fontSize: 12, color: "#fff", cursor: "pointer",
-                display:"flex", alignItems:"center", gap:6 }}>
+                display:"flex", alignItems:"center", gap:6, zIndex: 5 }}>
               <RefreshCw size={12} strokeWidth={2} /> Reset Zoom
             </div>
-          )}
-          {zoom === 1 && (
-            <div style={{ position: "absolute", bottom: 28, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
-              Pinch to zoom
+          ) : (
+            <div style={{ position: "absolute", bottom: 28, fontSize: 11, color: "rgba(255,255,255,0.4)", zIndex: 5 }}>
+              Swipe ← → to change · pinch to zoom
             </div>
           )}
         </div>

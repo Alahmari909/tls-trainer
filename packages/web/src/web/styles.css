@@ -1302,3 +1302,7 @@ input:focus, textarea:focus, select:focus {
   100% { opacity: 1; transform: translateY(0); }
 }
 .how-tls-fade-up { animation: how-tls-fade-up 0.55s ease-out; }
+
+/* Lightbox slide-change fade (opacity only — avoids clashing with pan/zoom transform) */
+@keyframes how-lightbox-fade { 0% { opacity: 0.35; } 100% { opacity: 1; } }
+.how-lightbox-fade { animation: how-lightbox-fade 0.22s ease-out; }
