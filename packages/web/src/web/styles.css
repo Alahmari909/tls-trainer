@@ -1285,3 +1285,20 @@ input:focus, textarea:focus, select:focus {
   display: block;
   margin: 0 auto 14px;
 }
+
+/* ── HOW TLS WORKS carousel animations ── */
+@keyframes how-slide-in-right {
+  0%   { opacity: 0; transform: translateX(38px) scale(0.98); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes how-slide-in-left {
+  0%   { opacity: 0; transform: translateX(-38px) scale(0.98); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+.how-slide-in-right { animation: how-slide-in-right 0.42s cubic-bezier(0.22,0.61,0.36,1); }
+.how-slide-in-left  { animation: how-slide-in-left  0.42s cubic-bezier(0.22,0.61,0.36,1); }
+@keyframes how-tls-fade-up {
+  0%   { opacity: 0; transform: translateY(18px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.how-tls-fade-up { animation: how-tls-fade-up 0.55s ease-out; }
