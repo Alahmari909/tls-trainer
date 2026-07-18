@@ -121,6 +121,7 @@ export default function Sidebar() {
               <line x1="3" y1="12" x2="21" y2="12"/>
               <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
+            <span>MENU</span>
           </button>
           <div className="topbar-brand-block" style={{ zIndex: 10, position: "relative" }}>
             <span className="topbar-logo-text">TLS TRAINER</span>
