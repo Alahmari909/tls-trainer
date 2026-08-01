@@ -2385,15 +2385,82 @@ const app = new Hono()
           messages: msgs,
         }),
       });
+      let text: string;
       if (!res.ok) {
         const err = await res.text();
         console.error('[AI] Anthropic error:', res.status, err);
-        // Try fallback model if primary fails
-        
-        return c.json({ reply: `عذراً، خطأ من خدمة الذكاء الاصطناعي (${res.status}).\nSorry, AI service error (${res.status}).` }, 200);
+
+        // ── Fallback to OpenAI (gpt-4o-mini) so the assistant keeps working ──────
+        const oKey = process.env.OPENAI_API_KEY;
+        let fallbackText = '';
+        if (oKey) {
+          try {
+            // Convert Anthropic-style content blocks → OpenAI chat format
+            const toOpenAiContent = (content: any): any => {
+              if (typeof content === 'string') return content;
+              if (!Array.isArray(content)) return String(content ?? '');
+              const parts: any[] = [];
+              for (const b of content) {
+                if (b?.type === 'text') {
+                  parts.push({ type: 'text', text: b.text });
+                } else if (b?.type === 'image' && b?.source?.data) {
+                  const mt = b.source.media_type ?? 'image/jpeg';
+                  parts.push({ type: 'image_url', image_url: { url: `data:${mt};base64,${b.source.data}` } });
+                } else if (b?.type === 'document') {
+                  // gpt-4o-mini cannot read raw PDFs — tell it explicitly
+                  parts.push({ type: 'text', text: '[ملاحظة: تم إرفاق ملف PDF لكن لا يمكن قراءته حالياً. اطلب من المتدرب لصق النص أو إرسال صورة من الصفحة.]' });
+                }
+              }
+              return parts.length > 0 ? parts : '';
+            };
+            const oMsgs = [
+              { role: 'system', content: systemPrompt },
+              ...msgs.map((m: any) => ({ role: m.role, content: toOpenAiContent(m.content) })),
+            ];
+            const oRes = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${oKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                max_tokens: fileData ? 1200 : 800,
+                messages: oMsgs,
+              }),
+            });
+            if (oRes.ok) {
+              const oData = await oRes.json() as any;
+              fallbackText = (oData?.choices?.[0]?.message?.content ?? '').trim();
+              if (fallbackText) console.log('[AI] Served via OpenAI fallback');
+            } else {
+              console.error('[AI] OpenAI fallback error:', oRes.status, (await oRes.text()).slice(0, 300));
+            }
+          } catch (e: any) {
+            console.error('[AI] OpenAI fallback threw:', e?.message);
+          }
+        }
+
+        if (fallbackText) {
+          text = fallbackText;
+        } else {
+          // Both providers unavailable — return a clear, human-readable reason
+          const lowCredit = /credit balance is too low/i.test(err);
+          const badKey = res.status === 401 || /authentication|invalid x-api-key/i.test(err);
+          const rateLimited = res.status === 429;
+          let reason: string;
+          if (lowCredit) {
+            reason = 'انتهى رصيد خدمة الذكاء الاصطناعي. الرجاء إبلاغ المسؤول لتعبئة الرصيد.\nThe AI service credit balance has run out. Please ask the administrator to top up.';
+          } else if (badKey) {
+            reason = 'مفتاح خدمة الذكاء الاصطناعي غير صالح. الرجاء إبلاغ المسؤول.\nThe AI service key is invalid. Please contact the administrator.';
+          } else if (rateLimited) {
+            reason = 'الخدمة مشغولة حالياً بسبب كثرة الطلبات. حاول مرة أخرى بعد قليل.\nThe service is busy right now. Please try again shortly.';
+          } else {
+            reason = `تعذّر الوصول لخدمة الذكاء الاصطناعي حالياً (${res.status}). حاول مرة أخرى، وإذا استمرت المشكلة أبلغ المسؤول.\nCould not reach the AI service (${res.status}). Please try again, and tell the administrator if it persists.`;
+          }
+          return c.json({ reply: `⚠️ ${reason}` }, 200);
+        }
+      } else {
+        const data = await res.json() as any;
+        text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
       }
-      const data = await res.json() as any;
-      const text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
       // ── Save conversation to DB ──────────────────────────────────────────────
       if (userId) {
         const now = Date.now();
@@ -3421,6 +3488,24 @@ const app = new Hono()
         const body = await res.text();
         results.models[model] = { status: res.status, ok: res.ok, snippet: body.slice(0, 120) };
       } catch (e: any) { results.models[model] = { error: e?.message }; }
+    }
+    // Test OpenAI fallback availability
+    const oKey = process.env.OPENAI_API_KEY ?? '';
+    if (!oKey) {
+      results.openai = { error: 'OPENAI_API_KEY not set' };
+    } else {
+      try {
+        const oRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${oKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] }),
+        });
+        const oBody = await oRes.text();
+        results.openai = {
+          keyPreview: oKey.slice(0, 12) + '...' + oKey.slice(-4),
+          status: oRes.status, ok: oRes.ok, snippet: oBody.slice(0, 200),
+        };
+      } catch (e: any) { results.openai = { error: e?.message }; }
     }
     return c.json(results);
   })
