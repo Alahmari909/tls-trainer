@@ -2345,10 +2345,13 @@ const app = new Hono()
       sql(`SELECT question, correct_option, option_a, option_b, option_c, option_d, explanation
            FROM questions ORDER BY module_id, "order" LIMIT 150`).catch(() => []),
       sql(`SELECT title, content FROM lessons ORDER BY module_id, "order" LIMIT 25`).catch(() => []),
-      searchKnowledgeSemantic(message, 5),
+      searchKnowledgeSemantic(message, 8),
     ]);
     // Keep only sufficiently relevant chunks (cosine threshold)
-    const relevant = retrieved.filter((r) => r.score >= 0.18 || r.filename === '');
+    // 0.18 was too tight for broad/conceptual Arabic questions ("كيف يعمل النظام؟"),
+    // which sit slightly below it and got wrongly refused. 0.14 widens recall; the
+    // strict system prompt still forces a refusal when the pages don't hold the answer.
+    const relevant = retrieved.filter((r) => r.score >= 0.14 || r.filename === '');
     const pdfChunks = relevant.map((r) => {
       const page = r.page > 0 ? `, صفحة ${r.page}` : '';
       const src = r.filename ? `[📄 ${r.filename}${page}]` : '[📄 مرجع]';
