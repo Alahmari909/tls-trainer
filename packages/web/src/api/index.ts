@@ -2340,6 +2340,37 @@ const app = new Hono()
       } catch (e) { /* ignore performance fetch errors */ }
     }
 
+    // ── Error codes: the `error_codes` table was never fed to the AI, so questions
+    // like "ماهو الخطأ رقم 8010" always got refused even though the code exists.
+    // Pull exact numeric matches first, then keyword/software-id matches.
+    let errorContext = '';
+    try {
+      const codeNums = [...new Set((message.match(/\d{2,5}/g) ?? []))].slice(0, 5);
+      const rows: any[] = [];
+      if (codeNums.length > 0) {
+        const ph = codeNums.map(() => '?').join(',');
+        const exact = await sql(
+          `SELECT error_code, software_id, description, possible_reason, solution
+           FROM error_codes WHERE error_code IN (${ph}) LIMIT 10`, codeNums).catch(() => []);
+        rows.push(...(exact as any[]));
+      }
+      if (rows.length === 0) {
+        const kw = `%${message.replace(/[%_]/g, '').slice(0, 60)}%`;
+        const like = await sql(
+          `SELECT error_code, software_id, description, possible_reason, solution
+           FROM error_codes
+           WHERE description LIKE ? OR software_id LIKE ? OR solution LIKE ? LIMIT 6`,
+          [kw, kw, kw]).catch(() => []);
+        rows.push(...(like as any[]));
+      }
+      for (const e of rows) {
+        errorContext += `[⚠️ Error Code ${e.error_code}${e.software_id ? ` — ${e.software_id}` : ''}]\n` +
+          `Description: ${e.description ?? '-'}\n` +
+          (e.possible_reason ? `Possible reason: ${e.possible_reason}\n` : '') +
+          (e.solution ? `Solution: ${e.solution}\n` : '');
+      }
+    } catch { /* ignore error-code lookup failures */ }
+
     // ── Build RAG context (semantic retrieval over indexed slides) ─────────────
     const [dbQuestions, dbLessons, retrieved] = await Promise.all([
       sql(`SELECT question, correct_option, option_a, option_b, option_c, option_d, explanation
@@ -2382,15 +2413,20 @@ const app = new Hono()
       'قواعد مطلقة لا استثناء:\n' +
       '1. أجب بنفس لغة السؤال (عربي أو إنجليزي).\n' +
       '2. أجب فقط وفقط مما ورد في قسم الكتيبات التقنية المفهرسة أدناه. ممنوع منعاً باتاً استخدام معرفتك العامة أو الإجابة عن أي سؤال خارج محتوى الكتيبات (مثل أسئلة الجغرافيا أو التاريخ أو أي موضوع عام).\n' +
-      '3. اذكر دائماً المصدر هكذا: (المرجع: اسم_الملف، صفحة X).\n' +
+      '3. اذكر دائماً المصدر هكذا: (المرجع: اسم_الملف، صفحة X). أما أكواد الأعطال فالمصدر: (المرجع: جدول أكواد الأعطال).\n' +
       '4. إذا لم تجد الإجابة في المحتوى المقدم، أو كان السؤال خارج نطاق الكتيبات، قل بالضبط هذه الجملة فقط ولا تضف شيئاً آخر: «' + NOT_FOUND_LINE + '»\n' +
       '5. ممنوع منعاً باتاً اختراع أسماء ملفات أو أرقام صفحات.\n' +
-      '6. الإجابة مختصرة: 3-5 جمل أو نقاط فقط.\n';
+      '6. الإجابة مختصرة: 3-5 جمل أو نقاط فقط.\n' +
+      '7. إذا وُجد قسم «أكواد الأعطال» أدناه فهو مصدر رسمي معتمد — استخدمه للإجابة واذكر الوصف والسبب والحل.\n';
+    const errorSection = errorContext.length > 0
+      ? '\n=== أكواد الأعطال (Error Codes — مصدر رسمي) ===\n' + errorContext.slice(0, 3000) + '\n'
+      : '';
     let systemPrompt: string;
-    if (pdfContext.length > 0) {
-      systemPrompt = strictRules + performanceContext +
-        '\n=== الكتيبات التقنية المفهرسة ===\n' +
-        pdfContext.slice(0, 9000);
+    if (pdfContext.length > 0 || errorContext.length > 0) {
+      systemPrompt = strictRules + performanceContext + errorSection +
+        (pdfContext.length > 0
+          ? '\n=== الكتيبات التقنية المفهرسة ===\n' + pdfContext.slice(0, 9000)
+          : '');
     } else {
       // No relevant indexed content — force the exact not-found line, never general knowledge
       systemPrompt = strictRules +
