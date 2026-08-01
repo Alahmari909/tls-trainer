@@ -703,7 +703,9 @@ async function loadEmbeddings() {
 // and search with BOTH vectors, keeping the best score per page.
 const _trCache = new Map<string, string>();
 async function translateQueryToEnglish(query: string): Promise<string | null> {
-  if (!/[؀-ۿ]/.test(query)) return null; // already non-Arabic
+  // Runs for EVERY language. Arabic gets translated; broken/terse English
+  // ("How TLS work?") gets rewritten into proper technical search keywords so it
+  // embeds close to the manual pages instead of falling under the threshold.
   const cached = _trCache.get(query);
   if (cached !== undefined) return cached || null;
   const key = process.env.OPENAI_API_KEY;
@@ -718,7 +720,7 @@ async function translateQueryToEnglish(query: string): Promise<string | null> {
         temperature: 0,
         messages: [{
           role: 'user',
-          content: 'Translate this avionics/radar technical question into English search keywords. Keep technical terms, acronyms (TLS, ILS, RCU, transponder) and numbers exactly. Output ONLY the English text.\n\n' + query.slice(0, 500),
+          content: 'Rewrite the following avionics/radar question as a clean ENGLISH technical search query for a manual index. Translate it if it is not English, and fix grammar/shorthand if it is broken English. Expand the intent into descriptive technical keywords. Keep acronyms (TLS, ILS, RCU, ATA, ASA, transponder) and all numbers exactly as written. Output ONLY the English query, no quotes, no explanation.\n\n' + query.slice(0, 500),
         }],
       }),
     });
@@ -2297,6 +2299,30 @@ const app = new Hono()
         [userId, message.slice(0, 120), Date.now()]);
     }
 
+    // ── Greeting / small-talk short-circuit ─────────────────────────────────
+    // "Hi", "السلام عليكم", "شكراً" are not technical questions — answering them
+    // with the not-found refusal makes the assistant look broken.
+    {
+      const g = (message ?? '').trim().toLowerCase().replace(/[!?.،؟…]+$/g, '').trim();
+      const GREET = /^(hi|hey|hello|yo|salam|salaam|assalamu ?alaikum|good (morning|evening|afternoon)|السلام عليكم|سلام|مرحبا|مرحباً|اهلا|أهلا|أهلاً|هلا|صباح الخير|مساء الخير)$/;
+      const THANKS = /^(thanks|thank you|thx|ok|okay|شكرا|شكراً|تمام|جزاك الله خير|يعطيك العافية|ممتاز)$/;
+      const WHOAREYOU = /^(who are you|what can you do|help|مين انت|من انت|من أنت|وش تسوي|ايش تسوي|كيف استخدمك|مساعدة)$/;
+      const isAr = /[؀-ۿ]/.test(message ?? '');
+      let canned: string | null = null;
+      if (GREET.test(g)) {
+        canned = isAr
+          ? '### أهلاً بك 👋\nأنا **مساعد TLS التقني**. أجيب من الكتيبات الرسمية المفهرسة فقط، وأذكر لك رقم الصفحة والمرجع.\n\n**جرّب تسألني:**\n- كيف يعمل نظام TLS؟\n- ما هي ترددات الاستجواب والرد؟\n- ما معنى كود الخطأ 8010؟\n- ما المسافة بين ATA و ASA؟'
+          : '### Welcome 👋\nI am the **TLS technical assistant**. I answer only from the indexed official manuals and always cite the page.\n\n**Try asking:**\n- How does the TLS system work?\n- What are the interrogation and reply frequencies?\n- What does error code 8010 mean?\n- What is the distance between ATA and ASA?';
+      } else if (THANKS.test(g)) {
+        canned = isAr ? 'على الرحب والسعة. تفضل بأي سؤال تقني عن منظومة TLS.' : "You're welcome. Ask me anything technical about the TLS system.";
+      } else if (WHOAREYOU.test(g)) {
+        canned = isAr
+          ? '### مساعد TLS التقني\nمصدري الوحيد هو **الكتيبات الرسمية المفهرسة** وجدول **أكواد الأعطال**.\n\n| أقدر أساعدك في | مثال |\n| --- | --- |\n| شرح مكونات النظام | ما وظيفة الـ ATA؟ |\n| الترددات والمواصفات | ترددات الاستجواب والرد |\n| أكواد الأعطال | كود 8010 |\n| التركيب والمسافات | المسافة بين ATA و ASA |\n\nكل إجابة مرفقة بالمرجع ورقم الصفحة.'
+          : '### TLS Technical Assistant\nMy only sources are the **indexed official manuals** and the **error-code table**.\n\n| I can help with | Example |\n| --- | --- |\n| System components | What does the ATA do? |\n| Frequencies & specs | Interrogation and reply frequencies |\n| Error codes | Code 8010 |\n| Installation distances | Distance between ATA and ASA |\n\nEvery answer includes the reference and page number.';
+      }
+      if (canned) return c.json({ reply: canned });
+    }
+
     // ── Load conversation history from DB ───────────────────────────────────
     let dbHistory: { role: 'user' | 'assistant'; content: string }[] = [];
     if (userId) {
@@ -2416,8 +2442,18 @@ const app = new Hono()
       '3. اذكر دائماً المصدر هكذا: (المرجع: اسم_الملف، صفحة X). أما أكواد الأعطال فالمصدر: (المرجع: جدول أكواد الأعطال).\n' +
       '4. إذا لم تجد الإجابة في المحتوى المقدم، أو كان السؤال خارج نطاق الكتيبات، قل بالضبط هذه الجملة فقط ولا تضف شيئاً آخر: «' + NOT_FOUND_LINE + '»\n' +
       '5. ممنوع منعاً باتاً اختراع أسماء ملفات أو أرقام صفحات.\n' +
-      '6. الإجابة مختصرة: 3-5 جمل أو نقاط فقط.\n' +
-      '7. إذا وُجد قسم «أكواد الأعطال» أدناه فهو مصدر رسمي معتمد — استخدمه للإجابة واذكر الوصف والسبب والحل.\n';
+      '6. الإجابة مختصرة ومركزة: 3-6 جمل أو نقاط.\n' +
+      '7. إذا وُجد قسم «أكواد الأعطال» أدناه فهو مصدر رسمي معتمد — استخدمه للإجابة واذكر الوصف والسبب والحل.\n' +
+      '\nتنسيق الإجابة (Markdown إلزامي):\n' +
+      '- ابدأ بعنوان قصير بصيغة «### العنوان» يلخص الموضوع.\n' +
+      '- استخدم **النص العريض** للمصطلحات والأرقام والقيم المهمة.\n' +
+      '- استخدم قائمة نقطية «- » عند سرد أكثر من عنصر، وقائمة مرقمة «1. » للخطوات المتسلسلة.\n' +
+      '- إذا كانت الإجابة تحتوي على قيم/مقارنات/مواصفات، اعرضها في جدول Markdown هكذا:\n' +
+      '  | البند | القيمة |\n  | --- | --- |\n  | تردد الاستجواب | 1030 MHz |\n' +
+      '- لأكواد الأعطال استخدم جدولاً بأعمدة: الكود | الوصف | السبب | الحل.\n' +
+      '- ضع سطر المرجع في نهاية الإجابة على سطر مستقل هكذا: (المرجع: اسم_الملف، صفحة X).\n' +
+      '- ممنوع كتابة الإجابة ككتلة نص واحدة طويلة بدون تنسيق.\n' +
+      '- استثناء وحيد: جملة «عدم التوفر» في القاعدة 4 تُكتب كما هي بدون أي تنسيق أو عنوان.\n';
     const errorSection = errorContext.length > 0
       ? '\n=== أكواد الأعطال (Error Codes — مصدر رسمي) ===\n' + errorContext.slice(0, 3000) + '\n'
       : '';
@@ -2461,7 +2497,7 @@ const app = new Hono()
         },
         body: JSON.stringify({
           model: 'claude-opus-4-5',
-          max_tokens: fileData ? 1200 : 800,
+          max_tokens: fileData ? 1600 : 1400,
           system: systemPrompt,
           messages: msgs,
         }),
@@ -2503,7 +2539,7 @@ const app = new Hono()
               headers: { Authorization: `Bearer ${oKey}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 model: 'gpt-4o-mini',
-                max_tokens: fileData ? 1200 : 800,
+                max_tokens: fileData ? 1600 : 1400,
                 messages: oMsgs,
               }),
             });
