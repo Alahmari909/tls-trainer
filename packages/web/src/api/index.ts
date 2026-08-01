@@ -697,16 +697,58 @@ async function loadEmbeddings() {
   return parsed;
 }
 
+// The indexed manuals are written in ENGLISH. An Arabic question embeds far from
+// English pages, so cosine scores fall under the relevance threshold and the
+// assistant wrongly answers "not found". Translate Arabic → English (cheap, cached)
+// and search with BOTH vectors, keeping the best score per page.
+const _trCache = new Map<string, string>();
+async function translateQueryToEnglish(query: string): Promise<string | null> {
+  if (!/[؀-ۿ]/.test(query)) return null; // already non-Arabic
+  const cached = _trCache.get(query);
+  if (cached !== undefined) return cached || null;
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 120,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: 'Translate this avionics/radar technical question into English search keywords. Keep technical terms, acronyms (TLS, ILS, RCU, transponder) and numbers exactly. Output ONLY the English text.\n\n' + query.slice(0, 500),
+        }],
+      }),
+    });
+    if (!res.ok) return null;
+    const d = await res.json() as any;
+    const out = (d?.choices?.[0]?.message?.content ?? '').trim();
+    if (_trCache.size > 300) _trCache.clear();
+    _trCache.set(query, out);
+    return out || null;
+  } catch { return null; }
+}
+
 async function searchKnowledgeSemantic(query: string, topK = 5): Promise<RetrievedChunk[]> {
-  const qv = await embedQuery(query);
-  const store = await loadEmbeddings();
-  if (!qv || store.length === 0) {
+  const enQuery = await translateQueryToEnglish(query);
+  const [qv, qvEn, store] = await Promise.all([
+    embedQuery(query),
+    enQuery ? embedQuery(enQuery) : Promise.resolve(null),
+    loadEmbeddings(),
+  ]);
+  if ((!qv && !qvEn) || store.length === 0) {
     // Fallback to keyword search when embeddings unavailable
     const kw = await searchKnowledgeChunks(query, topK).catch(() => []);
     return kw.map((c) => ({ content: c, filename: '', page: 0, imagePath: null, score: 0 }));
   }
   return store
-    .map((r) => ({ content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: cosineSim(qv, r.emb) }))
+    .map((r) => {
+      const s1 = qv ? cosineSim(qv, r.emb) : 0;
+      const s2 = qvEn ? cosineSim(qvEn, r.emb) : 0;
+      return { content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: Math.max(s1, s2) };
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
 }
