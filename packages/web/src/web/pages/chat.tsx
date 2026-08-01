@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import BackButton from "../components/BackButton";
+import MarkdownMessage from "../components/MarkdownMessage";
 
 const C = "#00AEEF";
 
@@ -779,7 +780,10 @@ function AIInstructor() {
                 : "rgba(8,15,28,0.95)",
               border: msg.role === "user" ? `1px solid ${C}45` : `1px solid ${C}18`,
               fontSize: 13, color: "var(--text-primary)", fontFamily: "Inter", lineHeight: 1.65,
-              whiteSpace: "pre-wrap",
+              // Assistant replies are Markdown and are rendered by <MarkdownMessage>,
+              // so pre-wrap must only apply to plain user text.
+              whiteSpace: msg.role === "user" ? "pre-wrap" : "normal",
+              overflowWrap: "anywhere",
             }}>
               {/* Attachment preview inside bubble */}
               {msg.attachName && (
@@ -794,7 +798,9 @@ function AIInstructor() {
                   }
                 </div>
               )}
-              {msg.content}
+              {msg.role === "assistant"
+                ? <MarkdownMessage content={msg.content} />
+                : msg.content}
               {/* Illustrative images from AI response */}
               {msg.role === "assistant" && msg.images && msg.images.length > 0 && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
