@@ -507,12 +507,12 @@ const PRESET_QUESTIONS = [
   "Explain ESA alignment procedure",
 ];
 
-// ── PHASE 1 FEATURE FLAG (branch ai-instructor-v2) ──────────────────────────
-// Reference Slides / retrieved PDF page images are temporarily hidden.
-// Reason: the current page-selection logic falls back to the top retrieved
-// pages, which surfaces near-blank cover pages (~98% white) and pages that do
-// not contain the cited answer. Set to true again in Phase 2 after rebuild.
-const SHOW_REFERENCE_SLIDES = false;
+// ── PHASE 2 FEATURE FLAG (branch ai-instructor-v2) ──────────────────────────
+// Reference Slides are shown again. Phase 1 hid them because retrieval surfaced
+// near-blank cover pages and repeated agenda slides; after the OCR re-index those
+// pages have embedding = NULL (unretrievable) and identical pages are collapsed
+// during retrieval, so the attached pages are distinct and on-topic.
+const SHOW_REFERENCE_SLIDES = true;
 
 type AiMsg = { role: "user" | "assistant"; content: string; attachName?: string; attachType?: string; attachPreview?: string; images?: { path: string; label: string }[] };
 
@@ -809,10 +809,9 @@ function AIInstructor() {
                 ? <MarkdownMessage content={msg.content} />
                 : msg.content}
               {/* Illustrative images from AI response */}
-              {/* PHASE 1 (ai-instructor-v2): Reference Slides disabled — retrieval
-                  attaches near-blank cover pages and pages unrelated to the answer.
-                  Flip SHOW_REFERENCE_SLIDES back to true in Phase 2 once page
-                  selection is rebuilt. Rendering code below is intentionally kept. */}
+              {/* PHASE 2 (ai-instructor-v2): Reference Slides re-enabled after the
+                  OCR re-index — blank/refusal pages are no longer retrievable and
+                  duplicate pages are collapsed, so attached pages are relevant. */}
               {SHOW_REFERENCE_SLIDES && msg.role === "assistant" && msg.images && msg.images.length > 0 && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ fontSize: 9, color: C, letterSpacing: "0.08em", fontFamily: "Inter" }}>📷 REFERENCE SLIDES · اضغط للتكبير</div>

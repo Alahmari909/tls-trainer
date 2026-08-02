@@ -678,17 +678,25 @@ function cosineSim(a: number[], b: number[]): number {
 }
 
 // In-memory cache of embeddings (145 rows) — refreshed every 5 min
-let _embCache: { content: string; filename: string; page: number; imagePath: string | null; emb: number[] }[] | null = null;
+type EmbRow = { content: string; filename: string; page: number; imagePath: string | null; emb: number[]; norm: string; tokens: Set<string> };
+let _embCache: EmbRow[] | null = null;
 let _embCacheTs = 0;
 async function loadEmbeddings() {
   if (_embCache && Date.now() - _embCacheTs < 5 * 60 * 1000) return _embCache;
   const rows = await sql(`SELECT content, filename, page_number, embedding, image_path FROM ai_doc_chunks WHERE embedding IS NOT NULL`).catch(() => []);
-  const parsed: { content: string; filename: string; page: number; imagePath: string | null; emb: number[] }[] = [];
+  const parsed: EmbRow[] = [];
   for (const r of rows as any[]) {
     try {
       const emb = JSON.parse(r.embedding);
       if (Array.isArray(emb) && emb.length > 0) {
-        parsed.push({ content: r.content, filename: r.filename, page: Number(r.page_number) || 0, imagePath: r.image_path ?? null, emb });
+        // norm/tokens are precomputed once per cache refresh so the
+        // near-duplicate check in retrieval costs nothing per query.
+        const norm = normForDedupe(r.content);
+        parsed.push({
+          content: r.content, filename: r.filename, page: Number(r.page_number) || 0,
+          imagePath: r.image_path ?? null, emb, norm,
+          tokens: new Set(norm.split(' ').filter((w) => w.length > 2)),
+        });
       }
     } catch { /* skip bad row */ }
   }
@@ -726,11 +734,59 @@ async function translateQueryToEnglish(query: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const d = await res.json() as any;
-    const out = (d?.choices?.[0]?.message?.content ?? '').trim();
+    const raw = (d?.choices?.[0]?.message?.content ?? '').trim();
+    const out = raw ? repairRewrite(query, raw) : '';
     if (_trCache.size > 300) _trCache.clear();
     _trCache.set(query, out);
     return out || null;
   } catch { return null; }
+}
+
+// gpt-4o-mini sometimes drops the domain acronyms from its rewrite — a question
+// about the ATA↔ASA distance came back as a generic antenna question with no
+// "TLS" in it, so it embedded away from the TLS manuals and the right page fell
+// out of the top results. Deterministically put back any acronym the user wrote,
+// and anchor every rewrite to TLS since the whole indexed corpus is TLS material.
+const DOMAIN_ACRONYMS = ['TLS','ILS','MLS','RCU','ATA','ASA','IFF','SSR','PSR','LRU','UPS','BIT','VSWR','GPS','DME','PAR','ATC','OEJN'];
+function repairRewrite(original: string, rewritten: string): string {
+  const has = (hay: string, token: string) => new RegExp(`\\b${token}\\b`, 'i').test(hay);
+  const missing = DOMAIN_ACRONYMS.filter((a) => has(original, a) && !has(rewritten, a));
+  let fixed = missing.length > 0 ? `${rewritten} ${missing.join(' ')}` : rewritten;
+  if (!has(fixed, 'TLS')) fixed = `TLS ${fixed}`;
+  return fixed.replace(/\s+/g, ' ').trim();
+}
+
+// Some decks repeat the exact same agenda/section slide on many pages — e.g. one
+// indexed deck carries 7 byte-identical agenda pages. Identical text produces an
+// identical embedding, so all 7 scored the same and filled every retrieval slot,
+// pushing the page that actually held the answer out of the context window.
+// Normalizing lets us keep only the best-scoring copy of any repeated page.
+function normForDedupe(s: string): string {
+  return (s ?? '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Exact-match dedupe is not enough: many repeated agenda/TOC pages are only
+// NEAR-identical — they differ by the printed page number ("34 of 26" vs
+// "63 of 26"), a bullet glyph, or a trailing "DIAGRAM" word. Those variants still
+// filled 5 of 8 retrieval slots. A pairwise similarity check against the pages we
+// already accepted collapses them.
+// Thresholds come from a full pairwise scan of the whole index (bandscan):
+// true clones/boilerplate sit at cosine >= 0.978 and Jaccard >= 0.94, while the
+// 0.90-0.95 band holds legitimately DIFFERENT content ("sited one side of runway"
+// vs "sited both sides of runway" = 0.9487). So we cut at 0.95 cosine / 0.85
+// Jaccard and never touch the 0.90-0.95 band on cosine alone.
+const NEAR_DUP_COSINE = 0.95;
+const NEAR_DUP_JACCARD = 0.85;
+
+function jaccardSim(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / (a.size + b.size - inter);
 }
 
 async function searchKnowledgeSemantic(query: string, topK = 5): Promise<RetrievedChunk[]> {
@@ -745,14 +801,46 @@ async function searchKnowledgeSemantic(query: string, topK = 5): Promise<Retriev
     const kw = await searchKnowledgeChunks(query, topK).catch(() => []);
     return kw.map((c) => ({ content: c, filename: '', page: 0, imagePath: null, score: 0 }));
   }
-  return store
+  const scored = store
     .map((r) => {
       const s1 = qv ? cosineSim(qv, r.emb) : 0;
       const s2 = qvEn ? cosineSim(qvEn, r.emb) : 0;
-      return { content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: Math.max(s1, s2) };
+      return {
+        content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath,
+        score: Math.max(s1, s2), emb: r.emb, tokens: r.tokens,
+      };
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+    .sort((a, b) => b.score - a.score);
+
+  // Walk the full ranking and keep the first (highest-scoring) copy of each
+  // distinct page, so repeated boilerplate pages never occupy more than one slot
+  // and the freed slots go to genuinely different pages. Two passes:
+  //  1) exact normalized text match (cheap Set lookup)
+  //  2) near-duplicate check against the pages already accepted (<= topK
+  //     comparisons, and the embeddings are already in memory, so it is free)
+  const seen = new Set<string>();
+  const out: RetrievedChunk[] = [];
+  const acc: { emb: number[]; tokens: Set<string> }[] = [];
+  for (const r of scored) {
+    const key = normForDedupe(r.content);
+    if (key.length > 0) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    const tokens = r.tokens;
+    let dup = false;
+    for (const prev of acc) {
+      if (cosineSim(r.emb, prev.emb) >= NEAR_DUP_COSINE || jaccardSim(tokens, prev.tokens) >= NEAR_DUP_JACCARD) {
+        dup = true;
+        break;
+      }
+    }
+    if (dup) continue;
+    acc.push({ emb: r.emb, tokens });
+    out.push({ content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: r.score });
+    if (out.length >= topK) break;
+  }
+  return out;
 }
 
 // ── Extract text from PDF buffer using Claude API (no system tools needed) ───────
@@ -2488,7 +2576,13 @@ const app = new Hono()
     if (pdfContext.length > 0 || errorContext.length > 0) {
       systemPrompt = strictRules + performanceContext + errorSection +
         (pdfContext.length > 0
-          ? '\n=== الكتيبات التقنية المفهرسة ===\n' + pdfContext.slice(0, 9000)
+          // After the OCR re-index the retrieved pages carry far more text than
+          // before: the top 8 pages now total 16k–21k characters, so a 9,000-char
+          // cap silently truncated the last few pages — sometimes cutting off the
+          // exact page the model had been given to answer from. 24,000 chars
+          // (~7k tokens) fits every observed top-8 set with room to spare and is
+          // well inside the model's context window.
+          ? '\n=== الكتيبات التقنية المفهرسة ===\n' + pdfContext.slice(0, 24000)
           : '');
     } else {
       // No relevant indexed content — force the exact not-found line, never general knowledge
@@ -2642,12 +2736,12 @@ const app = new Hono()
         }
       }
 
-      // ── PHASE 1 (branch ai-instructor-v2): reference images suppressed ────────
-      // The selection logic above (explicit citation, else top-2 retrieved pages)
-      // surfaces near-blank cover pages and pages unrelated to the answer, so the
-      // payload no longer carries `images`. Selection code is kept intact for the
-      // Phase 2 rebuild; flip SEND_REFERENCE_IMAGES to true to restore.
-      const SEND_REFERENCE_IMAGES = false;
+      // ── PHASE 2 (branch ai-instructor-v2): reference images restored ──────────
+      // Phase 1 suppressed these because retrieval surfaced near-blank cover pages
+      // and repeated agenda slides. Both causes are gone: blank/refusal pages now
+      // have embedding = NULL so they can never be retrieved, and identical pages
+      // are collapsed in searchKnowledgeSemantic, so the top pages are distinct.
+      const SEND_REFERENCE_IMAGES = true;
       return c.json({
         reply: text,
         images: SEND_REFERENCE_IMAGES && matchedImages.length > 0 ? matchedImages.slice(0, 3) : undefined,
