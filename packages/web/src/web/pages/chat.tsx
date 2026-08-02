@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import BackButton from "../components/BackButton";
 import MarkdownMessage from "../components/MarkdownMessage";
+import { getSession } from "../hooks/useTelegramTrack";
 
 const C = "#00AEEF";
 
@@ -44,6 +45,8 @@ function fmtSize(bytes: number) {
   return `${(bytes/1048576).toFixed(1)} MB`;
 }
 function getTrainee(): TraineeInfo {
+  const session = getSession();
+  if (session?.id) return session;
   try { const s = localStorage.getItem("tls_trainee"); if (s) return JSON.parse(s); } catch {}
   return { id: "anonymous", name: "Trainee" };
 }

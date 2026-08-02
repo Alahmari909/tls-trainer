@@ -2399,9 +2399,10 @@ const app = new Hono()
       fileData?: string; fileType?: string; fileName?: string;
       includePerformance?: boolean;
     };
+    const isAnonymousUser = !userId || userId === 'anonymous';
 
     // ── Rate limit: 50 questions per 24h ────────────────────────────────────
-    if (userId) {
+    if (!isAnonymousUser) {
       const window24h = Date.now() - 24 * 60 * 60 * 1000;
       const usageRows = await sql(
         `SELECT ts FROM activity_log WHERE trainee_id=? AND event='ai_question' AND ts>=?`,
@@ -2439,8 +2440,11 @@ const app = new Hono()
     }
 
     // ── Load conversation history from DB ───────────────────────────────────
+    // Never load the shared "anonymous" bucket: it can contain conversations from
+    // many browsers/users, pollute answers with old refusals, and accidentally
+    // expose one trainee's chat context to another.
     let dbHistory: { role: 'user' | 'assistant'; content: string }[] = [];
-    if (userId) {
+    if (!isAnonymousUser) {
       const dbRows = await sql(
         `SELECT role, content FROM ai_conversations WHERE trainee_id=? ORDER BY ts DESC LIMIT 20`,
         [userId]
@@ -2593,8 +2597,30 @@ const app = new Hono()
     }
     void hasRagContent; void qaContext; void lessonContext;
 
+    const isNotFoundRefusal = (content: unknown) => {
+      const text = String(content ?? '');
+      return text.includes(NOT_FOUND_LINE) ||
+        /not\s+found\s+in\s+the\s+indexed\s+(manuals|documents)/i.test(text);
+    };
+
+    const sanitizeConversationHistory = (items: { role: 'user' | 'assistant'; content: string }[]) => {
+      const clean: { role: 'user' | 'assistant'; content: string }[] = [];
+      for (const item of items) {
+        // Old model refusals are not useful context. Keeping them makes the model
+        // copy its own past "not found" answer even after retrieval improves.
+        if (item.role === 'assistant' && isNotFoundRefusal(item.content)) {
+          const prev = clean[clean.length - 1];
+          if (prev?.role === 'user') clean.pop();
+          continue;
+        }
+        clean.push(item);
+      }
+      return clean;
+    };
+
     try {
-      const contextHistory = userId ? dbHistory : history.slice(-10);
+      const rawContextHistory = !isAnonymousUser ? dbHistory : history.slice(-10);
+      const contextHistory = sanitizeConversationHistory(rawContextHistory);
       // Build user content — plain text or multi-part (text + image/pdf)
       const userContent: any = fileData
         ? [
@@ -2700,7 +2726,7 @@ const app = new Hono()
         text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
       }
       // ── Save conversation to DB ──────────────────────────────────────────────
-      if (userId) {
+      if (!isAnonymousUser) {
         const now = Date.now();
         const savedUserContent = fileData && fileName ? `[📎 ${fileName}]\n${message}` : message;
         await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
