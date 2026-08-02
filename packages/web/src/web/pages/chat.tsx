@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import BackButton from "../components/BackButton";
 import MarkdownMessage from "../components/MarkdownMessage";
+import { getSession } from "../hooks/useTelegramTrack";
 
 const C = "#00AEEF";
 
@@ -44,6 +45,8 @@ function fmtSize(bytes: number) {
   return `${(bytes/1048576).toFixed(1)} MB`;
 }
 function getTrainee(): TraineeInfo {
+  const session = getSession();
+  if (session?.id) return session;
   try { const s = localStorage.getItem("tls_trainee"); if (s) return JSON.parse(s); } catch {}
   return { id: "anonymous", name: "Trainee" };
 }
@@ -507,6 +510,13 @@ const PRESET_QUESTIONS = [
   "Explain ESA alignment procedure",
 ];
 
+// ── PHASE 2 FEATURE FLAG (branch ai-instructor-v2) ──────────────────────────
+// Reference Slides are shown again. Phase 1 hid them because retrieval surfaced
+// near-blank cover pages and repeated agenda slides; after the OCR re-index those
+// pages have embedding = NULL (unretrievable) and identical pages are collapsed
+// during retrieval, so the attached pages are distinct and on-topic.
+const SHOW_REFERENCE_SLIDES = true;
+
 type AiMsg = { role: "user" | "assistant"; content: string; attachName?: string; attachType?: string; attachPreview?: string; images?: { path: string; label: string }[] };
 
 type TraineeSummary = {
@@ -802,7 +812,10 @@ function AIInstructor() {
                 ? <MarkdownMessage content={msg.content} />
                 : msg.content}
               {/* Illustrative images from AI response */}
-              {msg.role === "assistant" && msg.images && msg.images.length > 0 && (
+              {/* PHASE 2 (ai-instructor-v2): Reference Slides re-enabled after the
+                  OCR re-index — blank/refusal pages are no longer retrievable and
+                  duplicate pages are collapsed, so attached pages are relevant. */}
+              {SHOW_REFERENCE_SLIDES && msg.role === "assistant" && msg.images && msg.images.length > 0 && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ fontSize: 9, color: C, letterSpacing: "0.08em", fontFamily: "Inter" }}>📷 REFERENCE SLIDES · اضغط للتكبير</div>
                   {msg.images.map((img, idx) => (

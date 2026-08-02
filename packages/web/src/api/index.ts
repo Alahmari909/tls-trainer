@@ -678,17 +678,25 @@ function cosineSim(a: number[], b: number[]): number {
 }
 
 // In-memory cache of embeddings (145 rows) — refreshed every 5 min
-let _embCache: { content: string; filename: string; page: number; imagePath: string | null; emb: number[] }[] | null = null;
+type EmbRow = { content: string; filename: string; page: number; imagePath: string | null; emb: number[]; norm: string; tokens: Set<string> };
+let _embCache: EmbRow[] | null = null;
 let _embCacheTs = 0;
 async function loadEmbeddings() {
   if (_embCache && Date.now() - _embCacheTs < 5 * 60 * 1000) return _embCache;
   const rows = await sql(`SELECT content, filename, page_number, embedding, image_path FROM ai_doc_chunks WHERE embedding IS NOT NULL`).catch(() => []);
-  const parsed: { content: string; filename: string; page: number; imagePath: string | null; emb: number[] }[] = [];
+  const parsed: EmbRow[] = [];
   for (const r of rows as any[]) {
     try {
       const emb = JSON.parse(r.embedding);
       if (Array.isArray(emb) && emb.length > 0) {
-        parsed.push({ content: r.content, filename: r.filename, page: Number(r.page_number) || 0, imagePath: r.image_path ?? null, emb });
+        // norm/tokens are precomputed once per cache refresh so the
+        // near-duplicate check in retrieval costs nothing per query.
+        const norm = normForDedupe(r.content);
+        parsed.push({
+          content: r.content, filename: r.filename, page: Number(r.page_number) || 0,
+          imagePath: r.image_path ?? null, emb, norm,
+          tokens: new Set(norm.split(' ').filter((w) => w.length > 2)),
+        });
       }
     } catch { /* skip bad row */ }
   }
@@ -726,11 +734,59 @@ async function translateQueryToEnglish(query: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const d = await res.json() as any;
-    const out = (d?.choices?.[0]?.message?.content ?? '').trim();
+    const raw = (d?.choices?.[0]?.message?.content ?? '').trim();
+    const out = raw ? repairRewrite(query, raw) : '';
     if (_trCache.size > 300) _trCache.clear();
     _trCache.set(query, out);
     return out || null;
   } catch { return null; }
+}
+
+// gpt-4o-mini sometimes drops the domain acronyms from its rewrite — a question
+// about the ATA↔ASA distance came back as a generic antenna question with no
+// "TLS" in it, so it embedded away from the TLS manuals and the right page fell
+// out of the top results. Deterministically put back any acronym the user wrote,
+// and anchor every rewrite to TLS since the whole indexed corpus is TLS material.
+const DOMAIN_ACRONYMS = ['TLS','ILS','MLS','RCU','ATA','ASA','IFF','SSR','PSR','LRU','UPS','BIT','VSWR','GPS','DME','PAR','ATC','OEJN'];
+function repairRewrite(original: string, rewritten: string): string {
+  const has = (hay: string, token: string) => new RegExp(`\\b${token}\\b`, 'i').test(hay);
+  const missing = DOMAIN_ACRONYMS.filter((a) => has(original, a) && !has(rewritten, a));
+  let fixed = missing.length > 0 ? `${rewritten} ${missing.join(' ')}` : rewritten;
+  if (!has(fixed, 'TLS')) fixed = `TLS ${fixed}`;
+  return fixed.replace(/\s+/g, ' ').trim();
+}
+
+// Some decks repeat the exact same agenda/section slide on many pages — e.g. one
+// indexed deck carries 7 byte-identical agenda pages. Identical text produces an
+// identical embedding, so all 7 scored the same and filled every retrieval slot,
+// pushing the page that actually held the answer out of the context window.
+// Normalizing lets us keep only the best-scoring copy of any repeated page.
+function normForDedupe(s: string): string {
+  return (s ?? '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Exact-match dedupe is not enough: many repeated agenda/TOC pages are only
+// NEAR-identical — they differ by the printed page number ("34 of 26" vs
+// "63 of 26"), a bullet glyph, or a trailing "DIAGRAM" word. Those variants still
+// filled 5 of 8 retrieval slots. A pairwise similarity check against the pages we
+// already accepted collapses them.
+// Thresholds come from a full pairwise scan of the whole index (bandscan):
+// true clones/boilerplate sit at cosine >= 0.978 and Jaccard >= 0.94, while the
+// 0.90-0.95 band holds legitimately DIFFERENT content ("sited one side of runway"
+// vs "sited both sides of runway" = 0.9487). So we cut at 0.95 cosine / 0.85
+// Jaccard and never touch the 0.90-0.95 band on cosine alone.
+const NEAR_DUP_COSINE = 0.95;
+const NEAR_DUP_JACCARD = 0.85;
+
+function jaccardSim(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / (a.size + b.size - inter);
 }
 
 async function searchKnowledgeSemantic(query: string, topK = 5): Promise<RetrievedChunk[]> {
@@ -745,14 +801,46 @@ async function searchKnowledgeSemantic(query: string, topK = 5): Promise<Retriev
     const kw = await searchKnowledgeChunks(query, topK).catch(() => []);
     return kw.map((c) => ({ content: c, filename: '', page: 0, imagePath: null, score: 0 }));
   }
-  return store
+  const scored = store
     .map((r) => {
       const s1 = qv ? cosineSim(qv, r.emb) : 0;
       const s2 = qvEn ? cosineSim(qvEn, r.emb) : 0;
-      return { content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: Math.max(s1, s2) };
+      return {
+        content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath,
+        score: Math.max(s1, s2), emb: r.emb, tokens: r.tokens,
+      };
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+    .sort((a, b) => b.score - a.score);
+
+  // Walk the full ranking and keep the first (highest-scoring) copy of each
+  // distinct page, so repeated boilerplate pages never occupy more than one slot
+  // and the freed slots go to genuinely different pages. Two passes:
+  //  1) exact normalized text match (cheap Set lookup)
+  //  2) near-duplicate check against the pages already accepted (<= topK
+  //     comparisons, and the embeddings are already in memory, so it is free)
+  const seen = new Set<string>();
+  const out: RetrievedChunk[] = [];
+  const acc: { emb: number[]; tokens: Set<string> }[] = [];
+  for (const r of scored) {
+    const key = normForDedupe(r.content);
+    if (key.length > 0) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    const tokens = r.tokens;
+    let dup = false;
+    for (const prev of acc) {
+      if (cosineSim(r.emb, prev.emb) >= NEAR_DUP_COSINE || jaccardSim(tokens, prev.tokens) >= NEAR_DUP_JACCARD) {
+        dup = true;
+        break;
+      }
+    }
+    if (dup) continue;
+    acc.push({ emb: r.emb, tokens });
+    out.push({ content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: r.score });
+    if (out.length >= topK) break;
+  }
+  return out;
 }
 
 // ── Extract text from PDF buffer using Claude API (no system tools needed) ───────
@@ -890,7 +978,19 @@ async function embedText(text: string): Promise<number[] | null> {
 }
 
 // OCR/vision extraction for image-based or scanned pages via gpt-4o-mini.
-async function openaiVisionExtract(jpegBase64: string): Promise<string> {
+// A vision model that declines returns prose like "I'm sorry, but I can't assist
+// with that." Storing that as page content poisons the index twice over: the real
+// page text is lost, and the refusal itself becomes retrievable as if it were
+// manual content. Detect and reject it so the caller keeps the (empty) text layer
+// instead of indexing garbage.
+export function isRefusalText(s: string): boolean {
+  const t = (s || '').trim().toLowerCase();
+  if (!t) return false;
+  if (t.length > 400) return false; // real extractions are long; refusals are short
+  return /\b(i'?m sorry|i am sorry|i apologi[sz]e|sorry, (but|i)|i can'?t assist|i cannot assist|i can'?t help with|i can'?t extract|i cannot extract|i'?m unable to|i am unable to|unable to assist|unable to extract|can'?t provide|cannot provide that|as an ai language model|i'?m not able to)\b/.test(t);
+}
+
+async function visionCall(model: string, jpegBase64: string, maxTokens: number): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return '';
   try {
@@ -898,12 +998,12 @@ async function openaiVisionExtract(jpegBase64: string): Promise<string> {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 1500,
+        model,
+        max_tokens: maxTokens,
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: 'Extract ALL readable text from this technical manual page exactly as written, preserving numbers, labels, and terminology. If it is a diagram, briefly describe the diagram and list every label/callout. Output plain text only, no commentary.' },
+            { type: 'text', text: 'You are an OCR engine for an aviation technical manual. Transcribe ALL readable text from this page exactly as written, preserving numbers, units, labels and terminology. If it is a diagram, describe it briefly and list every label/callout. If the page is blank or has no readable text, reply with exactly: [BLANK PAGE]. Output plain text only — never refuse, never add commentary.' },
             { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${jpegBase64}` } },
           ],
         }],
@@ -913,6 +1013,21 @@ async function openaiVisionExtract(jpegBase64: string): Promise<string> {
     const d = await res.json() as any;
     return (d?.choices?.[0]?.message?.content ?? '').trim();
   } catch { return ''; }
+}
+
+async function openaiVisionExtract(jpegBase64: string): Promise<string> {
+  // 1st pass: cheap model.
+  let out = await visionCall('gpt-4o-mini', jpegBase64, 1500);
+  // 2nd pass: escalate to full gpt-4o when the cheap model refuses or returns nothing.
+  if (!out || isRefusalText(out)) {
+    const retry = await visionCall('gpt-4o', jpegBase64, 1800);
+    if (retry && !isRefusalText(retry)) out = retry;
+    else if (isRefusalText(out) || isRefusalText(retry)) return ''; // never store a refusal
+    else out = retry || '';
+  }
+  if (isRefusalText(out)) return '';
+  if (/^\[BLANK PAGE\]$/i.test(out.trim())) return '';
+  return out;
 }
 
 // Render every page of a PDF buffer → { page, text, imageBase64 (JPEG) }.
@@ -2284,9 +2399,10 @@ const app = new Hono()
       fileData?: string; fileType?: string; fileName?: string;
       includePerformance?: boolean;
     };
+    const isAnonymousUser = !userId || userId === 'anonymous';
 
     // ── Rate limit: 50 questions per 24h ────────────────────────────────────
-    if (userId) {
+    if (!isAnonymousUser) {
       const window24h = Date.now() - 24 * 60 * 60 * 1000;
       const usageRows = await sql(
         `SELECT ts FROM activity_log WHERE trainee_id=? AND event='ai_question' AND ts>=?`,
@@ -2324,8 +2440,11 @@ const app = new Hono()
     }
 
     // ── Load conversation history from DB ───────────────────────────────────
+    // Never load the shared "anonymous" bucket: it can contain conversations from
+    // many browsers/users, pollute answers with old refusals, and accidentally
+    // expose one trainee's chat context to another.
     let dbHistory: { role: 'user' | 'assistant'; content: string }[] = [];
-    if (userId) {
+    if (!isAnonymousUser) {
       const dbRows = await sql(
         `SELECT role, content FROM ai_conversations WHERE trainee_id=? ORDER BY ts DESC LIMIT 20`,
         [userId]
@@ -2461,7 +2580,13 @@ const app = new Hono()
     if (pdfContext.length > 0 || errorContext.length > 0) {
       systemPrompt = strictRules + performanceContext + errorSection +
         (pdfContext.length > 0
-          ? '\n=== الكتيبات التقنية المفهرسة ===\n' + pdfContext.slice(0, 9000)
+          // After the OCR re-index the retrieved pages carry far more text than
+          // before: the top 8 pages now total 16k–21k characters, so a 9,000-char
+          // cap silently truncated the last few pages — sometimes cutting off the
+          // exact page the model had been given to answer from. 24,000 chars
+          // (~7k tokens) fits every observed top-8 set with room to spare and is
+          // well inside the model's context window.
+          ? '\n=== الكتيبات التقنية المفهرسة ===\n' + pdfContext.slice(0, 24000)
           : '');
     } else {
       // No relevant indexed content — force the exact not-found line, never general knowledge
@@ -2472,8 +2597,30 @@ const app = new Hono()
     }
     void hasRagContent; void qaContext; void lessonContext;
 
+    const isNotFoundRefusal = (content: unknown) => {
+      const text = String(content ?? '');
+      return text.includes(NOT_FOUND_LINE) ||
+        /not\s+found\s+in\s+the\s+indexed\s+(manuals|documents)/i.test(text);
+    };
+
+    const sanitizeConversationHistory = (items: { role: 'user' | 'assistant'; content: string }[]) => {
+      const clean: { role: 'user' | 'assistant'; content: string }[] = [];
+      for (const item of items) {
+        // Old model refusals are not useful context. Keeping them makes the model
+        // copy its own past "not found" answer even after retrieval improves.
+        if (item.role === 'assistant' && isNotFoundRefusal(item.content)) {
+          const prev = clean[clean.length - 1];
+          if (prev?.role === 'user') clean.pop();
+          continue;
+        }
+        clean.push(item);
+      }
+      return clean;
+    };
+
     try {
-      const contextHistory = userId ? dbHistory : history.slice(-10);
+      const rawContextHistory = !isAnonymousUser ? dbHistory : history.slice(-10);
+      const contextHistory = sanitizeConversationHistory(rawContextHistory);
       // Build user content — plain text or multi-part (text + image/pdf)
       const userContent: any = fileData
         ? [
@@ -2579,7 +2726,7 @@ const app = new Hono()
         text = data?.content?.[0]?.text ?? 'لا توجد إجابة.\nNo reply received.';
       }
       // ── Save conversation to DB ──────────────────────────────────────────────
-      if (userId) {
+      if (!isAnonymousUser) {
         const now = Date.now();
         const savedUserContent = fileData && fileName ? `[📎 ${fileName}]\n${message}` : message;
         await sqlRun(`INSERT INTO ai_conversations (trainee_id, role, content, ts) VALUES (?,?,?,?)`,
@@ -2615,7 +2762,16 @@ const app = new Hono()
         }
       }
 
-      return c.json({ reply: text, images: matchedImages.length > 0 ? matchedImages.slice(0, 3) : undefined }, 200);
+      // ── PHASE 2 (branch ai-instructor-v2): reference images restored ──────────
+      // Phase 1 suppressed these because retrieval surfaced near-blank cover pages
+      // and repeated agenda slides. Both causes are gone: blank/refusal pages now
+      // have embedding = NULL so they can never be retrieved, and identical pages
+      // are collapsed in searchKnowledgeSemantic, so the top pages are distinct.
+      const SEND_REFERENCE_IMAGES = true;
+      return c.json({
+        reply: text,
+        images: SEND_REFERENCE_IMAGES && matchedImages.length > 0 ? matchedImages.slice(0, 3) : undefined,
+      }, 200);
     } catch (e: any) {
       console.error('[AI] fetch error:', e?.message);
       return c.json({ reply: 'عذراً، تعذر الاتصال بخدمة الذكاء الاصطناعي.\nSorry, could not reach the AI service.' }, 200);
