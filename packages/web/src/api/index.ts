@@ -890,7 +890,19 @@ async function embedText(text: string): Promise<number[] | null> {
 }
 
 // OCR/vision extraction for image-based or scanned pages via gpt-4o-mini.
-async function openaiVisionExtract(jpegBase64: string): Promise<string> {
+// A vision model that declines returns prose like "I'm sorry, but I can't assist
+// with that." Storing that as page content poisons the index twice over: the real
+// page text is lost, and the refusal itself becomes retrievable as if it were
+// manual content. Detect and reject it so the caller keeps the (empty) text layer
+// instead of indexing garbage.
+export function isRefusalText(s: string): boolean {
+  const t = (s || '').trim().toLowerCase();
+  if (!t) return false;
+  if (t.length > 400) return false; // real extractions are long; refusals are short
+  return /\b(i'?m sorry|i am sorry|i apologi[sz]e|sorry, (but|i)|i can'?t assist|i cannot assist|i can'?t help with|i can'?t extract|i cannot extract|i'?m unable to|i am unable to|unable to assist|unable to extract|can'?t provide|cannot provide that|as an ai language model|i'?m not able to)\b/.test(t);
+}
+
+async function visionCall(model: string, jpegBase64: string, maxTokens: number): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return '';
   try {
@@ -898,12 +910,12 @@ async function openaiVisionExtract(jpegBase64: string): Promise<string> {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 1500,
+        model,
+        max_tokens: maxTokens,
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: 'Extract ALL readable text from this technical manual page exactly as written, preserving numbers, labels, and terminology. If it is a diagram, briefly describe the diagram and list every label/callout. Output plain text only, no commentary.' },
+            { type: 'text', text: 'You are an OCR engine for an aviation technical manual. Transcribe ALL readable text from this page exactly as written, preserving numbers, units, labels and terminology. If it is a diagram, describe it briefly and list every label/callout. If the page is blank or has no readable text, reply with exactly: [BLANK PAGE]. Output plain text only — never refuse, never add commentary.' },
             { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${jpegBase64}` } },
           ],
         }],
@@ -913,6 +925,21 @@ async function openaiVisionExtract(jpegBase64: string): Promise<string> {
     const d = await res.json() as any;
     return (d?.choices?.[0]?.message?.content ?? '').trim();
   } catch { return ''; }
+}
+
+async function openaiVisionExtract(jpegBase64: string): Promise<string> {
+  // 1st pass: cheap model.
+  let out = await visionCall('gpt-4o-mini', jpegBase64, 1500);
+  // 2nd pass: escalate to full gpt-4o when the cheap model refuses or returns nothing.
+  if (!out || isRefusalText(out)) {
+    const retry = await visionCall('gpt-4o', jpegBase64, 1800);
+    if (retry && !isRefusalText(retry)) out = retry;
+    else if (isRefusalText(out) || isRefusalText(retry)) return ''; // never store a refusal
+    else out = retry || '';
+  }
+  if (isRefusalText(out)) return '';
+  if (/^\[BLANK PAGE\]$/i.test(out.trim())) return '';
+  return out;
 }
 
 // Render every page of a PDF buffer → { page, text, imageBase64 (JPEG) }.
