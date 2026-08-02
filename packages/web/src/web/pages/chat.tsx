@@ -507,6 +507,13 @@ const PRESET_QUESTIONS = [
   "Explain ESA alignment procedure",
 ];
 
+// ── PHASE 1 FEATURE FLAG (branch ai-instructor-v2) ──────────────────────────
+// Reference Slides / retrieved PDF page images are temporarily hidden.
+// Reason: the current page-selection logic falls back to the top retrieved
+// pages, which surfaces near-blank cover pages (~98% white) and pages that do
+// not contain the cited answer. Set to true again in Phase 2 after rebuild.
+const SHOW_REFERENCE_SLIDES = false;
+
 type AiMsg = { role: "user" | "assistant"; content: string; attachName?: string; attachType?: string; attachPreview?: string; images?: { path: string; label: string }[] };
 
 type TraineeSummary = {
@@ -802,7 +809,11 @@ function AIInstructor() {
                 ? <MarkdownMessage content={msg.content} />
                 : msg.content}
               {/* Illustrative images from AI response */}
-              {msg.role === "assistant" && msg.images && msg.images.length > 0 && (
+              {/* PHASE 1 (ai-instructor-v2): Reference Slides disabled — retrieval
+                  attaches near-blank cover pages and pages unrelated to the answer.
+                  Flip SHOW_REFERENCE_SLIDES back to true in Phase 2 once page
+                  selection is rebuilt. Rendering code below is intentionally kept. */}
+              {SHOW_REFERENCE_SLIDES && msg.role === "assistant" && msg.images && msg.images.length > 0 && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ fontSize: 9, color: C, letterSpacing: "0.08em", fontFamily: "Inter" }}>📷 REFERENCE SLIDES · اضغط للتكبير</div>
                   {msg.images.map((img, idx) => (

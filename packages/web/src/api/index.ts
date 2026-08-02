@@ -2615,7 +2615,16 @@ const app = new Hono()
         }
       }
 
-      return c.json({ reply: text, images: matchedImages.length > 0 ? matchedImages.slice(0, 3) : undefined }, 200);
+      // ── PHASE 1 (branch ai-instructor-v2): reference images suppressed ────────
+      // The selection logic above (explicit citation, else top-2 retrieved pages)
+      // surfaces near-blank cover pages and pages unrelated to the answer, so the
+      // payload no longer carries `images`. Selection code is kept intact for the
+      // Phase 2 rebuild; flip SEND_REFERENCE_IMAGES to true to restore.
+      const SEND_REFERENCE_IMAGES = false;
+      return c.json({
+        reply: text,
+        images: SEND_REFERENCE_IMAGES && matchedImages.length > 0 ? matchedImages.slice(0, 3) : undefined,
+      }, 200);
     } catch (e: any) {
       console.error('[AI] fetch error:', e?.message);
       return c.json({ reply: 'عذراً، تعذر الاتصال بخدمة الذكاء الاصطناعي.\nSorry, could not reach the AI service.' }, 200);
