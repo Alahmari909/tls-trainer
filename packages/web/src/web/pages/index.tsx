@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useState, useRef, useCallback } from "react";
+import type { CSSProperties } from "react";
 import { getSession, setSession, clearSession } from "../hooks/useTelegramTrack";
 import type { TraineeSession } from "../hooks/useTelegramTrack";
 import { unlockAudio, playAlertTone, vibrate, showToast } from "../lib/audio";
@@ -18,6 +19,20 @@ type TraineeListItem = { id: string; name: string; rank: string | null; unit: st
 type Notification = { id: number; message?: string; text?: string; alert_type?: string; sender_role?: string; read: number; ts: number };
 
 const COLORS = ["#00AEEF","#35D4FF","#00D26A","#FFD166","#00AEEF","#35D4FF","#C9A66B","#00D26A","#FF4D4D"];
+
+// Shared style for the intro-video control strip buttons
+const heroBtn: CSSProperties = {
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 6,
+  color: "rgba(255,255,255,0.55)",
+  fontFamily: "Inter",
+  fontSize: 9,
+  letterSpacing: "0.08em",
+  padding: "5px 11px",
+  cursor: "pointer",
+  transition: "all 0.2s",
+};
 
 function RadarRings() {
   return (
@@ -639,34 +654,37 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   const [, navigate] = useLocation();
   const clock = useLiveClock();
   const { t } = useLanguage();
-  const [arSubtitles, setArSubtitles] = useState(false);
-  const [subtitleText, setSubtitleText] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [heroPlaying, setHeroPlaying] = useState(true);
+  const [heroMuted, setHeroMuted] = useState(true);
+  // The clip intentionally opens and closes on flat homepage navy, so frame 0 and the
+  // final frame are empty. `poster` alone only covers the pre-metadata window, after
+  // which the browser paints that empty first frame. This overlay keeps the poster
+  // visible until playback is genuinely under way, and brings it back at the end.
+  const [heroStarted, setHeroStarted] = useState(false);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const attach = () => {
-      for (let i = 0; i < video.textTracks.length; i++) {
-        const track = video.textTracks[i];
-        track.mode = "hidden";
-        track.oncuechange = () => {
-          const cue = track.activeCues?.[0] as VTTCue | undefined;
-          setSubtitleText(cue ? cue.text.replace(/<[^>]+>/g, "") : "");
-        };
-      }
-    };
-    if (video.readyState >= 1) attach();
-    else video.addEventListener("loadedmetadata", attach, { once: true });
-    return () => { video.removeEventListener("loadedmetadata", attach); };
-  }, []);
-
-  const toggleSubtitles = () => {
-    const next = !arSubtitles;
-    setArSubtitles(next);
-    if (!next) setSubtitleText("");
+  const toggleHeroPlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) void v.play().catch(() => {});
+    else v.pause();
   };
-;
+
+  // Starts muted so autoplay is never accompanied by sound; the user opts in.
+  const toggleHeroMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setHeroMuted(v.muted);
+  };
+
+  const restartHero = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    setHeroStarted(false);
+    v.currentTime = 0;
+    void v.play().catch(() => {});
+  };
 
   const fetchDashboard = useCallback(() => {
     Promise.all([
@@ -860,86 +878,98 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       <div style={{ padding: "18px 16px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div className="sub-heading" style={{ marginBottom: 0 }}>SYSTEM INTRODUCTION</div>
-          <button
-            onClick={toggleSubtitles}
-            style={{
-              background: arSubtitles ? "rgba(0,174,239,0.2)" : "rgba(255,255,255,0.05)",
-              border: `1px solid ${arSubtitles ? "#00AEEF" : "rgba(255,255,255,0.12)"}`,
-              borderRadius: 6,
-              color: arSubtitles ? "#00AEEF" : "rgba(255,255,255,0.45)",
-              fontFamily: "Inter",
-              fontSize: 9,
-              letterSpacing: "0.08em",
-              padding: "4px 10px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              transition: "all 0.2s",
-            }}
-          >
-            <span style={{ fontSize: 11 }}>CC</span>
-            <span>AR</span>
-          </button>
         </div>
         <div style={{
           borderRadius: 12,
           overflow: "hidden",
           border: "1px solid rgba(0,174,239,0.2)",
-          background: "#000",
+          background: "#03080f",
           boxShadow: "0 0 24px rgba(0,174,239,0.08)",
           position: "relative",
+          lineHeight: 0,
         }}>
+          {/* No native `controls`: the browser control bar is pinned to the bottom of
+              the frame, which is exactly where this video's caption band sits — it
+              covered the title and description. Custom controls live below instead. */}
           <video
             ref={videoRef}
-            src="/tls-intro.webm"
-            controls
+            poster="/tls-hero-poster.jpg"
             autoPlay
             muted
             playsInline
-            preload="auto"
-            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover", aspectRatio: "16/9" }}
+            preload="metadata"
+            onClick={toggleHeroPlay}
+            onPlay={() => setHeroPlaying(true)}
+            onPause={() => setHeroPlaying(false)}
+            onEnded={() => setHeroStarted(false)}
+            onTimeUpdate={e => {
+              const t = e.currentTarget.currentTime;
+              if (t > 0.45 && !heroStarted) setHeroStarted(true);
+            }}
+            style={{
+              width: "100%",
+              height: "auto",
+              display: "block",
+              objectFit: "contain",
+              aspectRatio: "16 / 9",
+              background: "#03080f",
+              cursor: "pointer",
+            }}
           >
-            <track
-              kind="subtitles"
-              src="/tls-video-ar.vtt"
-              srcLang="ar"
-              label="العربية"
-            />
+            {/* Phones / small tablets load the lighter 720p file (~2 MB) */}
+            <source src="/tls-hero-720p.mp4" type="video/mp4" media="(max-width: 768px)" />
+            {/* Desktop / large screens load the full 1080p master (~4.8 MB) */}
+            <source src="/tls-hero-1080p.mp4" type="video/mp4" />
           </video>
-          {/* Custom subtitle overlay — constrained to bottom 28% of video */}
-          {arSubtitles && subtitleText && (
-            <div style={{
+
+          {/* Poster overlay — covers the opening/closing navy fades so the section is
+              never an empty box. Click-through so the video stays tappable. */}
+          <img
+            src="/tls-hero-poster.jpg"
+            alt="TLS precision approach guidance"
+            aria-hidden="true"
+            style={{
               position: "absolute",
-              bottom: "3%",
-              left: "4%",
-              right: "4%",
-              maxHeight: "28%",
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              textAlign: "center",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
               pointerEvents: "none",
-              direction: "rtl",
-            }}>
-              <span style={{
-                display: "inline-block",
-                background: "rgba(0,0,0,0.80)",
-                color: "#fff",
-                fontSize: "clamp(9px, 1.9vw, 12px)",
-                fontFamily: "Tajawal, Arial, sans-serif",
-                fontWeight: 500,
-                lineHeight: 1.4,
-                padding: "3px 8px",
-                borderRadius: 4,
-                maxWidth: "100%",
-                wordBreak: "break-word",
-              }}>
-                {subtitleText}
-              </span>
-            </div>
-          )}
+              opacity: heroStarted ? 0 : 1,
+              transition: "opacity 0.45s ease",
+            }}
+          />
+        </div>
+
+        {/* Custom control strip — sits BELOW the frame so it never covers the caption */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 8,
+        }}>
+          <button
+            onClick={toggleHeroPlay}
+            aria-label={heroPlaying ? "Pause introduction video" : "Play introduction video"}
+            style={heroBtn}
+          >
+            {heroPlaying ? "❚❚ PAUSE" : "▶ PLAY"}
+          </button>
+          <button
+            onClick={toggleHeroMute}
+            aria-label={heroMuted ? "Unmute introduction video" : "Mute introduction video"}
+            style={{
+              ...heroBtn,
+              background: heroMuted ? "rgba(255,255,255,0.05)" : "rgba(0,174,239,0.2)",
+              borderColor: heroMuted ? "rgba(255,255,255,0.12)" : "#00AEEF",
+              color: heroMuted ? "rgba(255,255,255,0.45)" : "#00AEEF",
+            }}
+          >
+            {heroMuted ? "🔇 SOUND OFF" : "🔊 SOUND ON"}
+          </button>
+          <button onClick={restartHero} aria-label="Restart introduction video" style={heroBtn}>
+            ↺ RESTART
+          </button>
         </div>
       </div>
 
