@@ -73,3 +73,4 @@ scripts/
 packages/mobile/scripts/*
 !packages/mobile/scripts/generate-ios-certs.py
 .railway.env
+.env.railway
