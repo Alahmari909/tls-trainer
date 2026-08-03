@@ -1,15 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useState, useRef, useCallback } from "react";
-import type { CSSProperties } from "react";
 import { getSession, setSession, clearSession } from "../hooks/useTelegramTrack";
 import type { TraineeSession } from "../hooks/useTelegramTrack";
 import { unlockAudio, playAlertTone, vibrate, showToast } from "../lib/audio";
 import { useLanguage } from "../hooks/useLanguage";
 import {
   BookOpen, Star, FileText, Info, Target, Trophy, MessageSquare, BarChart2,
-  Eye, Lock, LogIn, UserPlus, Clock, AlertTriangle, RefreshCw, ZoomIn,
+  Eye, Lock, LogIn, UserPlus, Clock, AlertTriangle,
   Wifi, Gauge, Zap, Antenna, Wrench, Plane, Shield, Bell,
-  Play, ArrowLeft, X, ChevronRight,
+  Play, ArrowLeft, ChevronRight,
 } from "lucide-react";
 
 type Module = { id: number; title: string; order: number };
@@ -19,20 +18,6 @@ type TraineeListItem = { id: string; name: string; rank: string | null; unit: st
 type Notification = { id: number; message?: string; text?: string; alert_type?: string; sender_role?: string; read: number; ts: number };
 
 const COLORS = ["#00AEEF","#35D4FF","#00D26A","#FFD166","#00AEEF","#35D4FF","#C9A66B","#00D26A","#FF4D4D"];
-
-// Shared style for the intro-video control strip buttons
-const heroBtn: CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: 6,
-  color: "rgba(255,255,255,0.55)",
-  fontFamily: "Inter",
-  fontSize: 9,
-  letterSpacing: "0.08em",
-  padding: "5px 11px",
-  cursor: "pointer",
-  transition: "all 0.2s",
-};
 
 function RadarRings() {
   return (
@@ -396,252 +381,105 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
 }
 
 
-/* ─── HOW TLS WORKS — illustrated slide carousel ─────────────────────────── */
-const HOW_TLS_SLIDES: { src: string; label: string }[] = [
-  { src: "/how-tls-works/cover.png", label: "TLS — Training Notes" },
-  { src: "/how-tls-works/1.png",     label: "Introduction" },
-  { src: "/how-tls-works/2.png",     label: "1 · Operation Overview" },
-  { src: "/how-tls-works/3.png",     label: "2 · TLS Components" },
-  { src: "/how-tls-works/4.png",     label: "3 · How Position Is Calculated" },
-  { src: "/how-tls-works/5.png",     label: "4 · Guidance Generation" },
-  { src: "/how-tls-works/6.png",     label: "5 · Signals & Frequencies" },
-  { src: "/how-tls-works/7.png",     label: "6 · Key Points" },
-];
+// ── PRECISION APPROACH GUIDANCE ────────────────────────────────────────────
+// Two fully separate blocks, stacked: the video frame on top (nothing drawn
+// over it — no title, no caption, no buttons, no poster overlay), and an
+// information panel underneath. Horizontal padding, border radius, border and
+// glow are copied verbatim from the SYSTEM INTRODUCTION hero above so both
+// video frames share exactly the same width and left/right alignment.
+function PrecisionApproachSection() {
+  const vidRef = useRef<HTMLVideoElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
-function HowTlsWorks() {
-  const C = "#00AEEF";
-  const [idx, setIdx] = useState(0);
-  const [dir, setDir] = useState<1 | -1>(1);
-  const [imgOpen, setImgOpen] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragX, setDragX] = useState(0);
-  const [snap, setSnap] = useState(false);
-  const lastDist = useRef(0);
-  const lastPan  = useRef({ x: 0, y: 0 });
-  const swipeStart = useRef({ x: 0, y: 0 });
-  const swipeAxis = useRef<"" | "x" | "y">("");
-
-  const total = HOW_TLS_SLIDES.length;
-  const slide = HOW_TLS_SLIDES[idx];
-
-  const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); setDragX(0); };
-  const goNext = () => { setDir(1);  resetView(); setIdx(i => (i + 1) % total); };
-  const goPrev = () => { setDir(-1); resetView(); setIdx(i => (i - 1 + total) % total); };
-
-  const openLightbox  = () => { resetView(); setImgOpen(true); };
-  const closeLightbox = () => setImgOpen(false);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setSnap(false);
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      lastDist.current = Math.sqrt(dx * dx + dy * dy);
-    } else if (e.touches.length === 1) {
-      lastPan.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      swipeAxis.current = "";
-    }
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    e.stopPropagation();
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (lastDist.current > 0) setZoom(z => Math.min(8, Math.max(1, z * (dist / lastDist.current))));
-      lastDist.current = dist;
-    } else if (e.touches.length === 1) {
-      const nx = e.touches[0].clientX; const ny = e.touches[0].clientY;
-      if (zoom > 1) {
-        // Panning around a zoomed-in image
-        setPan(p => ({ x: p.x + nx - lastPan.current.x, y: p.y + ny - lastPan.current.y }));
-        lastPan.current = { x: nx, y: ny };
-      } else {
-        // At natural size → horizontal swipe navigates between slides
-        const totalDx = nx - swipeStart.current.x;
-        const totalDy = ny - swipeStart.current.y;
-        if (swipeAxis.current === "") {
-          if (Math.abs(totalDx) > 8 || Math.abs(totalDy) > 8)
-            swipeAxis.current = Math.abs(totalDx) > Math.abs(totalDy) ? "x" : "y";
-        }
-        if (swipeAxis.current === "x") setDragX(totalDx);
-      }
-    }
-  };
-  const onTouchEnd = () => {
-    lastDist.current = 0;
-    if (zoom === 1 && swipeAxis.current === "x") {
-      const threshold = 55;
-      if (dragX <= -threshold) { goNext(); }
-      else if (dragX >= threshold) { goPrev(); }
-      else { setSnap(true); setDragX(0); }
-    }
-    swipeAxis.current = "";
-  };
-
-  const navBtn: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-    background: `linear-gradient(135deg, ${C}26, ${C}0d)`,
-    border: `1px solid ${C}55`,
-    color: C, fontFamily: "Orbitron, monospace", fontSize: 12, fontWeight: 700,
-    letterSpacing: "0.14em", borderRadius: 10, padding: "9px 16px",
-    cursor: "pointer", boxShadow: `0 0 14px ${C}22`, transition: "all 0.2s",
-  };
+  // Play only while the section is on screen: the SYSTEM INTRODUCTION video
+  // above must stay the one that autoplays at the top of the page.
+  useEffect(() => {
+    const el = wrapRef.current;
+    const v = vidRef.current;
+    if (!el || !v) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) void v.play().catch(() => {});
+        else if (!v.paused) v.pause();
+      },
+      { threshold: 0.35 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   return (
-    <div style={{ padding: "0 16px 24px" }} className="how-tls-fade-up">
-
-      {/* ── Lightbox ── */}
-      {imgOpen && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden", touchAction: "none" }}
-          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-          onClick={e => { if (e.target === e.currentTarget) closeLightbox(); }}
-        >
-          <img key={idx} src={slide.src} alt={slide.label} draggable={false}
-            className="how-lightbox-fade"
-            style={{ maxWidth: "100vw", maxHeight: "100vh", objectFit: "contain",
-              userSelect: "none",
-              transform: `translate(${pan.x + dragX}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "center center",
-              transition: snap ? "transform 0.25s ease" : "none" }} />
-          {/* Close */}
-          <div onClick={closeLightbox}
-            style={{ position: "absolute", top: 20, right: 20, width: 40, height: 40,
-              borderRadius: "50%", background: "rgba(255,255,255,0.18)", zIndex: 5,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer" }}><X size={20} color="#fff" strokeWidth={2} /></div>
-          {/* Prev / Next arrows (hidden while zoomed) */}
-          {zoom === 1 && (
-            <>
-              <div onClick={(e) => { e.stopPropagation(); goPrev(); }}
-                style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
-                  width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.14)",
-                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5,
-                  backdropFilter: "blur(4px)" }}>
-                <ChevronRight size={24} color="#fff" strokeWidth={2.2} style={{ transform: "rotate(180deg)" }} />
-              </div>
-              <div onClick={(e) => { e.stopPropagation(); goNext(); }}
-                style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-                  width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.14)",
-                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5,
-                  backdropFilter: "blur(4px)" }}>
-                <ChevronRight size={24} color="#fff" strokeWidth={2.2} />
-              </div>
-            </>
-          )}
-          {/* Counter */}
-          <div style={{ position: "absolute", top: 24, left: 20, fontFamily: "Orbitron, monospace",
-            fontSize: 13, color: "rgba(255,255,255,0.85)", letterSpacing: "0.1em",
-            background: "rgba(0,0,0,0.45)", borderRadius: 12, padding: "4px 12px", zIndex: 5 }}>
-            {idx + 1} / {total}
-          </div>
-          {zoom > 1 ? (
-            <div onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-              style={{ position: "absolute", bottom: 28, background: "rgba(255,255,255,0.15)",
-                borderRadius: 20, padding: "6px 16px", fontSize: 12, color: "#fff", cursor: "pointer",
-                display:"flex", alignItems:"center", gap:6, zIndex: 5 }}>
-              <RefreshCw size={12} strokeWidth={2} /> Reset Zoom
-            </div>
-          ) : (
-            <div style={{ position: "absolute", bottom: 28, fontSize: 11, color: "rgba(255,255,255,0.4)", zIndex: 5 }}>
-              Swipe ← → to change · pinch to zoom
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Header ── */}
-      <div style={{ textAlign: "center", marginBottom: 16 }}>
-        <div style={{
-          fontFamily: "Orbitron, monospace",
-          fontSize: 22, fontWeight: 800,
-          color: C, letterSpacing: "0.14em",
-          textShadow: `0 0 20px ${C}88`,
-        }}>
-          HOW TLS WORKS?
-        </div>
-        <div style={{
-          fontFamily: "Inter", fontSize: 10, color: "rgba(255,255,255,0.4)",
-          letterSpacing: "0.12em", marginTop: 4, textTransform: "uppercase",
-        }}>
-          Illustrated Guide · {idx + 1} / {total}
-        </div>
-      </div>
-
-      {/* ── Card ── */}
+    <div ref={wrapRef} style={{ padding: "38px 16px 0" }}>
+      {/* ── BLOCK 1: video only, completely unobstructed ── */}
       <div style={{
-        borderRadius: 18,
-        background: "linear-gradient(145deg, rgba(0,174,239,0.08) 0%, rgba(0,10,30,0.70) 100%)",
-        border: `1px solid ${C}28`,
-        boxShadow: `0 8px 32px rgba(0,174,239,0.08), inset 0 1px 0 rgba(0,174,239,0.12)`,
-        position: "relative",
+        borderRadius: 12,
         overflow: "hidden",
+        border: "1px solid rgba(0,174,239,0.2)",
+        background: "#03080f",
+        boxShadow: "0 0 24px rgba(0,174,239,0.08)",
+        lineHeight: 0,
       }}>
-        {/* Top glow line */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${C}80, transparent)`, zIndex: 3 }} />
-
-        {/* Next button — top right, floating over image */}
-        <button onClick={goNext} style={{ ...navBtn, position: "absolute", top: 12, right: 12, zIndex: 4, padding: "8px 14px" }}>
-          NEXT <ChevronRight size={16} strokeWidth={2.4} />
-        </button>
-
-        {/* Slide viewport — full image, no crop */}
-        <div
-          onClick={openLightbox}
+        <video
+          ref={vidRef}
+          poster="/tls-precision-poster.jpg"
+          muted
+          loop
+          playsInline
+          preload="metadata"
           style={{
-            width: "100%", background: "#050b14",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "zoom-in", position: "relative", overflow: "hidden",
-            padding: "12px 12px 0",
+            width: "100%",
+            height: "100%",
+            display: "block",
+            objectFit: "contain",
+            aspectRatio: "16 / 9",
+            background: "#03080f",
           }}
         >
-          <img
-            key={idx}
-            src={slide.src}
-            alt={slide.label}
-            draggable={false}
-            className={dir === 1 ? "how-slide-in-right" : "how-slide-in-left"}
-            style={{
-              width: "100%", maxHeight: "70vh", objectFit: "contain",
-              display: "block", borderRadius: 8,
-            }}
-          />
-          {/* Tap-to-zoom hint */}
-          <div style={{
-            position: "absolute", bottom: 12, right: 14,
-            background: "rgba(0,0,0,0.6)", borderRadius: 10,
-            padding: "3px 10px", fontSize: 10, color: "rgba(255,255,255,0.7)",
-            backdropFilter: "blur(4px)", display:"flex", alignItems:"center", gap:5, zIndex: 3,
-          }}><ZoomIn size={12} strokeWidth={2} />Tap to zoom</div>
-        </div>
+          {/* Phones / small tablets load the lighter file (~2 MB) */}
+          <source src="/tls-precision-720p.mp4" type="video/mp4" media="(max-width: 768px)" />
+          {/* Desktop / large screens load the full-resolution master */}
+          <source src="/tls-precision-1080p.mp4" type="video/mp4" />
+        </video>
+      </div>
 
-        {/* Footer: Prev + label + (spacer) */}
+      {/* ── BLOCK 2: information panel, text only, below the video ── */}
+      <div style={{
+        marginTop: 16,
+        borderRadius: 12,
+        border: "1px solid rgba(0,174,239,0.2)",
+        background: "linear-gradient(180deg, rgba(0,174,239,0.06), rgba(3,8,15,0.85))",
+        boxShadow: "0 0 24px rgba(0,174,239,0.06)",
+        padding: "26px 20px 28px",
+        textAlign: "center",
+      }}>
         <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          gap: 10, padding: "12px 14px 14px",
-          borderTop: `1px solid rgba(0,174,239,0.10)`,
+          fontFamily: "Orbitron, Rajdhani, sans-serif",
+          fontWeight: 900,
+          fontSize: "clamp(24px, 6.4vw, 46px)",
+          lineHeight: 1.18,
+          letterSpacing: "0.02em",
+          color: "#EAF7FF",
+          textShadow: "0 0 22px rgba(0,174,239,0.35)",
         }}>
-          <button onClick={goPrev} style={navBtn}>
-            <ChevronRight size={16} strokeWidth={2.4} style={{ transform: "rotate(180deg)" }} /> PREV
-          </button>
-          <div style={{
-            flex: 1, textAlign: "center",
-            fontFamily: "Inter", fontSize: 12, fontWeight: 600,
-            color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}>{slide.label}</div>
-          <button onClick={goNext} style={navBtn}>
-            NEXT <ChevronRight size={16} strokeWidth={2.4} />
-          </button>
+          PRECISION APPROACH GUIDANCE
         </div>
-
-        {/* Bottom accent */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${C}30, transparent)` }} />
+        <div style={{
+          height: 2,
+          width: 96,
+          margin: "16px auto 18px",
+          background: "linear-gradient(90deg, transparent, #00AEEF, transparent)",
+        }} />
+        <div style={{
+          fontFamily: "Poppins, Inter, sans-serif",
+          fontWeight: 700,
+          fontSize: "clamp(17px, 4.4vw, 26px)",
+          lineHeight: 1.75,
+          color: "rgba(255,255,255,0.9)",
+          maxWidth: 860,
+          margin: "0 auto",
+        }}>
+          Keeping the aircraft on the correct approach path for a safe landing.
+        </div>
       </div>
     </div>
   );
@@ -654,37 +492,34 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
   const [, navigate] = useLocation();
   const clock = useLiveClock();
   const { t } = useLanguage();
+  const [arSubtitles, setArSubtitles] = useState(false);
+  const [subtitleText, setSubtitleText] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [heroPlaying, setHeroPlaying] = useState(true);
-  const [heroMuted, setHeroMuted] = useState(true);
-  // The clip intentionally opens and closes on flat homepage navy, so frame 0 and the
-  // final frame are empty. `poster` alone only covers the pre-metadata window, after
-  // which the browser paints that empty first frame. This overlay keeps the poster
-  // visible until playback is genuinely under way, and brings it back at the end.
-  const [heroStarted, setHeroStarted] = useState(false);
 
-  const toggleHeroPlay = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) void v.play().catch(() => {});
-    else v.pause();
-  };
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const attach = () => {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        const track = video.textTracks[i];
+        track.mode = "hidden";
+        track.oncuechange = () => {
+          const cue = track.activeCues?.[0] as VTTCue | undefined;
+          setSubtitleText(cue ? cue.text.replace(/<[^>]+>/g, "") : "");
+        };
+      }
+    };
+    if (video.readyState >= 1) attach();
+    else video.addEventListener("loadedmetadata", attach, { once: true });
+    return () => { video.removeEventListener("loadedmetadata", attach); };
+  }, []);
 
-  // Starts muted so autoplay is never accompanied by sound; the user opts in.
-  const toggleHeroMute = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setHeroMuted(v.muted);
+  const toggleSubtitles = () => {
+    const next = !arSubtitles;
+    setArSubtitles(next);
+    if (!next) setSubtitleText("");
   };
-
-  const restartHero = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    setHeroStarted(false);
-    v.currentTime = 0;
-    void v.play().catch(() => {});
-  };
+;
 
   const fetchDashboard = useCallback(() => {
     Promise.all([
@@ -878,103 +713,91 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
       <div style={{ padding: "18px 16px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div className="sub-heading" style={{ marginBottom: 0 }}>SYSTEM INTRODUCTION</div>
+          <button
+            onClick={toggleSubtitles}
+            style={{
+              background: arSubtitles ? "rgba(0,174,239,0.2)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${arSubtitles ? "#00AEEF" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 6,
+              color: arSubtitles ? "#00AEEF" : "rgba(255,255,255,0.45)",
+              fontFamily: "Inter",
+              fontSize: 9,
+              letterSpacing: "0.08em",
+              padding: "4px 10px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "all 0.2s",
+            }}
+          >
+            <span style={{ fontSize: 11 }}>CC</span>
+            <span>AR</span>
+          </button>
         </div>
         <div style={{
           borderRadius: 12,
           overflow: "hidden",
           border: "1px solid rgba(0,174,239,0.2)",
-          background: "#03080f",
+          background: "#000",
           boxShadow: "0 0 24px rgba(0,174,239,0.08)",
           position: "relative",
-          lineHeight: 0,
         }}>
-          {/* No native `controls`: the browser control bar is pinned to the bottom of
-              the frame, which is exactly where this video's caption band sits — it
-              covered the title and description. Custom controls live below instead. */}
           <video
             ref={videoRef}
-            poster="/tls-hero-poster.jpg"
+            src="/tls-intro.webm"
+            controls
             autoPlay
             muted
             playsInline
-            preload="metadata"
-            onClick={toggleHeroPlay}
-            onPlay={() => setHeroPlaying(true)}
-            onPause={() => setHeroPlaying(false)}
-            onEnded={() => setHeroStarted(false)}
-            onTimeUpdate={e => {
-              const t = e.currentTarget.currentTime;
-              if (t > 0.45 && !heroStarted) setHeroStarted(true);
-            }}
-            style={{
-              width: "100%",
-              height: "auto",
-              display: "block",
-              objectFit: "contain",
-              aspectRatio: "16 / 9",
-              background: "#03080f",
-              cursor: "pointer",
-            }}
+            preload="auto"
+            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover", aspectRatio: "16/9" }}
           >
-            {/* Phones / small tablets load the lighter 720p file (~2 MB) */}
-            <source src="/tls-hero-720p.mp4" type="video/mp4" media="(max-width: 768px)" />
-            {/* Desktop / large screens load the full 1080p master (~4.8 MB) */}
-            <source src="/tls-hero-1080p.mp4" type="video/mp4" />
+            <track
+              kind="subtitles"
+              src="/tls-video-ar.vtt"
+              srcLang="ar"
+              label="العربية"
+            />
           </video>
-
-          {/* Poster overlay — covers the opening/closing navy fades so the section is
-              never an empty box. Click-through so the video stays tappable. */}
-          <img
-            src="/tls-hero-poster.jpg"
-            alt="TLS precision approach guidance"
-            aria-hidden="true"
-            style={{
+          {/* Custom subtitle overlay — constrained to bottom 28% of video */}
+          {arSubtitles && subtitleText && (
+            <div style={{
               position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
+              bottom: "3%",
+              left: "4%",
+              right: "4%",
+              maxHeight: "28%",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              textAlign: "center",
               pointerEvents: "none",
-              opacity: heroStarted ? 0 : 1,
-              transition: "opacity 0.45s ease",
-            }}
-          />
-        </div>
-
-        {/* Custom control strip — sits BELOW the frame so it never covers the caption */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          marginTop: 8,
-        }}>
-          <button
-            onClick={toggleHeroPlay}
-            aria-label={heroPlaying ? "Pause introduction video" : "Play introduction video"}
-            style={heroBtn}
-          >
-            {heroPlaying ? "❚❚ PAUSE" : "▶ PLAY"}
-          </button>
-          <button
-            onClick={toggleHeroMute}
-            aria-label={heroMuted ? "Unmute introduction video" : "Mute introduction video"}
-            style={{
-              ...heroBtn,
-              background: heroMuted ? "rgba(255,255,255,0.05)" : "rgba(0,174,239,0.2)",
-              borderColor: heroMuted ? "rgba(255,255,255,0.12)" : "#00AEEF",
-              color: heroMuted ? "rgba(255,255,255,0.45)" : "#00AEEF",
-            }}
-          >
-            {heroMuted ? "🔇 SOUND OFF" : "🔊 SOUND ON"}
-          </button>
-          <button onClick={restartHero} aria-label="Restart introduction video" style={heroBtn}>
-            ↺ RESTART
-          </button>
+              direction: "rtl",
+            }}>
+              <span style={{
+                display: "inline-block",
+                background: "rgba(0,0,0,0.80)",
+                color: "#fff",
+                fontSize: "clamp(9px, 1.9vw, 12px)",
+                fontFamily: "Tajawal, Arial, sans-serif",
+                fontWeight: 500,
+                lineHeight: 1.4,
+                padding: "3px 8px",
+                borderRadius: 4,
+                maxWidth: "100%",
+                wordBreak: "break-word",
+              }}>
+                {subtitleText}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── HOW TLS WORKS ── */}
-      <HowTlsWorks />
+      {/* ── PRECISION APPROACH GUIDANCE (separate section, below the hero) ── */}
+      <PrecisionApproachSection />
 
       {/* ── LOGOUT (bottom) ── */}
       <div style={{ padding: "0 16px 32px", textAlign: "center" }}>
