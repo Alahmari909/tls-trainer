@@ -36,8 +36,20 @@ function saJeddahTime(): string {
   });
 }
 
-function esc(text: string): string {
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+// Defensive: callers are typed as `string`, but at runtime values arrive from
+// JSON request bodies and can be undefined / null / numbers. A raw
+// `text.replace` on those throws and used to crash the whole server.
+function esc(text: unknown): string {
+  if (text === null || text === undefined) return "—";
+  const s = typeof text === "string" ? text : String(text);
+  return s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, (m) => "\\" + m);
+}
+
+// Safe truncation for values of unknown runtime type.
+function clip(text: unknown, max: number): string {
+  if (text === null || text === undefined) return "—";
+  const s = typeof text === "string" ? text : String(text);
+  return s.length > max ? s.slice(0, max) : s;
 }
 
 // ── Event types ───────────────────────────────────────────────────────────────
@@ -62,7 +74,7 @@ function buildMessage(event: TelegramEvent): string {
 
   const header = (emoji: string, title: string) =>
     `${emoji} *${esc(title)}*\n`;
-  const row = (label: string, val: string) =>
+  const row = (label: string, val: unknown) =>
     `▸ *${esc(label)}:* ${esc(val)}\n`;
   const footer = `\n⏱ ${esc(t)} \\| RSAF TLS Trainer`;
 
@@ -107,13 +119,15 @@ function buildMessage(event: TelegramEvent): string {
         footer;
 
     case "quiz_finish": {
-      const pct = Math.round((event.score / event.total) * 100);
+      const score = Number(event.score) || 0;
+      const total = Number(event.total) || 0;
+      const pct = total > 0 ? Math.round((score / total) * 100) : 0;
       const grade = pct >= 90 ? "EXCELLENT 🏆" : pct >= 70 ? "PASS ✅" : "FAIL ❌";
       return header("📊", "QUIZ COMPLETED") +
         row("Trainee", event.traineeName) +
         row("ID", event.traineeId) +
         row("Module", event.moduleName) +
-        row("Score", `${event.score}/${event.total} (${pct}%)`) +
+        row("Score", `${score}/${total} (${pct}%)`) +
         row("Grade", grade) +
         footer;
     }
@@ -122,7 +136,7 @@ function buildMessage(event: TelegramEvent): string {
       return header("💬", "CHAT MESSAGE SENT") +
         row("Trainee", event.traineeName) +
         row("ID", event.traineeId) +
-        row("Preview", event.preview.slice(0, 80)) +
+        row("Preview", clip(event.preview, 80)) +
         footer;
 
     case "module_complete":
@@ -132,12 +146,14 @@ function buildMessage(event: TelegramEvent): string {
         row("Module", event.moduleName) +
         footer;
 
-    case "status_change":
-      return header(event.status === "online" ? "🟢" : "🔴", `TRAINEE ${event.status.toUpperCase()}`) +
+    case "status_change": {
+      const online = event.status === "online";
+      return header(online ? "🟢" : "🔴", `TRAINEE ${online ? "ONLINE" : "OFFLINE"}`) +
         row("Name", event.traineeName) +
         row("ID", event.traineeId) +
-        row("Status", event.status === "online" ? "🟢 Online" : "🔴 Offline") +
+        row("Status", online ? "🟢 Online" : "🔴 Offline") +
         footer;
+    }
 
     case "system_warning":
       return header("⚠️", "SYSTEM WARNING") +
@@ -165,7 +181,17 @@ export async function sendTelegram(event: TelegramEvent): Promise<{ ok: boolean;
   if (!_config.botToken)      return { ok: false, error: "No bot token configured" };
   if (!_config.chatId)        return { ok: false, error: "No chat ID configured" };
 
-  const text = buildMessage(event);
+  // Never let a malformed event reject this promise: almost every caller is
+  // fire-and-forget (no await, no .catch), so a throw here becomes an
+  // unhandled rejection and takes the entire server process down.
+  let text: string;
+  try {
+    text = buildMessage(event);
+  } catch (e: any) {
+    console.error("[telegram] buildMessage failed:", e?.message, "event:", JSON.stringify(event));
+    return { ok: false, error: `buildMessage failed: ${e?.message ?? "unknown"}` };
+  }
+
   try {
     const res = await fetch(
       `https://api.telegram.org/bot${_config.botToken}/sendMessage`,
