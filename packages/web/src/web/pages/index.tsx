@@ -390,28 +390,77 @@ function LoginScreen({ onLogin }: { onLogin: (s: TraineeSession) => void }) {
 function PrecisionApproachSection() {
   const vidRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // True only when the browser refused to autoplay: we then show a centered
+  // PLAY button over the poster until the user taps it.
+  const [blocked, setBlocked] = useState(false);
 
-  // Play only while the section is on screen: the SYSTEM INTRODUCTION video
-  // above must stay the one that autoplays at the top of the page.
   useEffect(() => {
     const el = wrapRef.current;
     const v = vidRef.current;
     if (!el || !v) return;
+
+    // React only ever sets `muted` as a DOM *property*, never as the HTML
+    // attribute. iOS Safari checks the real attribute before allowing inline
+    // autoplay, so without this the video silently stays on its poster.
+    v.defaultMuted = true;
+    v.muted = true;
+    v.setAttribute("muted", "");
+    v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
+
+    let disposed = false;
+
+    const tryPlay = () => {
+      if (disposed) return;
+      v.muted = true; // some browsers reset this after a source switch
+      const p = v.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => { if (!disposed) setBlocked(false); })
+         .catch(() => { if (!disposed && v.paused) setBlocked(true); });
+      }
+    };
+
+    // Attempt playback as soon as the element has anything to play, and again
+    // whenever the section scrolls into view.
+    v.addEventListener("loadedmetadata", tryPlay);
+    v.addEventListener("canplay", tryPlay);
+    // Real proof of movement: once frames advance, the poster is gone.
+    const onPlaying = () => { if (!disposed) setBlocked(false); };
+    v.addEventListener("playing", onPlaying);
+
     const io = new IntersectionObserver(
       ([e]) => {
-        if (e.isIntersecting) void v.play().catch(() => {});
+        if (e.isIntersecting) tryPlay();
         else if (!v.paused) v.pause();
       },
-      { threshold: 0.35 },
+      { threshold: 0.2 },
     );
     io.observe(el);
-    return () => io.disconnect();
+
+    // Kick it immediately too — the section may already be in view on load.
+    tryPlay();
+
+    return () => {
+      disposed = true;
+      io.disconnect();
+      v.removeEventListener("loadedmetadata", tryPlay);
+      v.removeEventListener("canplay", tryPlay);
+      v.removeEventListener("playing", onPlaying);
+    };
   }, []);
+
+  const manualPlay = () => {
+    const v = vidRef.current;
+    if (!v) return;
+    v.muted = true;
+    void v.play().then(() => setBlocked(false)).catch(() => {});
+  };
 
   return (
     <div ref={wrapRef} style={{ padding: "38px 16px 0" }}>
       {/* ── BLOCK 1: video only, completely unobstructed ── */}
       <div style={{
+        position: "relative",
         borderRadius: 12,
         overflow: "hidden",
         border: "1px solid rgba(0,174,239,0.2)",
@@ -422,6 +471,7 @@ function PrecisionApproachSection() {
         <video
           ref={vidRef}
           poster="/tls-precision-poster.jpg"
+          autoPlay
           muted
           loop
           playsInline
@@ -440,6 +490,40 @@ function PrecisionApproachSection() {
           {/* Desktop / large screens load the full-resolution master */}
           <source src="/tls-precision-1080p.mp4" type="video/mp4" />
         </video>
+
+        {/* Shown ONLY if the browser blocked autoplay. Disappears on first play. */}
+        {blocked && (
+          <button
+            type="button"
+            onClick={manualPlay}
+            aria-label="Play Precision Approach video"
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(3,8,15,0.35)",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <span style={{
+              width: 76,
+              height: 76,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(0,174,239,0.18)",
+              border: "2px solid #00AEEF",
+              boxShadow: "0 0 26px rgba(0,174,239,0.5)",
+            }}>
+              <Play size={34} color="#EAF7FF" fill="#EAF7FF" style={{ marginLeft: 4 }} />
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ── BLOCK 2: information panel, text only, below the video ── */}
