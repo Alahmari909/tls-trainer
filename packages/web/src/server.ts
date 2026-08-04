@@ -1,5 +1,24 @@
 import app from "./api";
 
+// ── Layer 0: Crash guard ─────────────────────────────────────────────────────
+// Many notification/telemetry calls are fire-and-forget (`sendTelegram({...})`
+// with no await and no .catch). Without these handlers a single rejected
+// promise terminates the Bun process and Railway reports the service as
+// CRASHED with the whole site returning 502. Log loudly, stay alive.
+process.on("unhandledRejection", (reason: any) => {
+  console.error(
+    "[fatal-guard] Unhandled promise rejection (server kept alive):",
+    reason?.stack ?? reason?.message ?? reason
+  );
+});
+process.on("uncaughtException", (err: any) => {
+  console.error(
+    "[fatal-guard] Uncaught exception (server kept alive):",
+    err?.stack ?? err?.message ?? err
+  );
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 const port = Number(process.env.PORT ?? 3000);
 
 // ── Layer 2: Security Headers ────────────────────────────────────────────────
