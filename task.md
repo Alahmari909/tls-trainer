@@ -1,51 +1,67 @@
-# Phase 2 — Knowledge Base Rebuild (branch ai-instructor-v2)
+# TLS Trainer — production outage (502) + pending video fix
 
-## Scope (user constraints)
-- ALLOWED: index cleaning, PDF re-extraction, chunk metadata, retrieval logic, image mapping, chunking/context
-- FORBIDDEN: UI changes, AI Instructor behavior change, prompt change, design change, Railway deploy, merge to main
+## Outage: ROOT CAUSE FOUND & FIXED
+Railway service `@template/web` = **CRASHED** (not a hosting/billing problem; account is fine).
 
-## Tasks
-1. [ ] Clean index — remove poisoned/OCR-refusal chunks
-2. [ ] Re-extract text from all PDFs at best quality
-3. [ ] Chunk metadata: filename + section/chapter + real page number
-4. [ ] Rebuild search: file -> section -> page (not pure similarity)
-5. [ ] Image fix: bind filename+page, no image if no valid match
-6. [ ] Fix context truncation + chunk splitting mid-information
-7. [ ] Report: files reindexed, pages, new chunks, search success before/after, examples
+Production log:
+```
+TypeError: text.replace is not a function
+  at row (/app/packages/web/src/api/telegram.ts)
+  at buildMessage
+  at sendTelegram
+```
 
-## Baseline (measured before rebuild)
-- total chunks: 1204
-- poisoned (OCR refusal): 17
-- chunks <200 chars: 131 (10.9%)
-- chunks <80 chars: 18
-- avg chunk 1251 chars, max 6000
-- pdfContext cap 9000 -> 8 chunks x 1251 = 10008 -> TRUNCATION
-- ai_doc_page_images rows: 100 (vs 1204 chunks)
-- 3 image path schemes: /slides/, /doc-pages/, /api/doc-page/
+`esc(text: string)` in `packages/web/src/api/telegram.ts` was typed as string but
+receives values straight off JSON request bodies (`/track`), which can be
+null / undefined / number / object. The throw became an **unhandled promise
+rejection** because nearly every caller is fire-and-forget
+(`sendTelegram({...})` — no await, no .catch). There were **zero**
+`process.on("unhandledRejection")` handlers in the repo, so Bun killed the
+process → Railway 502.
 
-## Decisions
-- isRefusalText() + gpt-4o escalation added to openaiVisionExtract (done, uncommitted)
+### Fix (branch `fix/telegram-crash`, commit d37afda) — 3 layers
+1. `esc()` coerces unknown runtime values; missing renders as em dash. `clip()` added for safe truncation.
+2. `sendTelegram()` wraps `buildMessage` in try/catch — can never reject.
+   Also fixed `quiz_finish` divide-by-zero and `status_change` `.toUpperCase()` on missing status.
+3. `server.ts`: global `unhandledRejection` + `uncaughtException` guards —
+   no single fire-and-forget bug can take the site down again.
 
-## SOURCE LOCATION — RESOLVED (2026-08-02)
-Earlier "m1-m9 unrecoverable" conclusion was WRONG. Large files live in
-`packages/web/static/`, NOT `packages/web/public/`.
-- M1-M9 original PDFs: `packages/web/static/pdfs/` (9 files, 62 MB, 627 pages)
-  page counts match doc-pages dirs AND DB page counts 1:1 (100%)
-- Page images: `packages/web/static/doc-pages/` (40 dirs, 871 jpgs, git-tracked)
-- Admin doc copies: `packages/web/static/admin-docs/` (41 pdf + 1 pptx)
-- DB source bytes: `document_files.file_data` (base64), 35 rows
-- Served by `packages/web/src/server.ts:56` (dist -> static fallback)
-- Indexer reads only `static/admin-docs` + `static/pdfs` (index.ts:3438-3445)
-- Manual defs: `packages/web/src/web/pages/manuals.tsx:16-26`, open via `/pdfs/<file>`
-- 43/43 indexed sources are re-extractable. 0 missing.
-Issues found:
-- ATC Quick Guide indexed TWICE (m9 + d46) -> duplicate hits
-- document_files doc 69 (TLS_Training_Slides.pdf, 32.4MB) has 0 chunks
-  (blocked by 30MB cap at index.ts:3459); compressed doc 70 is the indexed one
-- doc_id 72 has chunks + bytes but NO row in `documents`
-- documents.file_data is 0 bytes for all rows
-Report: AI_INSTRUCTOR_PHASE2_SOURCES.md
+### Proof captured
+- `hero/repro_crash.ts` — before: 6/7 event shapes throw. after: 0/7.
+- `hero/probe_fireforget.ts` — fire-and-forget, no await/catch:
+  - on `main`: process DIES, exact prod stack `esc → row → buildMessage → sendTelegram`
+  - on fix branch: `STILL ALIVE ... process survived`
+- `hero/verify_msgs.ts` — all messages still render; MarkdownV2 escaping intact
+  (`Test\_1 \(v2\.0\) \[x\] \-done\!`).
+- `/tmp/guard_test.ts` — guard survives rogue rejection + sync throw; without guard the process dies.
+- Gates: `cd packages/web && bunx tsc --noEmit` rc=0 · `bun run build:web` rc=0.
+- Clean-checkout boot of `main` (`d123b2f`) ran fine locally → confirmed code builds/starts; crash is event-triggered at runtime.
 
-## Progress log
-- 2026-08-02: located all source PDFs, wrote AI_INSTRUCTOR_PHASE2_SOURCES.md.
-  No code changes made in this step. Awaiting go-ahead for rebuild.
+## Video fix: DEPLOYED & VERIFIED ON LIVE (merge 08829a1)
+Precision Approach autoplay fix merged to main and live in bundle
+`main-7x9Nipyc.js`. Merge touched only `index.tsx`; telegram fix intact.
+
+LIVE production proof (`hero/proof_live.log`), real autoplay policy:
+- m390:  currentTime 7.06 -> 10.07 MOVING=True · 4/4 distinct pixel hashes ·
+         src=tls-precision-720p.mp4 · mutedAttr/autoplayAttr=true ·
+         controls=false · fit=contain · playBtn=false
+- d1440: currentTime 7.02 -> 10.03 MOVING=True · 4/4 distinct pixel hashes ·
+         src=tls-precision-1080p.mp4 · mutedAttr/autoplayAttr=true ·
+         controls=false · fit=contain · playBtn=false
+All 13 requirements satisfied.
+
+## Notes
+- Railway token in `.env.railway` AND the newly supplied one are both rejected
+  (`Not Authorized` / `Project Token not found`) — no CLI access to logs from sandbox.
+- `start.sh` runs `bun install` + `vite build` on every container start, with
+  379MB `static/` + 46MB `public/`. Slow/risky boot; worth moving to build phase later.
+
+## Status: COMPLETE
+Site up (200, stable across 5 checks), DB healthy, video playing on live at
+both breakpoints. Both fixes deployed.
+
+Outstanding (non-urgent):
+- Railway token still unusable from sandbox (`Not Authorized`) — needs a token
+  scoped to the workspace owning this project for future log access.
+- `start.sh` builds on every container boot (379MB static + 46MB public);
+  worth moving to the build phase.
