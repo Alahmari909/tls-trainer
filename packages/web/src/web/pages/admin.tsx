@@ -4424,8 +4424,12 @@ function AdminPrivateChatList({ adminPw }: { adminPw: string }) {
 }
 
 // ─── Common Faults Admin ─────────────────────────────────────────────────────
-interface FaultMedia { id: number; fault_id: number; mime_type: string; filename: string; sort_order: number; }
-interface FaultItem { id: number; title: string; cause: string; solution: string; created_at: number; media: FaultMedia[]; }
+interface FaultMedia { id: number; fault_id: number; mime_type: string; filename: string; caption?: string; sort_order: number; }
+interface FaultItem {
+  id: number; title: string; category?: string; cause: string; solution: string;
+  error_message?: string; symptom?: string; quick_check?: string; fix_procedure?: string;
+  verify_text?: string; published?: number; created_at: number; media: FaultMedia[];
+}
 
 // ── Error Codes Admin ─────────────────────────────────────────────────────────
 function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
@@ -4668,8 +4672,15 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
   const [editId, setEditId]         = useState<number | null>(null); // null = new
   const [showForm, setShowForm]     = useState(false);
   const [fTitle, setFTitle]         = useState("");
+  const [fCategory, setFCategory]   = useState("");
   const [fCause, setFCause]         = useState("");
   const [fSolution, setFSolution]   = useState("");
+  const [fError, setFError]         = useState("");
+  const [fSymptom, setFSymptom]     = useState("");
+  const [fQuick, setFQuick]         = useState("");
+  const [fFix, setFFix]             = useState("");
+  const [fVerify, setFVerify]       = useState("");
+  const [fPublished, setFPublished] = useState(true);
 
   // CSV import
   const csvRef = useRef<HTMLInputElement>(null);
@@ -4681,36 +4692,66 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
 
   function load() {
     setLoading(true);
-    fetch("/api/faults").then(r => r.json()).then(d => { setFaults(d); setLoading(false); }).catch(() => setLoading(false));
+    fetch("/api/admin/faults", { headers: { "x-admin-pw": adminPw } })
+      .then(r => r.json())
+      .then(d => { setFaults(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
   }
   useEffect(() => { load(); }, []);
 
   function openNew() {
     setEditId(null);
-    setFTitle(""); setFCause(""); setFSolution("");
+    setFTitle(""); setFCategory(""); setFCause(""); setFSolution("");
+    setFError(""); setFSymptom(""); setFQuick(""); setFFix(""); setFVerify("");
+    setFPublished(true);
     setShowForm(true);
   }
   function openEdit(f: FaultItem) {
     setEditId(f.id);
-    setFTitle(f.title); setFCause(f.cause); setFSolution(f.solution);
+    setFTitle(f.title); setFCategory(f.category ?? "");
+    setFCause(f.cause ?? ""); setFSolution(f.solution ?? "");
+    setFError(f.error_message ?? ""); setFSymptom(f.symptom ?? "");
+    setFQuick(f.quick_check ?? ""); setFFix(f.fix_procedure ?? "");
+    setFVerify(f.verify_text ?? "");
+    setFPublished(f.published !== 0);
     setShowForm(true);
   }
 
   async function saveFault() {
-    if (!fTitle.trim() || !fCause.trim() || !fSolution.trim()) { alert("All fields are required."); return; }
+    if (!fTitle.trim()) { alert("Title is required."); return; }
+    const payload = {
+      title: fTitle, category: fCategory, cause: fCause, solution: fSolution,
+      error_message: fError, symptom: fSymptom, quick_check: fQuick,
+      fix_procedure: fFix, verify_text: fVerify, published: fPublished ? 1 : 0,
+    };
     setSaving(true);
     try {
       if (editId === null) {
-        const r = await fetch("/api/admin/faults", { method: "POST", headers, body: JSON.stringify({ title: fTitle, cause: fCause, solution: fSolution }) });
+        const r = await fetch("/api/admin/faults", { method: "POST", headers, body: JSON.stringify(payload) });
         if (!r.ok) throw new Error(await r.text());
       } else {
-        const r = await fetch(`/api/admin/faults/${editId}`, { method: "PATCH", headers, body: JSON.stringify({ title: fTitle, cause: fCause, solution: fSolution }) });
+        const r = await fetch(`/api/admin/faults/${editId}`, { method: "PATCH", headers, body: JSON.stringify(payload) });
         if (!r.ok) throw new Error(await r.text());
       }
       setShowForm(false);
       load();
     } catch (e: any) { alert("Error: " + e.message); }
     setSaving(false);
+  }
+
+  async function togglePublished(f: FaultItem) {
+    await fetch(`/api/admin/faults/${f.id}`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ published: f.published === 0 ? 1 : 0 }),
+    });
+    load();
+  }
+
+  async function editCaption(m: FaultMedia) {
+    const caption = prompt("Caption for this file:", m.caption ?? "");
+    if (caption === null) return;
+    await fetch(`/api/admin/faults/media/${m.id}`, { method: "PATCH", headers, body: JSON.stringify({ caption }) });
+    load();
   }
 
   async function deleteFault(id: number) {
@@ -4728,6 +4769,7 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
   async function uploadMedia(faultId: number, files: FileList) {
     setUploadingFor(faultId);
     for (const file of Array.from(files)) {
+      const caption = prompt(`Caption for "${file.name}" (shown under the file — leave empty for none):`, "") ?? "";
       const reader = new FileReader();
       await new Promise<void>((resolve) => {
         reader.onload = async () => {
@@ -4735,7 +4777,7 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
           await fetch(`/api/admin/faults/${faultId}/media`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ media_data: b64, mime_type: file.type, filename: file.name }),
+            body: JSON.stringify({ media_data: b64, mime_type: file.type, filename: file.name, caption }),
           });
           resolve();
         };
@@ -4803,18 +4845,53 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
             {editId === null ? "New Fault" : "Edit Fault"}
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label style={labelStyle}>TITLE</label>
-              <input style={inputStyle} value={fTitle} onChange={e => setFTitle(e.target.value)} placeholder="e.g. ILS LOC signal lost on approach" />
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 220px" }}>
+                <label style={labelStyle}>TITLE *</label>
+                <input style={inputStyle} value={fTitle} onChange={e => setFTitle(e.target.value)} placeholder="e.g. RCU – Approach.dat Read Error" />
+              </div>
+              <div style={{ flex: "0 1 150px" }}>
+                <label style={labelStyle}>CATEGORY</label>
+                <input style={inputStyle} value={fCategory} onChange={e => setFCategory(e.target.value)} placeholder="e.g. RCU" />
+              </div>
             </div>
             <div>
-              <label style={labelStyle}>CAUSE</label>
-              <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={fCause} onChange={e => setFCause(e.target.value)} placeholder="Root cause, contributing factors..." />
+              <label style={labelStyle}>⚠ ERROR MESSAGE</label>
+              <textarea style={{ ...inputStyle, minHeight: 70, resize: "vertical", fontFamily: "ui-monospace, Menlo, Consolas, monospace" }} value={fError} onChange={e => setFError(e.target.value)} placeholder="Exact on-screen error text..." />
             </div>
             <div>
-              <label style={labelStyle}>SOLUTION</label>
-              <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={fSolution} onChange={e => setFSolution(e.target.value)} placeholder="Steps to resolve, checks, fix procedure..." />
+              <label style={labelStyle}>🩺 SYMPTOM</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={fSymptom} onChange={e => setFSymptom(e.target.value)} placeholder="What the technician observes..." />
             </div>
+            <div>
+              <label style={labelStyle}>🔍 QUICK CHECK</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={fQuick} onChange={e => setFQuick(e.target.value)} placeholder="First thing to check..." />
+            </div>
+            <div>
+              <label style={labelStyle}>🛠 FIX PROCEDURE — one step per line</label>
+              <textarea style={{ ...inputStyle, minHeight: 110, resize: "vertical" }} value={fFix} onChange={e => setFFix(e.target.value)} placeholder={"Check all RCU connections.\nRestore the communication link.\n..."} />
+            </div>
+            <div>
+              <label style={labelStyle}>✓ VERIFY</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={fVerify} onChange={e => setFVerify(e.target.value)} placeholder="How to confirm the fault is cleared..." />
+            </div>
+            <details>
+              <summary style={{ ...labelStyle, cursor: "pointer", marginBottom: 8 }}>LEGACY FIELDS (CAUSE / SOLUTION) — optional</summary>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>CAUSE</label>
+                  <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={fCause} onChange={e => setFCause(e.target.value)} placeholder="Root cause, contributing factors..." />
+                </div>
+                <div>
+                  <label style={labelStyle}>SOLUTION</label>
+                  <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={fSolution} onChange={e => setFSolution(e.target.value)} placeholder="Steps to resolve..." />
+                </div>
+              </div>
+            </details>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#ccc", fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={fPublished} onChange={e => setFPublished(e.target.checked)} />
+              Published — visible to trainees
+            </label>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button
@@ -4846,10 +4923,23 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
                   onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}
                   style={{ flex: 1, color: "#e0e0e0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
                 >{f.title}</span>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
+                  {f.category ? (
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, background: "rgba(0,212,255,0.1)", border: "1px solid #00d4ff33", color: "#00d4ff", borderRadius: 4, padding: "2px 6px" }}>{f.category}</span>
+                  ) : null}
                   <span style={{ fontSize: 11, color: "#555" }}>
                     {f.media.length > 0 ? `${f.media.length} media` : "no media"}
                   </span>
+                  <button
+                    onClick={() => togglePublished(f)}
+                    title={f.published === 0 ? "Publish for trainees" : "Unpublish (hide from trainees)"}
+                    style={{
+                      padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12,
+                      background: f.published === 0 ? "rgba(255,184,77,0.1)" : "rgba(74,222,128,0.1)",
+                      border: `1px solid ${f.published === 0 ? "rgba(255,184,77,0.35)" : "rgba(74,222,128,0.35)"}`,
+                      color: f.published === 0 ? "#ffb84d" : "#4ade80",
+                    }}
+                  >{f.published === 0 ? "Draft" : "Published"}</button>
                   <button
                     onClick={() => openEdit(f)}
                     style={{ padding: "4px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#aaa", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
@@ -4864,14 +4954,22 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
               {/* Expanded detail + media manager */}
               {expandedId === f.id && (
                 <div style={{ padding: "12px 16px 16px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: "#ff8080", fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>CAUSE</div>
-                    <div style={{ color: "#bbb", fontSize: 13, whiteSpace: "pre-wrap" }}>{f.cause}</div>
-                  </div>
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>SOLUTION</div>
-                    <div style={{ color: "#bbb", fontSize: 13, whiteSpace: "pre-wrap" }}>{f.solution}</div>
-                  </div>
+                  {([
+                    ["⚠ ERROR MESSAGE", f.error_message, "#ff8080"],
+                    ["🩺 SYMPTOM", f.symptom, "#ffb84d"],
+                    ["🔍 QUICK CHECK", f.quick_check, "#00d4ff"],
+                    ["🛠 FIX PROCEDURE", f.fix_procedure, "#4ade80"],
+                    ["✓ VERIFY", f.verify_text, "#4ade80"],
+                    ["CAUSE (legacy)", f.cause, "#ff8080"],
+                    ["SOLUTION (legacy)", f.solution, "#4ade80"],
+                  ] as [string, string | undefined, string][])
+                    .filter(([, v]) => (v ?? "").trim())
+                    .map(([label, v, color]) => (
+                      <div key={label} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, color, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>{label}</div>
+                        <div style={{ color: "#bbb", fontSize: 13, whiteSpace: "pre-wrap", direction: "ltr", textAlign: "left" }}>{v}</div>
+                      </div>
+                    ))}
 
                   {/* Media */}
                   <div style={{ fontSize: 11, color: "#00d4ff", fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>MEDIA FILES</div>
@@ -4885,8 +4983,13 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
                             {m.mime_type.startsWith("image/") ? "🖼" : m.mime_type.startsWith("video/") ? "🎬" : "📄"}
                           </span>
                           <span style={{ fontSize: 12, color: "#aaa", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {m.filename || m.mime_type}
+                            {m.caption || m.filename || m.mime_type}
                           </span>
+                          <button
+                            onClick={() => editCaption(m)}
+                            style={{ background: "none", border: "none", color: "#00d4ff", cursor: "pointer", fontSize: 12, padding: "0 2px" }}
+                            title="Edit caption"
+                          >✎</button>
                           <button
                             onClick={() => deleteMedia(m.id)}
                             style={{ background: "none", border: "none", color: "#ff6060", cursor: "pointer", fontSize: 13, padding: "0 2px" }}

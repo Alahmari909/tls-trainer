@@ -261,6 +261,15 @@ async function ensureTables() {
       created_at INTEGER NOT NULL,
       FOREIGN KEY (fault_id) REFERENCES common_faults(id) ON DELETE CASCADE
     )`);
+    // Structured fault fields (added incrementally — safe on existing rows)
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN category TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN error_message TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN symptom TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN quick_check TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN fix_procedure TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN verify_text TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await client.execute(`ALTER TABLE common_faults ADD COLUMN published INTEGER NOT NULL DEFAULT 1`).catch(() => {});
+    await client.execute(`ALTER TABLE fault_media ADD COLUMN caption TEXT NOT NULL DEFAULT ''`).catch(() => {});
     // ── Error Codes table (TLS Maintenance Manual Table 3-7) ─────────────────
     await client.execute(`CREATE TABLE IF NOT EXISTS error_codes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4322,21 +4331,35 @@ const app = new Hono()
 
 // ── Common Faults ──────────────────────────────────────────────────────────────
 
-// GET /faults — list all faults (no media data, just metadata)
-app.get('/faults', async (c) => {
-  const rows = await sql(`SELECT id, title, cause, solution, created_at FROM common_faults ORDER BY id DESC`);
-  // attach media list per fault (id, mime_type, filename, sort_order — no data)
+// ── shared: load faults (+ media metadata, no blob data) ─────────────────────
+const FAULT_COLS = `id, title, category, cause, solution, error_message, symptom, quick_check, fix_procedure, verify_text, published, created_at`;
+
+async function loadFaults(publishedOnly: boolean) {
+  const rows = await sql(
+    `SELECT ${FAULT_COLS} FROM common_faults ${publishedOnly ? 'WHERE published=1' : ''} ORDER BY id DESC`
+  );
   const faultIds = (rows as any[]).map((r: any) => r.id);
   let mediaRows: any[] = [];
   if (faultIds.length > 0) {
     const placeholders = faultIds.map(() => '?').join(',');
-    mediaRows = await sql(`SELECT id, fault_id, mime_type, filename, sort_order FROM fault_media WHERE fault_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`, faultIds);
+    mediaRows = await sql(`SELECT id, fault_id, mime_type, filename, caption, sort_order FROM fault_media WHERE fault_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`, faultIds);
   }
-  const faults = (rows as any[]).map((f: any) => ({
+  return (rows as any[]).map((f: any) => ({
     ...f,
     media: (mediaRows as any[]).filter((m: any) => m.fault_id === f.id),
   }));
-  return c.json(faults, 200);
+}
+
+// GET /faults — published faults for trainees (no media data, just metadata)
+app.get('/faults', async (c) => {
+  return c.json(await loadFaults(true), 200);
+});
+
+// GET /admin/faults — all faults incl. unpublished (admin panel)
+app.get('/admin/faults', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
+  return c.json(await loadFaults(false), 200);
 });
 
 // GET /faults/:id/media/:mediaId — stream a single media file
@@ -4346,23 +4369,54 @@ app.get('/faults/:id/media/:mediaId', async (c) => {
   if (!row) return c.json({ error: 'Not found' }, 404);
   const r = row as any;
   const buf = Buffer.from(r.media_data as string, 'base64');
-  return new Response(buf, { headers: { 'Content-Type': r.mime_type, 'Cache-Control': 'public,max-age=86400' } });
+  const baseHeaders: Record<string, string> = {
+    'Content-Type': r.mime_type,
+    'Cache-Control': 'public,max-age=86400',
+    'Accept-Ranges': 'bytes',
+  };
+  // Byte-range support — required by iOS Safari for <video> playback/seeking
+  const range = c.req.header('range');
+  const m = range ? /bytes=(\d*)-(\d*)/.exec(range) : null;
+  if (m) {
+    const total = buf.length;
+    const start = m[1] ? parseInt(m[1], 10) : 0;
+    const end = m[2] ? Math.min(parseInt(m[2], 10), total - 1) : total - 1;
+    if (Number.isNaN(start) || start > end || start >= total) {
+      return new Response(null, { status: 416, headers: { ...baseHeaders, 'Content-Range': `bytes */${total}` } });
+    }
+    const slice = buf.subarray(start, end + 1);
+    return new Response(slice, {
+      status: 206,
+      headers: { ...baseHeaders, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': String(slice.length) },
+    });
+  }
+  return new Response(buf, { headers: { ...baseHeaders, 'Content-Length': String(buf.length) } });
 });
 
-// POST /admin/faults — create fault (title, cause, solution)
+// POST /admin/faults — create fault (title required; structured fields optional)
 app.post('/admin/faults', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
   if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const body = await c.req.json();
-  const { title, cause, solution } = body as any;
-  if (!title || !cause || !solution) return c.json({ error: 'Missing fields' }, 400);
+  const b = body as any;
+  const title = typeof b.title === 'string' ? b.title.trim() : '';
+  if (!title) return c.json({ error: 'Missing fields' }, 400);
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
   const now = Date.now();
-  await sqlRun(`INSERT INTO common_faults (title, cause, solution, created_at) VALUES (?,?,?,?)`, [title, cause, solution, now]);
+  await sqlRun(
+    `INSERT INTO common_faults (title, category, cause, solution, error_message, symptom, quick_check, fix_procedure, verify_text, published, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      title, str(b.category), str(b.cause), str(b.solution), str(b.error_message),
+      str(b.symptom), str(b.quick_check), str(b.fix_procedure), str(b.verify_text),
+      b.published === 0 || b.published === false ? 0 : 1, now,
+    ]
+  );
   const [row] = await sql(`SELECT id FROM common_faults WHERE rowid=last_insert_rowid()`);
   return c.json({ id: (row as any).id }, 201);
 });
 
-// PATCH /admin/faults/:id — update title/cause/solution
+// PATCH /admin/faults/:id — update any fault field
 app.patch('/admin/faults/:id', async (c) => {
   const pw = c.req.header('x-admin-pw') ?? '';
   if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
@@ -4370,9 +4424,13 @@ app.patch('/admin/faults/:id', async (c) => {
   const body = await c.req.json();
   const fields: string[] = [];
   const vals: any[] = [];
-  if (body.title !== undefined) { fields.push('title=?'); vals.push(body.title); }
-  if (body.cause !== undefined) { fields.push('cause=?'); vals.push(body.cause); }
-  if (body.solution !== undefined) { fields.push('solution=?'); vals.push(body.solution); }
+  for (const col of ['title', 'category', 'cause', 'solution', 'error_message', 'symptom', 'quick_check', 'fix_procedure', 'verify_text'] as const) {
+    if (body[col] !== undefined) { fields.push(`${col}=?`); vals.push(String(body[col] ?? '')); }
+  }
+  if (body.published !== undefined) {
+    fields.push('published=?');
+    vals.push(body.published === 0 || body.published === false ? 0 : 1);
+  }
   if (fields.length === 0) return c.json({ error: 'Nothing to update' }, 400);
   vals.push(id);
   await sqlRun(`UPDATE common_faults SET ${fields.join(',')} WHERE id=?`, vals);
@@ -4395,15 +4453,26 @@ app.post('/admin/faults/:id/media', async (c) => {
   if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
   const faultId = c.req.param('id');
   const body = await c.req.json();
-  const { media_data, mime_type, filename, sort_order } = body as any;
+  const { media_data, mime_type, filename, sort_order, caption } = body as any;
   if (!media_data || !mime_type) return c.json({ error: 'Missing fields' }, 400);
   const now = Date.now();
   await sqlRun(
-    `INSERT INTO fault_media (fault_id, media_data, mime_type, filename, sort_order, created_at) VALUES (?,?,?,?,?,?)`,
-    [faultId, media_data, mime_type, filename ?? '', sort_order ?? 0, now]
+    `INSERT INTO fault_media (fault_id, media_data, mime_type, filename, caption, sort_order, created_at) VALUES (?,?,?,?,?,?,?)`,
+    [faultId, media_data, mime_type, filename ?? '', typeof caption === 'string' ? caption : '', sort_order ?? 0, now]
   );
   const [row] = await sql(`SELECT id FROM fault_media WHERE rowid=last_insert_rowid()`);
   return c.json({ id: (row as any).id }, 201);
+});
+
+// PATCH /admin/faults/media/:mediaId — update a media caption
+app.patch('/admin/faults/media/:mediaId', async (c) => {
+  const pw = c.req.header('x-admin-pw') ?? '';
+  if (pw !== (process.env.ADMIN_PASSWORD ?? 'TLS319522')) return c.json({ error: 'Unauthorized' }, 401);
+  const mediaId = c.req.param('mediaId');
+  const body = await c.req.json();
+  if (body.caption === undefined) return c.json({ error: 'Nothing to update' }, 400);
+  await sqlRun(`UPDATE fault_media SET caption=? WHERE id=?`, [String(body.caption ?? ''), mediaId]);
+  return c.json({ ok: true }, 200);
 });
 
 // DELETE /admin/faults/media/:mediaId — remove one media item
