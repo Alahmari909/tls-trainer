@@ -60,12 +60,34 @@ function useDynamicNav() {
 
 export default function Sidebar() {
   const [location, setLocation] = useLocation();
-  const session = getSession();
+  // Session must be REACTIVE. Sidebar mounts outside <AuthGate>, so on a fresh
+  // browser it mounts before login, when getSession() is still null. Reading it
+  // once meant the desktop topbar returned null and never came back for the
+  // whole browser session — no navigation at all on laptops until a manual
+  // refresh. Mirror the same poll + storage listener AuthGate/NavMenu use.
+  const [session, setSession] = useState(() => getSession());
+  const [guest, setGuest] = useState(
+    () => typeof sessionStorage !== "undefined" && sessionStorage.getItem("tls_guest_mode") === "1"
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const dynNavItems = useDynamicNav();
+
+  // Keep session/guest state in sync (login, logout, other tabs)
+  useEffect(() => {
+    const check = () => {
+      setSession(getSession());
+      setGuest(sessionStorage.getItem("tls_guest_mode") === "1");
+    };
+    window.addEventListener("storage", check);
+    const id = setInterval(check, 2000);
+    return () => {
+      window.removeEventListener("storage", check);
+      clearInterval(id);
+    };
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -98,7 +120,8 @@ export default function Sidebar() {
     return () => clearInterval(id);
   }, [session?.id]);
 
-  if (!session) return null;
+  // Hide only when there is neither a session nor guest mode (i.e. login screen).
+  if (!session && !guest) return null;
 
   const isActive = (href: string) =>
     location === href ||
@@ -152,7 +175,8 @@ export default function Sidebar() {
                   </Link>
                 );
               })}
-              {/* Logout */}
+              {/* Logout — only for a real session, not guest mode */}
+              {session && (
               <div style={{ padding: "4px 4px 4px", borderTop: "1px solid rgba(255,77,77,0.1)", marginTop: 4 }}>
                 <button
                   onClick={() => {
@@ -191,12 +215,14 @@ export default function Sidebar() {
                   LOGOUT
                 </button>
               </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Right: bell icon */}
+        {/* Right: bell icon — only for a real session */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          {session && (
           <button
             onClick={() => setLocation("/notifications")}
             style={{
@@ -224,6 +250,7 @@ export default function Sidebar() {
               </span>
             )}
           </button>
+          )}
         </div>
 
         {/* Animated shimmer glow overlay (decorative, behind everything) */}
