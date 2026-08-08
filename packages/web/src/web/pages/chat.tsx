@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import BackButton from "../components/BackButton";
 import MarkdownMessage from "../components/MarkdownMessage";
+import ImageLightbox from "../components/ImageLightbox";
 import { getSession } from "../hooks/useTelegramTrack";
 
 const C = "#00AEEF";
@@ -821,9 +822,21 @@ function AIInstructor() {
                   {msg.images.map((img, idx) => (
                     <div key={idx} onClick={() => setImgZoom(img)} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C}25`, cursor: "zoom-in", position: "relative" }}>
                       <img src={img.path} alt={img.label}
-                        style={{ width: "100%", maxHeight: 220, objectFit: "contain", background: "rgba(0,0,0,0.3)", display: "block" }}
+                        style={{
+                          width: "100%", height: "auto",
+                          maxHeight: "56vh",
+                          objectFit: "contain", background: "rgba(0,0,0,0.3)", display: "block",
+                          WebkitTouchCallout: "none",
+                        } as React.CSSProperties}
                         loading="lazy" />
-                      <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.55)", borderRadius: 6, padding: "2px 6px", fontSize: 11, color: "#fff" }}>⛶</div>
+                      <div style={{
+                        position: "absolute", top: 8, right: 8,
+                        background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.22)",
+                        borderRadius: 8, padding: "4px 8px", fontSize: 13, color: "#fff",
+                        display: "flex", alignItems: "center", gap: 4, pointerEvents: "none",
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.2" y2="16.2" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
+                      </div>
                       <div style={{ padding: "5px 8px", background: "rgba(0,0,0,0.4)", fontSize: 10, color: "var(--text-muted)", fontFamily: "Inter" }}>
                         {img.label}
                       </div>
@@ -959,11 +972,7 @@ function AIInstructor() {
         </div>
       </div>
       {imgZoom && (
-        <div onClick={() => setImgZoom(null)} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <img src={imgZoom.path} alt={imgZoom.label} onClick={e => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 8, boxShadow: `0 0 40px ${C}30`, objectFit: "contain" }} />
-          <div style={{ marginTop: 12, color: "#fff", fontSize: 13, fontFamily: "Inter", textAlign: "center" }}>{imgZoom.label}</div>
-          <button onClick={() => setImgZoom(null)} style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", width: 36, height: 36, color: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-        </div>
+        <ImageLightbox src={imgZoom.path} label={imgZoom.label} onClose={() => setImgZoom(null)} />
       )}
     </div>
   );
