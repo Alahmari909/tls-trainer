@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { LogIn, Download, Share2, PlusSquare, Check, X, Smartphone } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -78,7 +79,10 @@ function InstallSheet({ ios, onClose }: { ios: boolean; onClose: () => void }) {
         { icon: <Check size={20} strokeWidth={2} color={CYAN} />, text: "Confirm to finish installing." },
       ];
 
-  return (
+  /* Rendered through a portal to <body>: a position:fixed overlay nested inside
+     another fixed + scrollable ancestor is hit-tested at the wrong offset on
+     iOS Safari (visible, but taps land on the element behind it). */
+  const sheet = (
     <div
       className="tls-install-backdrop"
       onClick={onClose}
@@ -90,7 +94,11 @@ function InstallSheet({ ios, onClose }: { ios: boolean; onClose: () => void }) {
         <div className="tls-install-grip" />
         <div className="tls-install-head">
           <div className="font-orbitron tls-install-title">Install TLS Trainer</div>
-          <button className="tls-install-x" onClick={onClose} aria-label="Close">
+          <button
+            className="tls-install-x"
+            onClick={e => { e.stopPropagation(); onClose(); }}
+            aria-label="Close"
+          >
             <X size={16} strokeWidth={2} />
           </button>
         </div>
@@ -103,10 +111,18 @@ function InstallSheet({ ios, onClose }: { ios: boolean; onClose: () => void }) {
             </li>
           ))}
         </ol>
-        <button className="tls-btn tls-btn--ghost tls-install-cancel" onClick={onClose}>CANCEL</button>
+        <button
+          className="tls-btn tls-btn--ghost tls-install-cancel"
+          onClick={e => { e.stopPropagation(); onClose(); }}
+        >
+          CANCEL
+        </button>
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return sheet;
+  return createPortal(sheet, document.body);
 }
 
 /* ── Welcome screen ──────────────────────────────────────────────────────── */

@@ -1636,6 +1636,7 @@ input:focus, textarea:focus, select:focus {
   letter-spacing: 0.1em;
   transition: transform 140ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .tls-btn--primary {
@@ -1675,6 +1676,8 @@ input:focus, textarea:focus, select:focus {
   align-items: flex-end;
   justify-content: center;
   animation: tlsWelcomeIn 160ms ease-out;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .tls-install-sheet {
@@ -1728,10 +1731,12 @@ input:focus, textarea:focus, select:focus {
   background: rgba(0,174,239,0.08);
   border: 1px solid rgba(0,174,239,0.24);
   border-radius: 9px;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   color: #00AEEF;
   display: flex;
   align-items: center;
