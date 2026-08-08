@@ -5496,22 +5496,24 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
                 if (mobile) {
                   // Right half of the screen (~50vw), attached under the header,
-                  // independently scrollable, portaled out of the zoomed root.
+                  // portaled out of the zoomed root so `.admin-root { zoom }`
+                  // cannot distort it.
+                  //
+                  // iPhone Safari scroll fix: the panel is anchored with BOTH
+                  // top and bottom (a real fixed box height) instead of only
+                  // `top` + `maxHeight`. With just maxHeight, iOS treated the
+                  // panel as auto-height inside the rubber-band region, so a
+                  // drag snapped back to the top on touchend. Height is driven
+                  // by CSS custom properties, not by re-rendered inline values,
+                  // so updating the header offset never remounts the node and
+                  // never resets scrollTop. No touch handlers are attached —
+                  // `touch-action: pan-y` + `overscroll-behavior: contain` keep
+                  // the drag inside the panel and the page behind stationary.
                   return createPortal((
                     <div
                       ref={menuPanelRef}
                       className="admin-menu-panel admin-menu-panel--mobile"
-                      style={{
-                        position: "fixed", top: menuTop, right: 12,
-                        width: "50vw", minWidth: 176, maxWidth: 260,
-                        maxHeight: `calc(100vh - ${menuTop + 16}px)`,
-                        overflowY: "auto", overflowX: "hidden",
-                        overscrollBehavior: "contain",
-                        WebkitOverflowScrolling: "touch",
-                        background: "#0a1a0a", border: "1px solid rgba(0,255,136,0.25)",
-                        borderRadius: 12, zIndex: 10001,
-                        boxShadow: "0 10px 36px rgba(0,0,0,0.6)",
-                      }}
+                      style={{ "--admin-menu-top": `${menuTop}px` } as React.CSSProperties}
                     >{items}</div>
                   ), document.body);
                 }
@@ -5867,9 +5869,12 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
         </div>
       )}
 
-      {/* ── TRAINEES VIEW (default list) ── */}
-      {(activeView === "trainees" || activeView === "dashboard") && (
-      <div className="admin-view" style={{ padding: activeView === "trainees" ? "16px 16px 0" : "0 16px 0" }}>
+      {/* ── TRAINEES VIEW ── detailed trainee cards live ONLY here.
+           Previously this block also rendered on the dashboard, which made the
+           dashboard extremely long. All controls (Block / Suspend / Mute / XP /
+           Modules / Streak / Badges / details) remain fully available here. ── */}
+      {activeView === "trainees" && (
+      <div className="admin-view" style={{ padding: "16px 16px 0" }}>
         {activeView === "trainees" && (
           <>
             <div style={{ fontFamily: "Orbitron, monospace", fontSize: 9, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 4 }}>PERSONNEL</div>

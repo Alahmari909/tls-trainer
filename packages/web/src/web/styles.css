@@ -1323,6 +1323,39 @@ input:focus, textarea:focus, select:focus {
   background: rgba(0,255,136,0.3);
   border-radius: 3px;
 }
+/* Mobile panel: real fixed box (top AND bottom anchored) so iOS Safari gives
+   it a stable independent scroll instead of rubber-banding back to the top on
+   touchend. dvh keeps it correct when the Safari toolbars collapse. */
+.admin-menu-panel--mobile {
+  position: fixed;
+  top: var(--admin-menu-top, 48px);
+  bottom: 12px;
+  right: 12px;
+  width: 50vw;
+  min-width: 176px;
+  max-width: 260px;
+  height: auto;
+  max-height: calc(100dvh - var(--admin-menu-top, 48px) - 12px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  background: #0a1a0a;
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  border-radius: 12px;
+  z-index: 10001;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6);
+}
+
+/* Browsers without dvh support fall back to vh. */
+@supports not (height: 100dvh) {
+  .admin-menu-panel--mobile {
+    max-height: calc(100vh - var(--admin-menu-top, 48px) - 12px);
+  }
+}
+
 .admin-menu-panel--mobile svg {
   width: 19px;
   height: 19px;
