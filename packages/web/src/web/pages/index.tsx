@@ -648,6 +648,9 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
 ;
 
   const handleLogout = async () => {
+    // Clear local state first so logout never depends on the network round-trip.
+    clearSession();
+    onLogout();
     try {
       await fetch("/api/trainee/logout", {
         method: "POST",
@@ -655,8 +658,6 @@ function HomePage({ session, onLogout }: { session: TraineeSession; onLogout: ()
         body: JSON.stringify({ id: session.id }),
       });
     } catch { /* non-fatal */ }
-    clearSession();
-    onLogout();
   };
 
 
