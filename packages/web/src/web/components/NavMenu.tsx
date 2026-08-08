@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { getSession, clearSession } from "../hooks/useTelegramTrack";
 import { telegramTrack } from "../hooks/useTelegramTrack";
+import { resetWelcome } from "./WelcomeScreen";
 import {
   Home, BookOpen, Zap, FileText, MessageSquare, MessageCircle,
   Monitor, ShieldAlert, Trophy, BarChart, Bell, Settings,
@@ -217,6 +218,7 @@ export default function NavMenu() {
       } catch { /* fire and forget */ }
     }
     clearSession();
+    resetWelcome(); // next visit shows the pre-login entry screen again
     sessionStorage.removeItem("tls_last_page");
     sessionStorage.removeItem("tls_intended");
     setSession(null);

@@ -4,6 +4,7 @@ import { getSession, setSession, clearSession } from "../hooks/useTelegramTrack"
 import type { TraineeSession } from "../hooks/useTelegramTrack";
 import { unlockAudio, playAlertTone, vibrate, showToast } from "../lib/audio";
 import { useLanguage } from "../hooks/useLanguage";
+import WelcomeScreen, { shouldShowWelcome, resetWelcome } from "../components/WelcomeScreen";
 import {
   BookOpen, Star, FileText, Info, Target, Trophy, MessageSquare, BarChart2,
   Eye, Lock, LogIn, UserPlus, Clock, AlertTriangle,
@@ -1060,6 +1061,8 @@ function GuestHomePage({ onExit }: { onExit: () => void }) {
 
 export default function Index() {
   const [session, setSessionState] = useState<TraineeSession | null>(() => getSession());
+  // Pre-login entry screen — session-scoped only, never permanently suppressed
+  const [showWelcome, setShowWelcome] = useState(() => !getSession() && shouldShowWelcome());
 
   const handleLogin = (s: TraineeSession) => {
     if (s.id !== 'guest') {
@@ -1081,7 +1084,13 @@ export default function Index() {
     localStorage.removeItem("tls_site_open_ts");
     sessionStorage.removeItem("tls_last_page");
     sessionStorage.removeItem("tls_session_token"); // next open is a fresh session
+    resetWelcome();                                 // next visit shows the entry screen again
+    setShowWelcome(true);
   };
+
+  if (!session && showWelcome) {
+    return <WelcomeScreen onContinue={() => setShowWelcome(false)} />;
+  }
 
   if (!session) {
     return <LoginScreen onLogin={handleLogin} />;
