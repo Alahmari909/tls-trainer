@@ -81,20 +81,20 @@ const ICON_MAP = {
   Info,
 } as const;
 
-function NavIcon({ name, active }: { name: string; active: boolean }) {
+function NavIcon({ name, active, size = 17 }: { name: string; active: boolean; size?: number }) {
   const LucideIcon = ICON_MAP[name as LucideIconName];
   if (!LucideIcon) {
     return (
       <span style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: 18, height: 18, borderRadius: "50%",
-        background: "rgba(0,174,239,0.2)", fontSize: 9, color: "#00AEEF",
+        width: size, height: size, borderRadius: "50%",
+        background: "rgba(0,174,239,0.2)", fontSize: Math.round(size * 0.52), color: "#00AEEF",
       }}>•</span>
     );
   }
   return (
     <LucideIcon
-      size={17}
+      size={size}
       strokeWidth={active ? 2.2 : 1.7}
       color={active ? "#35D4FF" : "rgba(255,255,255,0.45)"}
       style={{ flexShrink: 0, transition: "color 0.2s ease, stroke-width 0.2s ease" }}
@@ -173,6 +173,36 @@ export default function NavMenu() {
     const id = setInterval(check, 2000);
     return () => { window.removeEventListener("storage", check); clearInterval(id); };
   }, []);
+
+  // ── Body scroll lock while the mobile menu is open (position-preserving) ──
+  useEffect(() => {
+    if (!open) return;
+    const body = document.body;
+    const y = window.scrollY;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, y);
+    };
+  }, [open]);
 
   const handleLogout = async () => {
     const s = getSession();
@@ -301,103 +331,49 @@ export default function NavMenu() {
         </div>
       </div>
 
-      {/* ── Backdrop ── */}
+      {/* ── Full-width mobile navigation panel (below header) ── */}
       <div
-        onClick={() => setOpen(false)}
-        style={{
-          position: "fixed", inset: 0, zIndex: 198,
-          background: "rgba(0,0,0,0.65)",
-          backdropFilter: "blur(4px)",
-          WebkitBackdropFilter: "blur(4px)",
-          transition: "opacity 0.25s",
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-        }}
-      />
-
-      {/* ── Side drawer ── */}
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 199,
-        width: 270,
-        background: "rgba(4,10,22,0.99)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        borderLeft: "1px solid rgba(0,174,239,0.2)",
-        display: "flex", flexDirection: "column",
-        transform: open ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
-        overflowY: "auto",
-      }}>
-        {/* Drawer header */}
-        <div style={{
-          padding: "calc(20px + env(safe-area-inset-top, 0px)) 20px 16px",
-          borderBottom: "1px solid rgba(0,174,239,0.12)",
-          background: "linear-gradient(180deg, rgba(0,174,239,0.08) 0%, transparent 100%)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div className="font-orbitron" style={{ fontSize: 11, color: "#00AEEF", letterSpacing: "0.2em" }}>NAVIGATION</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, fontFamily: "Inter" }}>Select training module</div>
-            </div>
-            <button onClick={() => setOpen(false)} style={{
-              background: "rgba(0,174,239,0.08)", border: "1px solid rgba(0,174,239,0.2)",
-              borderRadius: 6, width: 28, height: 28, cursor: "pointer",
-              color: "#00AEEF", display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 0.2s ease, border-color 0.2s ease",
-            }}>
-              <X size={14} strokeWidth={2} />
-            </button>
-          </div>
+        className={`tnav-panel${open ? " tnav-panel--open" : ""}`}
+        aria-hidden={!open}
+      >
+        {/* Slim panel bar */}
+        <div className="tnav-panel-bar">
+          <span className="font-orbitron tnav-panel-title">NAVIGATION</span>
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+            className="tnav-panel-close"
+          >
+            <X size={16} strokeWidth={2} />
+          </button>
         </div>
 
-        {/* Nav items */}
-        <div style={{ flex: 1, padding: "8px 0" }}>
-          {dynNavItems.map((item, i) => {
+        {/* Scrollable nav items — only this area scrolls */}
+        <div className="tnav-panel-scroll">
+          {dynNavItems.map(item => {
             const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
             return (
               <Link
                 key={item.id}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "11px 20px",
-                  textDecoration: "none",
-                  color: isActive ? "#35D4FF" : "rgba(255,255,255,0.6)",
-                  background: isActive ? "linear-gradient(90deg, rgba(0,174,239,0.12), rgba(0,174,239,0.03))" : "transparent",
-                  borderLeft: `2px solid ${isActive ? "#00AEEF" : "transparent"}`,
-                  transition: "all 0.18s ease",
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: 15, fontWeight: isActive ? 600 : 400,
-                  letterSpacing: "0.03em",
-                  animationDelay: `${i * 0.03}s`,
-                }}
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(0,174,239,0.06)"; }}
-                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                className={`tnav-row${isActive ? " tnav-row--active" : ""}`}
               >
-                <NavIcon name={item.icon} active={isActive} />
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {isActive && (
-                  <div style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: "#00AEEF",
-                    boxShadow: "0 0 8px #00AEEF",
-                  }} />
-                )}
+                <span className="tnav-row-icon">
+                  <NavIcon name={item.icon} active={isActive} size={23} />
+                </span>
+                <span className="tnav-row-label">{item.label}</span>
+                {isActive && <span className="tnav-row-dot" />}
               </Link>
             );
           })}
         </div>
 
-        {/* Drawer footer */}
-        <div style={{
-          padding: "14px 20px",
-          borderTop: "1px solid rgba(0,174,239,0.1)",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
+        {/* Panel footer */}
+        <div className="tnav-panel-footer">
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div className="online-dot" />
-            <span style={{ fontFamily: "Inter", fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
+            <span style={{ fontFamily: "Inter", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
               SYSTEM ONLINE
             </span>
           </div>
@@ -407,19 +383,18 @@ export default function NavMenu() {
               style={{
                 background: "rgba(220,38,38,0.12)",
                 border: "1px solid rgba(220,38,38,0.35)",
-                borderRadius: 6,
-                padding: "5px 12px",
+                borderRadius: 8,
+                padding: "8px 14px",
                 cursor: "pointer",
                 color: "#ff6b6b",
                 fontFamily: "Inter, sans-serif",
-                fontSize: 8,
+                fontSize: 10,
                 fontWeight: 700,
                 letterSpacing: "0.1em",
-                display: "flex", alignItems: "center", gap: 5,
-                transition: "background 0.2s ease, border-color 0.2s ease",
+                display: "flex", alignItems: "center", gap: 6,
               }}
             >
-              <LogOut size={11} strokeWidth={2} />
+              <LogOut size={13} strokeWidth={2} />
               LOGOUT
             </button>
           )}

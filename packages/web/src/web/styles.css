@@ -1360,3 +1360,142 @@ input:focus, textarea:focus, select:focus {
   width: 19px;
   height: 19px;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   TRAINEE MOBILE NAVIGATION PANEL (full-width, below header)
+   Mobile only — the desktop topbar handles navigation at >=768px and
+   .nav-menu-root is display:none there, so none of this affects desktop.
+   ══════════════════════════════════════════════════════════════════ */
+.nav-menu-root {
+  --tnav-header-h: calc(52px + env(safe-area-inset-top, 0px));
+}
+
+.tnav-panel {
+  position: fixed;
+  top: var(--tnav-header-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100dvh - var(--tnav-header-h));
+  z-index: 199;
+  display: flex;
+  flex-direction: column;
+  background: rgba(3, 10, 22, 0.90);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(0, 174, 239, 0.14);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms;
+}
+
+@supports not (height: 100dvh) {
+  .tnav-panel { height: calc(100vh - var(--tnav-header-h)); }
+}
+
+.tnav-panel--open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.tnav-panel-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(0, 174, 239, 0.12);
+  background: linear-gradient(180deg, rgba(0,174,239,0.07) 0%, transparent 100%);
+}
+
+.tnav-panel-title {
+  font-size: 11px;
+  color: #00AEEF;
+  letter-spacing: 0.2em;
+}
+
+.tnav-panel-close {
+  background: rgba(0,174,239,0.08);
+  border: 1px solid rgba(0,174,239,0.22);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  color: #00AEEF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Only this region scrolls; page behind is locked by JS body lock */
+.tnav-panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 4px 0 8px;
+}
+
+.tnav-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 58px;
+  padding: 0 18px;
+  text-decoration: none;
+  color: rgba(255,255,255,0.78);
+  font-family: Inter, sans-serif;
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgba(255,255,255,0.045);
+  border-left: 3px solid transparent;
+  transition: background 160ms ease, color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tnav-row:last-child { border-bottom: none; }
+
+.tnav-row--active {
+  background: rgba(50, 170, 255, 0.10);
+  border-left-color: #00AEEF;
+  color: #35D4FF;
+  font-weight: 600;
+}
+
+.tnav-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.tnav-row-label { flex: 1; min-width: 0; }
+
+.tnav-row-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00AEEF;
+  box-shadow: 0 0 8px #00AEEF;
+  flex-shrink: 0;
+}
+
+.tnav-panel-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(0, 174, 239, 0.12);
+  background: rgba(3, 10, 22, 0.55);
+}
