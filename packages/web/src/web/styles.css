@@ -1308,3 +1308,22 @@ input:focus, textarea:focus, select:focus {
 /* Lightbox slide-change fade (opacity only — avoids clashing with pan/zoom transform) */
 @keyframes how-lightbox-fade { 0% { opacity: 0.35; } 100% { opacity: 1; } }
 .how-lightbox-fade { animation: how-lightbox-fade 0.22s ease-out; }
+
+/* ── Admin ☰ MENU dropdown ── subtle scrollbar + larger mobile icons ──
+   The mobile panel is portaled to <body> (position:fixed) so it is not
+   affected by the `.admin-root` zoom and sits on the right half of the
+   screen, directly under the header, scrolling independently. */
+.admin-menu-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,255,136,0.35) transparent;
+}
+.admin-menu-panel::-webkit-scrollbar { width: 5px; }
+.admin-menu-panel::-webkit-scrollbar-track { background: transparent; }
+.admin-menu-panel::-webkit-scrollbar-thumb {
+  background: rgba(0,255,136,0.3);
+  border-radius: 3px;
+}
+.admin-menu-panel--mobile svg {
+  width: 19px;
+  height: 19px;
+}

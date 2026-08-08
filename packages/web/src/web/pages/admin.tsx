@@ -5248,9 +5248,34 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // On phones the dropdown is portaled to <body> with position:fixed so the
+  // `.admin-root { zoom }` mobile scaling cannot distort its width/placement.
+  // Its top edge is measured from the ☰ MENU button so it stays attached to it.
+  const menuPanelRef = useRef<HTMLDivElement>(null);
+  const [menuTop, setMenuTop] = useState(48);
+  const [isNarrowMenu, setIsNarrowMenu] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768
+  );
+  useEffect(() => {
+    const onResize = () => setIsNarrowMenu(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const toggleMenu = () => {
+    setMenuOpen(o => {
+      const next = !o;
+      if (next && menuRef.current) {
+        setMenuTop(Math.round(menuRef.current.getBoundingClientRect().bottom + 6));
+      }
+      return next;
+    });
+  };
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      const target = e.target as Node;
+      if (menuRef.current && menuRef.current.contains(target)) return;
+      if (menuPanelRef.current && menuPanelRef.current.contains(target)) return;
+      setMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -5424,7 +5449,7 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
             {/* ☰ MENU dropdown */}
             <div ref={menuRef} style={{ position: "relative" }}>
               <button
-                onClick={() => setMenuOpen(o => !o)}
+                onClick={toggleMenu}
                 style={{
                   padding: "5px 12px", background: menuOpen ? "rgba(0,255,136,0.12)" : "rgba(0,255,136,0.05)",
                   border: "1px solid rgba(0,255,136,0.3)",
@@ -5433,39 +5458,79 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
                   display: "flex", alignItems: "center", gap: 5,
                 }}
               >☰ MENU</button>
-              {menuOpen && (
-                <div style={{
-                  position: "absolute", top: "calc(100% + 6px)", right: 0,
-                  background: "#0a1a0a", border: "1px solid rgba(0,255,136,0.25)",
-                  borderRadius: 10, overflow: "hidden", zIndex: 999,
-                  minWidth: 160, boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-                }}>
-                  {NAV_LINKS.map(link => (
+              {menuOpen && (() => {
+                const mobile = isNarrowMenu;
+                const items = NAV_LINKS.map(link => {
+                  const active = hoveredItem === link.id || activeView === link.id;
+                  const badge = retakeRequests.length + regRequests.filter(r => r.status === "pending").length;
+                  return (
                     <React.Fragment key={link.id}>
                       <button
                         onClick={() => { setActiveView(link.id as AdminView); setMenuOpen(false); }}
                         onMouseEnter={() => setHoveredItem(link.id)}
                         onMouseLeave={() => setHoveredItem(null)}
                         style={{
-                          display: "flex", alignItems: "center", gap: 8,
-                          width: "100%", padding: "10px 14px",
-                          background: hoveredItem === link.id || activeView === link.id ? "rgba(0,255,136,0.12)" : "transparent",
+                          display: "flex", alignItems: "center", gap: mobile ? 10 : 8,
+                          width: "100%", padding: mobile ? "12px 14px" : "10px 14px",
+                          background: active ? "rgba(0,255,136,0.12)" : "transparent",
                           border: "none", borderBottom: "1px solid rgba(0,255,136,0.07)",
-                          color: hoveredItem === link.id || activeView === link.id ? "#00FF88" : "rgba(255,255,255,0.6)",
-                          fontSize: 11, fontFamily: "Inter", cursor: "pointer",
+                          color: active ? "#00FF88" : "rgba(255,255,255,0.72)",
+                          fontSize: mobile ? 17 : 11,
+                          fontWeight: mobile ? (active ? 600 : 500) : 400,
+                          lineHeight: mobile ? 1.3 : 1.2,
+                          fontFamily: "Inter", cursor: "pointer",
                           textAlign: "left", transition: "background 0.15s, color 0.15s",
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                         }}
                       >
-                        <span style={{ display:"inline-flex", alignItems:"center" }}>{NAV_ICON_MAP[link.id] ?? null}</span>{link.label}
-                        {link.id === "trainees" && (retakeRequests.length + regRequests.filter(r=>r.status==="pending").length) > 0 && (
-                          <span style={{ marginLeft: "auto", background: "#FFD700", color: "#000", borderRadius: 10, padding: "0 5px", fontSize: 8, fontWeight: 700 }}>{retakeRequests.length + regRequests.filter(r=>r.status==="pending").length}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{NAV_ICON_MAP[link.id] ?? null}</span>
+                        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{link.label}</span>
+                        {link.id === "trainees" && badge > 0 && (
+                          <span style={{ marginLeft: "auto", flexShrink: 0, background: "#FFD700", color: "#000", borderRadius: 10, padding: mobile ? "1px 7px" : "0 5px", fontSize: mobile ? 12 : 8, fontWeight: 700 }}>{badge}</span>
                         )}
                       </button>
                       {link.divider && <div style={{ height: 1, background: "rgba(0,255,136,0.2)", margin: "2px 0" }} />}
                     </React.Fragment>
-                  ))}
-                </div>
-              )}
+                  );
+                });
+
+                if (mobile) {
+                  // Right half of the screen (~50vw), attached under the header,
+                  // independently scrollable, portaled out of the zoomed root.
+                  return createPortal((
+                    <div
+                      ref={menuPanelRef}
+                      className="admin-menu-panel admin-menu-panel--mobile"
+                      style={{
+                        position: "fixed", top: menuTop, right: 12,
+                        width: "50vw", minWidth: 176, maxWidth: 260,
+                        maxHeight: `calc(100vh - ${menuTop + 16}px)`,
+                        overflowY: "auto", overflowX: "hidden",
+                        overscrollBehavior: "contain",
+                        WebkitOverflowScrolling: "touch",
+                        background: "#0a1a0a", border: "1px solid rgba(0,255,136,0.25)",
+                        borderRadius: 12, zIndex: 10001,
+                        boxShadow: "0 10px 36px rgba(0,0,0,0.6)",
+                      }}
+                    >{items}</div>
+                  ), document.body);
+                }
+
+                return (
+                  <div
+                    ref={menuPanelRef}
+                    className="admin-menu-panel"
+                    style={{
+                      position: "absolute", top: "calc(100% + 6px)", right: 0,
+                      background: "#0a1a0a", border: "1px solid rgba(0,255,136,0.25)",
+                      borderRadius: 10, overflowX: "hidden", overflowY: "auto", zIndex: 999,
+                      minWidth: 170, maxHeight: "calc(100vh - 90px)",
+                      overscrollBehavior: "contain",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                    }}
+                  >{items}</div>
+                );
+              })()}
             </div>
 
             <button
@@ -5489,63 +5554,46 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
       {/* ── DASHBOARD VIEW ── stat cards + overview ── */}
       {activeView === "dashboard" && !loading && (
         <div className="admin-view" style={{ padding: "16px 16px 0" }}>
-          {/* Large stat banner */}
+          {/* ── SYSTEM STATUS — single compact card (all metrics, scan-friendly) ── */}
           <div style={{
             background: "linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,255,136,0.02))",
             border: "1px solid rgba(0,255,136,0.15)",
-            borderRadius: 14, padding: "16px", marginBottom: 12,
+            borderRadius: 14, padding: "12px 12px 12px", marginBottom: 12,
           }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div>
-                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 8, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 4 }}>SYSTEM STATUS</div>
-                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 700, color: "#ffffff" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 8, letterSpacing: "0.3em", color: "rgba(0,255,136,0.5)", marginBottom: 2 }}>SYSTEM STATUS</div>
+                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 700, color: "#ffffff", whiteSpace: "nowrap" }}>
                   {trainees.length} TRAINEES
                 </div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "Inter" }}>Last sync</div>
-                <div style={{ fontSize: 11, color: "rgba(0,255,136,0.6)", fontFamily: "Inter" }}>{lastRefresh.toLocaleTimeString()}</div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", fontFamily: "Inter", letterSpacing: "0.06em" }}>Last sync</div>
+                <div style={{ fontSize: 10, color: "rgba(0,255,136,0.6)", fontFamily: "Inter" }}>{lastRefresh.toLocaleTimeString()}</div>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))", gap: 6 }}>
               {[
-                { label: "TOTAL", value: String(trainees.length), color: "#00FF88", sub: "registered", icon: <Users size={16} strokeWidth={1.8} /> },
-                { label: "LIVE NOW", value: String(online.length), color: "#00CC66", sub: "online", icon: <Activity size={16} strokeWidth={1.8} /> },
-                { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: "#FFD700", sub: "earned", icon: <Zap size={16} strokeWidth={1.8} /> },
-                { label: "AVG MODS", value: avgModules, color: "#FFD700", sub: "completed", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
-              ].map(({ label, value, color, sub, icon }) => (
+                { label: "TOTAL",    value: String(trainees.length), color: "#00FF88" },
+                { label: "LIVE NOW", value: String(online.length), color: "#00CC66" },
+                { label: "TOTAL XP", value: totalXp >= 1000 ? `${(totalXp / 1000).toFixed(1)}k` : String(totalXp), color: "#FFD700" },
+                { label: "AVG MODS", value: avgModules, color: "#FFD700" },
+                { label: "RETAKES",  value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.3)", urgent: retakeRequests.length > 0 },
+                { label: "REQUESTS", value: String(regRequests.filter(r=>r.status==="pending").length), color: regRequests.filter(r=>r.status==="pending").length > 0 ? "#FF9500" : "rgba(255,255,255,0.3)", urgent: regRequests.filter(r=>r.status==="pending").length > 0 },
+                { label: "BASIC",    value: String(trainees.filter(t => (t as any).trainingLevel !== "advanced").length), color: "#00FF88" },
+                { label: "ADVANCED", value: String(trainees.filter(t => (t as any).trainingLevel === "advanced").length), color: "#00FF88" },
+                { label: "BLOCKED",  value: String(trainees.filter(t => (t as any).status === "blocked").length), color: "#FF4444" },
+              ].map(({ label, value, color, urgent }) => (
                 <div key={label} style={{
-                  background: `linear-gradient(135deg, ${color}10, ${color}04)`,
-                  border: `1px solid ${color}25`,
-                  borderRadius: 12, padding: "14px 8px", textAlign: "center",
-                  transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                  background: urgent ? `${color}12` : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${urgent ? `${color}40` : "rgba(255,255,255,0.07)"}`,
+                  borderRadius: 9, padding: "8px 4px", textAlign: "center", minWidth: 0,
                 }}>
-                  <div style={{ display:"flex", justifyContent:"center", marginBottom: 6, color, opacity:0.8 }}>{icon}</div>
-                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 16, fontWeight: 800, color, lineHeight:1 }}>{value}</div>
-                  <div style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontFamily: "Inter", marginTop: 4, letterSpacing: "0.08em", textTransform:"uppercase" }}>{label}</div>
+                  <div style={{ fontFamily: "Orbitron, monospace", fontSize: 15, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 7.5, color: "rgba(255,255,255,0.38)", fontFamily: "Inter", marginTop: 4, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Quick stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>
-            {[
-              { label: "PENDING RETAKES", value: String(retakeRequests.length), color: retakeRequests.length > 0 ? "#FFD700" : "rgba(255,255,255,0.2)", urgent: retakeRequests.length > 0 },
-              { label: "REG REQUESTS",   value: String(regRequests.filter(r=>r.status==="pending").length), color: regRequests.filter(r=>r.status==="pending").length > 0 ? "#FF9500" : "rgba(255,255,255,0.2)", urgent: regRequests.filter(r=>r.status==="pending").length > 0 },
-              { label: "BLOCKED",        value: String(trainees.filter(t => (t as any).status === "blocked").length), color: "#FF4444", urgent: false },
-              { label: "ADVANCED",       value: String(trainees.filter(t => (t as any).trainingLevel === "advanced").length), color: "#00FF88", urgent: false },
-            ].map(({ label, value, color, urgent }) => (
-              <div key={label} style={{
-                background: urgent ? `${color}10` : "rgba(255,255,255,0.02)",
-                border: urgent ? `1px solid ${color}35` : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 10, padding: "12px 8px", textAlign: "center",
-                transition: "border-color 0.2s ease",
-              }}>
-                <div style={{ fontFamily: "Orbitron, monospace", fontSize: 18, fontWeight: 800, color, lineHeight:1 }}>{value}</div>
-                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "Inter", marginTop: 4, letterSpacing: "0.08em", textTransform:"uppercase" }}>{label}</div>
-              </div>
-            ))}
           </div>
 
           {/* Top performers */}
@@ -5874,8 +5922,12 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
 
       <div style={{ paddingBottom: 40 }}>
 
-        {/* -- REGISTRATION REQUESTS -- */}
-        {regRequests.length > 0 && (
+        {/* -- REGISTRATION REQUESTS -- Trainees view only.
+             Removed from the dashboard, where this long simple name list
+             duplicated the detailed trainee cards rendered right below it.
+             Pending count stays visible on the dashboard SYSTEM STATUS card
+             ("REQUESTS") and as the badge on the ☰ MENU → Trainees item. -- */}
+        {activeView === "trainees" && regRequests.length > 0 && (
           <div style={{ marginTop: 24 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
               <div style={{ fontSize:11, fontFamily:"Orbitron, monospace", color:"#FF9500", letterSpacing:"0.15em" }}>
@@ -6035,11 +6087,11 @@ function AdminDashboard({ adminPw, onLogout }: { adminPw: string; onLogout: () =
               key={t.id}
               onClick={() => { setSelectedId(t.id); sessionStorage.setItem("tls_admin_selected", t.id); }}
               style={{
-                marginBottom: 10, cursor: "pointer",
+                marginBottom: 14, cursor: "pointer",
                 border: `1px solid ${cardBorderColor}`,
                 background: cardBg,
                 borderRadius: 12,
-                padding: "14px 16px",
+                padding: "16px 16px 18px",
                 transition: "border-color 0.18s, box-shadow 0.18s",
               }}
               onMouseEnter={e => {
