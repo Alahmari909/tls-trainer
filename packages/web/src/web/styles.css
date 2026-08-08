@@ -1743,24 +1743,43 @@ input:focus, textarea:focus, select:focus {
   justify-content: center;
 }
 
+/* Explicit "this is text, not a control" notice */
+.tls-install-hint {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 3px solid rgba(255,193,7,0.75);
+  background: rgba(255,193,7,0.09);
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.78);
+}
+
+/* Steps are informational copy: no card / border / tap affordance. */
 .tls-install-steps {
   list-style: none;
-  margin: 16px 0 18px;
+  margin: 14px 0 16px;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
+  cursor: default;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tls-install-step {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.06);
+  padding: 11px 2px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+.tls-install-step:last-child { border-bottom: none; }
 
 .tls-install-step-n {
   flex-shrink: 0;
@@ -1794,7 +1813,42 @@ input:focus, textarea:focus, select:focus {
   color: rgba(255,255,255,0.86);
 }
 
+/* Pointer to Safari's share icon (bottom bar) */
+.tls-install-point {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0,174,239,0.08);
+  border: 1px dashed rgba(0,174,239,0.34);
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.74);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tls-install-point > span { flex: 1; min-width: 0; }
+
+.tls-install-arrow {
+  flex-shrink: 0;
+  animation: tlsPointDown 1.25s ease-in-out infinite;
+}
+
+@keyframes tlsPointDown {
+  0%, 100% { transform: translateY(0); opacity: 0.75; }
+  50%      { transform: translateY(5px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tls-install-arrow { animation: none; }
+}
+
+/* Primary way out of the sheet — must read as the only button here. */
 .tls-install-cancel {
-  min-height: 50px;
+  min-height: 54px;
   font-size: 13px;
 }

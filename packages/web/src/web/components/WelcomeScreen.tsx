@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { LogIn, Download, Share2, PlusSquare, Check, X, Smartphone } from "lucide-react";
+import { LogIn, Download, Share2, PlusSquare, Check, X, Smartphone, ArrowDown } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    TRAINEE ENTRY / LAUNCH SCREEN
@@ -102,6 +102,13 @@ function InstallSheet({ ios, onClose }: { ios: boolean; onClose: () => void }) {
             <X size={16} strokeWidth={2} />
           </button>
         </div>
+        <p className="tls-install-hint">
+          Read only — these steps are not buttons.{" "}
+          {ios
+            ? "iOS does not let a website open the Share menu, so please do it yourself in Safari."
+            : "Your browser does not let a website install the app, so please use its menu."}
+        </p>
+
         <ol className="tls-install-steps">
           {steps.map((s, i) => (
             <li key={i} className="tls-install-step">
@@ -111,11 +118,20 @@ function InstallSheet({ ios, onClose }: { ios: boolean; onClose: () => void }) {
             </li>
           ))}
         </ol>
+
+        {ios && (
+          <div className="tls-install-point">
+            <Share2 size={18} strokeWidth={2} color={CYAN} />
+            <span>The Share icon is in Safari&apos;s bottom bar</span>
+            <ArrowDown className="tls-install-arrow" size={18} strokeWidth={2.4} color={CYAN} />
+          </div>
+        )}
+
         <button
           className="tls-btn tls-btn--ghost tls-install-cancel"
           onClick={e => { e.stopPropagation(); onClose(); }}
         >
-          CANCEL
+          GOT IT — CLOSE
         </button>
       </div>
     </div>
