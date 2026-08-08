@@ -4498,6 +4498,160 @@ interface FaultItem {
   verify_text?: string; published?: number; created_at: number; media: FaultMedia[];
 }
 
+// ── Fault media viewer (admin) — image zoom / video playback, portal to body ──
+// Rendered through a portal so the `zoom` media queries on `.admin-root`
+// (mobile scaling) cannot break `position: fixed` on iOS.
+function FaultMediaViewer({
+  items, index, onIndex, onClose,
+}: { items: FaultMedia[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
+  const m = items[index];
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  const drag = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const pinch = useRef<{ dist: number; scale: number } | null>(null);
+
+  const reset = useCallback(() => { setScale(1); setTx(0); setTy(0); }, []);
+  useEffect(() => { reset(); }, [index, reset]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && index < items.length - 1) onIndex(index + 1);
+      if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, [index, items.length, onClose, onIndex]);
+
+  if (!m) return null;
+  const url = `/api/faults/${m.fault_id}/media/${m.id}`;
+  const image = m.mime_type.startsWith("image/");
+  const video = m.mime_type.startsWith("video/");
+  const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  const btn: React.CSSProperties = {
+    background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
+    color: "#e6e6e6", borderRadius: 8, padding: "8px 12px", fontSize: 14, cursor: "pointer",
+    lineHeight: 1, minWidth: 40, minHeight: 40,
+  };
+
+  const body = (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 4000, background: "#000",
+        display: "flex", flexDirection: "column",
+        paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      {/* Header */}
+      <div style={{ flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 6px" }}>
+          <button onClick={onClose} style={{ ...btn, fontWeight: 700, flexShrink: 0 }} title="Close">← Back</button>
+          <div style={{ flex: 1 }} />
+          {image && (
+            <>
+              <button onClick={() => setScale((s) => Math.max(s - 0.5, 1))} style={btn} title="Zoom out">−</button>
+              <span style={{ color: "#00d4ff", fontSize: 12, minWidth: 44, textAlign: "center" }}>{Math.round(scale * 100)}%</span>
+              <button onClick={() => setScale((s) => Math.min(s + 0.5, 6))} style={btn} title="Zoom in">+</button>
+              <button onClick={reset} style={{ ...btn, fontSize: 12 }} title="Reset zoom">Reset</button>
+            </>
+          )}
+        </div>
+        <div style={{ padding: "0 12px 10px", color: "#bbb", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {m.caption || m.filename || m.mime_type}
+        </div>
+      </div>
+
+      {/* Stage */}
+      <div
+        style={{ flex: 1, minHeight: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", touchAction: image && scale > 1 ? "none" : "auto" }}
+        onDoubleClick={() => (image ? (scale > 1 ? reset() : setScale(2.5)) : undefined)}
+        onMouseDown={(e) => { if (image && scale > 1) drag.current = { x: e.clientX, y: e.clientY, tx, ty }; }}
+        onMouseMove={(e) => {
+          if (!drag.current) return;
+          setTx(drag.current.tx + (e.clientX - drag.current.x));
+          setTy(drag.current.ty + (e.clientY - drag.current.y));
+        }}
+        onMouseUp={() => { drag.current = null; }}
+        onMouseLeave={() => { drag.current = null; }}
+        onTouchStart={(e) => {
+          if (!image) return;
+          if (e.touches.length === 2) pinch.current = { dist: dist(e.touches), scale };
+          else if (e.touches.length === 1 && scale > 1) drag.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx, ty };
+        }}
+        onTouchMove={(e) => {
+          if (!image) return;
+          if (e.touches.length === 2 && pinch.current) {
+            const d = dist(e.touches);
+            if (pinch.current.dist > 0) setScale(Math.min(Math.max(pinch.current.scale * (d / pinch.current.dist), 1), 6));
+          } else if (e.touches.length === 1 && drag.current) {
+            setTx(drag.current.tx + (e.touches[0].clientX - drag.current.x));
+            setTy(drag.current.ty + (e.touches[0].clientY - drag.current.y));
+          }
+        }}
+        onTouchEnd={() => { pinch.current = null; drag.current = null; }}
+      >
+        {image ? (
+          <img
+            src={url}
+            alt={m.caption || m.filename}
+            draggable={false}
+            style={{
+              maxWidth: "100%", maxHeight: "100%", objectFit: "contain",
+              transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+              transformOrigin: "center center",
+              cursor: scale > 1 ? "grab" : "zoom-in",
+              userSelect: "none",
+            }}
+          />
+        ) : video ? (
+          <video
+            src={url}
+            controls
+            playsInline
+            preload="metadata"
+            style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", background: "#000" }}
+          />
+        ) : (
+          <div style={{ textAlign: "center", color: "#aaa", fontSize: 14, padding: 20 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+            <div style={{ marginBottom: 14 }}>{m.filename || m.mime_type}</div>
+            <a href={url} target="_blank" rel="noreferrer" style={{ ...btn, textDecoration: "none", display: "inline-block", padding: "10px 16px" }}>Open file</a>
+          </div>
+        )}
+
+        {items.length > 1 && (
+          <>
+            <button
+              onClick={() => onIndex(index > 0 ? index - 1 : items.length - 1)}
+              style={{ ...btn, position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 20, padding: "12px 14px" }}
+              title="Previous"
+            >‹</button>
+            <button
+              onClick={() => onIndex(index < items.length - 1 ? index + 1 : 0)}
+              style={{ ...btn, position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 20, padding: "12px 14px" }}
+              title="Next"
+            >›</button>
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ flexShrink: 0, padding: "10px 12px", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ color: "#666", fontSize: 12, flex: 1 }}>
+          {items.length > 1 ? `${index + 1} / ${items.length} · ` : ""}{image ? "Pinch or double-tap to zoom" : video ? "Tap play to watch" : ""}
+        </span>
+        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#00d4ff", fontSize: 12, textDecoration: "none" }}>Open in new tab ↗</a>
+      </div>
+    </div>
+  );
+
+  return typeof document !== "undefined" ? createPortal(body, document.body) : body;
+}
+
 // ── Error Codes Admin ─────────────────────────────────────────────────────────
 function ErrorCodesAdmin({ adminPw }: { adminPw: string }) {
   const [rows, setRows] = useState<any[]>([]);
@@ -4754,6 +4908,13 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
   // Media upload
   const mediaRef = useRef<HTMLInputElement>(null);
   const [uploadingFor, setUploadingFor] = useState<number | null>(null);
+  // Media preview (click a media pill to open it)
+  const [viewer, setViewer] = useState<{ items: FaultMedia[]; index: number } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  function flash(ok: boolean, text: string) {
+    setMsg({ ok, text });
+    setTimeout(() => setMsg(null), 3500);
+  }
 
   const headers = { "x-admin-pw": adminPw, "Content-Type": "application/json" };
 
@@ -4807,11 +4968,21 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
   }
 
   async function togglePublished(f: FaultItem) {
-    await fetch(`/api/admin/faults/${f.id}`, {
-      method: "PATCH", headers,
-      body: JSON.stringify({ published: f.published === 0 ? 1 : 0 }),
-    });
-    load();
+    const next = f.published === 0 ? 1 : 0;
+    try {
+      const r = await fetch(`/api/admin/faults/${f.id}`, {
+        method: "PATCH", headers,
+        body: JSON.stringify({ published: next }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      setFaults(prev => prev.map(x => (x.id === f.id ? { ...x, published: next } : x)));
+      flash(true, next === 1
+        ? "Published — now visible to trainees in the trainee app."
+        : "Unpublished — hidden from trainees (draft).");
+      load();
+    } catch (e: any) {
+      flash(false, "Could not change publish state: " + (e?.message || "unknown error"));
+    }
   }
 
   async function editCaption(m: FaultMedia) {
@@ -4885,7 +5056,14 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: "#f0f0f0", margin: 0 }}>⚠️ Common Faults</h2>
-          <p style={{ color: "#555", fontSize: 13, margin: "4px 0 0" }}>{faults.length} fault{faults.length !== 1 ? "s" : ""} documented</p>
+          <p style={{ color: "#555", fontSize: 13, margin: "4px 0 0" }}>
+            {faults.length} fault{faults.length !== 1 ? "s" : ""} documented
+            {faults.filter(f => f.published === 0).length > 0 && (
+              <span style={{ color: "#ffb84d" }}>
+                {" · "}{faults.filter(f => f.published === 0).length} draft — hidden from trainees
+              </span>
+            )}
+          </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -4899,6 +5077,16 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
           >+ Add Fault</button>
         </div>
       </div>
+
+      {/* Action result */}
+      {msg && (
+        <div style={{
+          background: msg.ok ? "rgba(74,222,128,0.1)" : "rgba(255,80,80,0.1)",
+          border: `1px solid ${msg.ok ? "rgba(74,222,128,0.35)" : "rgba(255,80,80,0.35)"}`,
+          color: msg.ok ? "#4ade80" : "#ff8080",
+          borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13,
+        }}>{msg.ok ? "✓ " : "✕ "}{msg.text}</div>
+      )}
 
       {/* CSV hint */}
       <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 12, color: "#555" }}>
@@ -4988,7 +5176,7 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
                 <span style={{ fontSize: 18 }}>⚠️</span>
                 <span
                   onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}
-                  style={{ flex: 1, color: "#e0e0e0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  style={{ flex: "1 1 190px", minWidth: 0, color: "#e0e0e0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
                 >{f.title}</span>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
                   {f.category ? (
@@ -5006,7 +5194,7 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
                       border: `1px solid ${f.published === 0 ? "rgba(255,184,77,0.35)" : "rgba(74,222,128,0.35)"}`,
                       color: f.published === 0 ? "#ffb84d" : "#4ade80",
                     }}
-                  >{f.published === 0 ? "Draft" : "Published"}</button>
+                  >{f.published === 0 ? "Publish" : "✓ Published"}</button>
                   <button
                     onClick={() => openEdit(f)}
                     style={{ padding: "4px 10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#aaa", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
@@ -5017,6 +5205,19 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
                   >Delete</button>
                 </div>
               </div>
+
+              {/* Draft warning — explains why trainees see nothing */}
+              {f.published === 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "rgba(255,184,77,0.08)", borderTop: "1px solid rgba(255,184,77,0.25)", padding: "10px 16px" }}>
+                  <span style={{ color: "#ffb84d", fontSize: 12.5, flex: 1, minWidth: 200 }}>
+                    ⚠️ This fault is a <b>draft</b> — it does <b>not</b> appear in the trainee app. Publish it to make it visible.
+                  </span>
+                  <button
+                    onClick={() => togglePublished(f)}
+                    style={{ padding: "7px 14px", background: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.4)", color: "#4ade80", borderRadius: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}
+                  >Publish now</button>
+                </div>
+              )}
 
               {/* Expanded detail + media manager */}
               {expandedId === f.id && (
@@ -5044,14 +5245,33 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
                     <div style={{ color: "#444", fontSize: 13, marginBottom: 10 }}>No media attached.</div>
                   ) : (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                      {f.media.map(m => (
+                      {f.media.map((m, mi) => (
                         <div key={m.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 10px" }}>
-                          <span style={{ fontSize: 12 }}>
-                            {m.mime_type.startsWith("image/") ? "🖼" : m.mime_type.startsWith("video/") ? "🎬" : "📄"}
-                          </span>
-                          <span style={{ fontSize: 12, color: "#aaa", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {m.caption || m.filename || m.mime_type}
-                          </span>
+                          <button
+                            onClick={() => setViewer({ items: f.media, index: mi })}
+                            title="Open / preview this file"
+                            style={{
+                              display: "flex", alignItems: "center", gap: 8, background: "none", border: "none",
+                              padding: 0, margin: 0, cursor: "pointer", color: "#cfcfcf", font: "inherit",
+                              minHeight: 32, textAlign: "left",
+                            }}
+                          >
+                            {m.mime_type.startsWith("image/") ? (
+                              <img
+                                src={`/api/faults/${f.id}/media/${m.id}`}
+                                alt=""
+                                style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 5, border: "1px solid rgba(255,255,255,0.12)", background: "#111", flexShrink: 0 }}
+                              />
+                            ) : (
+                              <span style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, borderRadius: 5, border: "1px solid rgba(255,255,255,0.12)", background: "#111", flexShrink: 0 }}>
+                                {m.mime_type.startsWith("video/") ? "🎬" : "📄"}
+                              </span>
+                            )}
+                            <span style={{ fontSize: 12, color: "#cfcfcf", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {m.caption || m.filename || m.mime_type}
+                            </span>
+                            <span style={{ fontSize: 10, color: "#00d4ff", fontWeight: 700, letterSpacing: 0.5, flexShrink: 0 }}>OPEN</span>
+                          </button>
                           <button
                             onClick={() => editCaption(m)}
                             style={{ background: "none", border: "none", color: "#00d4ff", cursor: "pointer", fontSize: 12, padding: "0 2px" }}
@@ -5092,6 +5312,15 @@ function AdminFaults({ adminPw }: { adminPw: string }) {
             </div>
           ))}
         </div>
+      )}
+
+      {viewer && (
+        <FaultMediaViewer
+          items={viewer.items}
+          index={viewer.index}
+          onIndex={(i) => setViewer(v => (v ? { ...v, index: i } : v))}
+          onClose={() => setViewer(null)}
+        />
       )}
     </div>
   );
