@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { getSession, clearSession } from "../hooks/useTelegramTrack";
 import { telegramTrack } from "../hooks/useTelegramTrack";
-import { resetWelcome } from "./WelcomeScreen";
 import {
   Home, BookOpen, Zap, FileText, MessageSquare, MessageCircle,
   Monitor, ShieldAlert, Trophy, BarChart, Bell, Settings,
@@ -207,12 +206,6 @@ export default function NavMenu() {
 
   const handleLogout = async () => {
     const s = getSession();
-    // Clear local state first so logout never depends on the network round-trip.
-    clearSession();
-    resetWelcome(); // next visit shows the pre-login entry screen again
-    sessionStorage.removeItem("tls_last_page");
-    sessionStorage.removeItem("tls_intended");
-    setSession(null);
     if (s) {
       try {
         await fetch("/api/trainee/logout", {
@@ -223,6 +216,10 @@ export default function NavMenu() {
         telegramTrack.logout();
       } catch { /* fire and forget */ }
     }
+    clearSession();
+    sessionStorage.removeItem("tls_last_page");
+    sessionStorage.removeItem("tls_intended");
+    setSession(null);
     navigate("/", { replace: true });
     window.location.reload();
   };

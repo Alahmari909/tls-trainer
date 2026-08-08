@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import { getSession, clearSession } from "../hooks/useTelegramTrack";
-import { resetWelcome } from "./WelcomeScreen";
 
 // ── Same nav config as NavMenu so both orientations are always in sync ────────
 interface DynNavItem { id: number; label: string; href: string; icon: string; order: number; isVisible: boolean; }
@@ -182,7 +181,6 @@ export default function Sidebar() {
                 <button
                   onClick={() => {
                     clearSession();
-                    resetWelcome(); // next visit shows the pre-login entry screen again
                     sessionStorage.removeItem("tls_last_page");
                     sessionStorage.removeItem("tls_intended");
                     setMenuOpen(false);
