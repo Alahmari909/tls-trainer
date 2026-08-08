@@ -194,6 +194,10 @@ async function ensureTables() {
     await client.execute(`ALTER TABLE trainees ADD COLUMN air_base TEXT`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN avatar TEXT`).catch(() => {});
     await client.execute(`ALTER TABLE trainees ADD COLUMN avatar_pending TEXT`).catch(() => {});
+    // Training level ('beginner' | 'advanced') — read by /leaderboard and the
+    // admin trainee detail sheet. Present in the live DB but was never declared
+    // here, so a fresh deploy would fail on every query touching it.
+    await client.execute(`ALTER TABLE trainees ADD COLUMN training_level TEXT NOT NULL DEFAULT 'beginner'`).catch(() => {});
     // Notification pin/delete support
     await client.execute(`ALTER TABLE trainee_alerts ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     await client.execute(`ALTER TABLE trainee_alerts ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0`).catch(() => {});
@@ -3074,7 +3078,7 @@ const app = new Hono()
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
 
     const allTrainees = await sql(
-      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level FROM trainees ORDER BY last_active_at DESC`
+      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level, training_level FROM trainees ORDER BY last_active_at DESC`
     );
 
     const allProgress = await sql(`SELECT trainee_id, completed FROM trainee_module_progress`);
@@ -3121,7 +3125,8 @@ const app = new Hono()
         currentStreak: (streakRow?.current_streak  as number) ?? 0,
         longestStreak: (streakRow?.longest_streak  as number) ?? 0,
         earnedBadges:  (badgeRow?.badge_count      as number) ?? 0,
-        trainingLevel: 'basic',
+        // Was hardcoded to 'basic', so the dashboard ADVANCED counter was always 0.
+        trainingLevel: (t.training_level as string) ?? 'beginner',
       };
     });
 
@@ -3288,7 +3293,7 @@ const app = new Hono()
     const id = c.req.param('id');
 
     const traineesRows = await sql(
-      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level FROM trainees WHERE id=?`, [id]
+      `SELECT id, name, rank, unit, created_at, last_login_at, login_count, is_online, last_page, last_active_at, status, xp, level, training_level FROM trainees WHERE id=?`, [id]
     );
     if (!traineesRows.length) return c.json({ error: 'Not found' }, 404);
     const t = traineesRows[0];
@@ -3809,7 +3814,7 @@ const app = new Hono()
     const pw = c.req.header('x-admin-password') ?? '';
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     try {
-      const rows = db.prepare(
+      const rows = await sql(
         `SELECT rr.id, rr.trainee_id, t.name as trainee_name, rr.module_id, 
                 m.title as module_name, rr.ts, rr.reason
          FROM retake_requests rr
@@ -3817,7 +3822,7 @@ const app = new Hono()
          JOIN modules m ON m.id = rr.module_id
          WHERE rr.status = 'pending'
          ORDER BY rr.ts DESC`
-      ).all() as any[];
+      );
       return c.json(rows, 200);
     } catch {
       return c.json([], 200);
@@ -3830,10 +3835,11 @@ const app = new Hono()
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     const id = c.req.param('id');
     try {
-      db.prepare("UPDATE retake_requests SET status='approved' WHERE id=?").run(id);
+      const r = await client.execute({ sql: "UPDATE retake_requests SET status='approved' WHERE id=?", args: [id] });
+      if (!r.rowsAffected) return c.json({ ok: false, error: 'Not found' }, 404);
       return c.json({ ok: true }, 200);
-    } catch {
-      return c.json({ ok: false, error: 'Not found' }, 404);
+    } catch (e: any) {
+      return c.json({ ok: false, error: e?.message ?? 'Update failed' }, 500);
     }
   })
 
@@ -3843,10 +3849,11 @@ const app = new Hono()
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     const id = c.req.param('id');
     try {
-      db.prepare("UPDATE retake_requests SET status='denied' WHERE id=?").run(id);
+      const r = await client.execute({ sql: "UPDATE retake_requests SET status='denied' WHERE id=?", args: [id] });
+      if (!r.rowsAffected) return c.json({ ok: false, error: 'Not found' }, 404);
       return c.json({ ok: true }, 200);
-    } catch {
-      return c.json({ ok: false, error: 'Not found' }, 404);
+    } catch (e: any) {
+      return c.json({ ok: false, error: e?.message ?? 'Update failed' }, 500);
     }
   })
 
@@ -3863,15 +3870,21 @@ const app = new Hono()
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     const id = c.req.param('id');
     const body = await c.req.json() as { level?: string };
-    const validLevels = ['basic', 'intermediate', 'advanced'];
+    // 'beginner' is the label the admin UI sends; 'basic' is the legacy stored
+    // value. Both are accepted so the UI and existing rows stay compatible.
+    const validLevels = ['beginner', 'basic', 'intermediate', 'advanced'];
     if (!body.level || !validLevels.includes(body.level)) {
-      return c.json({ error: 'Invalid level. Must be: basic, intermediate, advanced' }, 400);
+      return c.json({ error: 'Invalid level. Must be: beginner, basic, intermediate, advanced' }, 400);
     }
     try {
-      db.prepare("UPDATE trainees SET training_level=? WHERE id=?").run(body.level, id);
+      const r = await client.execute({
+        sql: "UPDATE trainees SET training_level=? WHERE id=?",
+        args: [body.level, id],
+      });
+      if (!r.rowsAffected) return c.json({ ok: false, error: 'Trainee not found' }, 404);
       return c.json({ ok: true, level: body.level }, 200);
-    } catch {
-      return c.json({ ok: false, error: 'Trainee not found' }, 404);
+    } catch (e: any) {
+      return c.json({ ok: false, error: e?.message ?? 'Update failed' }, 500);
     }
   })
 

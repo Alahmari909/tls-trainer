@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import BackButton from "../components/BackButton";
-import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map, Zap, TrendingUp, Award, PenSquare, Film } from "lucide-react";
+import { LayoutDashboard, Users, BarChart2, Settings, BookOpen, Star, Target, MessageSquare, Activity, Bell, Info, FileText, AlertTriangle, Search, Plane, Brain, Map as MapIcon, Zap, TrendingUp, Award, PenSquare, Film } from "lucide-react";
 import Basics from "./basics";
 import Advanced from "./advanced";
 import { AdminNavContext } from "../lib/admin-context";
@@ -69,6 +69,7 @@ type TraineeDetail = {
     created_at: number; last_login_at: number; login_count: number;
     is_online: number; last_page: string | null; last_active_at: number; online: boolean;
     status: string;
+    training_level?: string | null;
   };
   stats: {
     totalAttempts: number; totalCorrect: number; totalWrong: number;
@@ -440,6 +441,7 @@ function TraineeDetailModal({
   const [completeModuleId, setCompleteModuleId] = useState("");
   const [completeModuleName, setCompleteModuleName] = useState("");
   const [acting, setActing] = useState(false);
+  const [savingLevel, setSavingLevel] = useState<null | 'beginner' | 'advanced'>(null);
 
   const headers = { "Content-Type": "application/json", "x-admin-password": adminPw };
 
@@ -608,11 +610,11 @@ function TraineeDetailModal({
                   )}
                   <span style={{
                     fontSize: 8, padding: "2px 6px", borderRadius: 10, fontFamily: "Inter", flexShrink: 0,
-                    background: t.trainingLevel === 'advanced' ? `${C.gold}18` : "rgba(0,255,136,0.1)",
-                    border: `1px solid ${t.trainingLevel === 'advanced' ? C.gold + "50" : C.cyan + "30"}`,
-                    color: t.trainingLevel === 'advanced' ? C.gold : C.cyan,
+                    background: t.training_level === 'advanced' ? `${C.gold}18` : "rgba(0,255,136,0.1)",
+                    border: `1px solid ${t.training_level === 'advanced' ? C.gold + "50" : C.cyan + "30"}`,
+                    color: t.training_level === 'advanced' ? C.gold : C.cyan,
                   }}>
-                    {t.trainingLevel === 'advanced' ? '⭐ ADVANCED' : '🔵 BEGINNER'}
+                    {t.training_level === 'advanced' ? '⭐ ADVANCED' : '🔵 BEGINNER'}
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: C.cyan, marginTop: 2 }}>
@@ -993,39 +995,84 @@ function TraineeDetailModal({
                 {/* TRAINING LEVEL */}
                 <div className="font-orbitron" style={{ fontSize: 9, color: C.cyan, letterSpacing: "0.15em", marginBottom: 10, marginTop: 16 }}>TRAINING LEVEL</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                  {(['beginner', 'advanced'] as const).map(lvl => (
-                    <button
-                      key={lvl}
-                      onClick={async () => {
-                        await fetch(`/api/admin/trainee/${traineeId}/training-level`, {
-                          method: 'POST',
-                          headers: { 'x-admin-password': adminPw, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ level: lvl }),
-                        });
-                        // Refresh detail
-                        const r = await fetch(`/api/admin/trainee/${traineeId}`, { headers: { 'x-admin-password': adminPw } });
-                        if (r.ok) setDetail(await r.json() as TraineeDetail);
-                      }}
-                      style={{
-                        flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer",
-                        fontFamily: "Inter", fontSize: 11, letterSpacing: "0.05em",
-                        background: lvl === 'advanced' ? `${C.gold}15` : "rgba(0,255,136,0.1)",
-                        border: `1px solid ${lvl === 'advanced' ? C.gold + "50" : C.cyan + "40"}`,
-                        color: lvl === 'advanced' ? C.gold : C.cyan,
-                      }}
-                    >
-                      {lvl === 'advanced' ? '⭐ Set Advanced' : '🔵 Set Beginner'}
-                    </button>
-                  ))}
+                  {(['beginner', 'advanced'] as const).map(lvl => {
+                    // 'basic' is the legacy stored value for beginner.
+                    const current = (detail.trainee.training_level ?? 'beginner') === 'advanced' ? 'advanced' : 'beginner';
+                    const active = current === lvl;
+                    const accent = lvl === 'advanced' ? C.gold : C.cyan;
+                    return (
+                      <button
+                        key={lvl}
+                        disabled={savingLevel !== null}
+                        onClick={async () => {
+                          setSavingLevel(lvl);
+                          setActionResult(null);
+                          try {
+                            const res = await fetch(`/api/admin/trainee/${traineeId}/training-level`, {
+                              method: 'POST',
+                              headers: { 'x-admin-password': adminPw, 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ level: lvl }),
+                            });
+                            const data = await res.json().catch(() => ({})) as { error?: string };
+                            if (!res.ok) {
+                              setActionResult({ ok: false, text: data.error ?? `Failed to set level (${res.status})` });
+                            } else {
+                              // Reflect immediately, then reconcile with the server.
+                              setDetail(d => d ? { ...d, trainee: { ...d.trainee, training_level: lvl } } : d);
+                              setActionResult({ ok: true, text: `Training level set to ${lvl.toUpperCase()}` });
+                              const r = await fetch(`/api/admin/trainee/${traineeId}`, { headers: { 'x-admin-password': adminPw } });
+                              if (r.ok) setDetail(await r.json() as TraineeDetail);
+                            }
+                          } catch {
+                            setActionResult({ ok: false, text: 'Network error — level not saved' });
+                          }
+                          setSavingLevel(null);
+                          setTimeout(() => setActionResult(null), 3000);
+                        }}
+                        style={{
+                          flex: 1, padding: "10px 8px", borderRadius: 8,
+                          cursor: savingLevel ? "default" : "pointer",
+                          fontFamily: "Inter", fontSize: 11, letterSpacing: "0.05em",
+                          background: active ? `${accent}28` : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${accent}${active ? "90" : "35"}`,
+                          color: active ? accent : "var(--text-muted)",
+                          fontWeight: active ? 700 : 400,
+                          opacity: savingLevel && savingLevel !== lvl ? 0.5 : 1,
+                          transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                        }}
+                      >
+                        {savingLevel === lvl
+                          ? '...'
+                          : `${lvl === 'advanced' ? '⭐ Set Advanced' : '🔵 Set Beginner'}${active ? ' ✓' : ''}`}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* EXPORT REPORT */}
                 <div className="font-orbitron" style={{ fontSize: 9, color: C.gold, letterSpacing: "0.15em", marginBottom: 10, marginTop: 16 }}>TRAINEE REPORT</div>
                 <button
                   onClick={async () => {
+                    // iOS Safari only allows window.open() synchronously inside the
+                    // tap gesture. Opening it after `await fetch` is treated as a
+                    // popup and silently blocked, so the tab is opened up-front and
+                    // filled in once the report data arrives.
+                    const w = window.open('', '_blank');
+                    if (w) {
+                      w.document.write(
+                        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Generating report…</title></head>' +
+                        '<body style="font-family:Arial,sans-serif;background:#fff;color:#444;padding:32px">' +
+                        'Generating report…</body></html>'
+                      );
+                    }
                     try {
                       const res = await fetch(`/api/admin/report/${traineeId}`, { headers: { "x-admin-password": adminPw } });
-                      if (!res.ok) return;
+                      if (!res.ok) {
+                        w?.close();
+                        setActionResult({ ok: false, text: `Report failed (${res.status})` });
+                        setTimeout(() => setActionResult(null), 3000);
+                        return;
+                      }
                       const rpt = await res.json() as {
                         trainee: { name: string; rank: string | null; unit: string | null; login_count: number };
                         stats: { totalAttempts: number; passedAttempts: number; failedAttempts: number; avgScore: number; bestScore: number; completedModules: number; totalModuleCount: number; trainingHours: number };
@@ -1136,9 +1183,29 @@ ${rpt.notes.map(n => `<div class="obs" style="margin-bottom:8px"><strong>${fmtDt
 ${weaknessSection}${strengthSection}
 <div class="footer">TLS Trainer System — Confidential Training Report</div>
 </body></html>`;
-                      const w = window.open('', '_blank');
-                      if (w) { w.document.write(html); w.document.close(); }
-                    } catch { /* non-fatal */ }
+                      if (w && !w.closed) {
+                        // Replace the placeholder with the real report.
+                        w.document.open();
+                        w.document.write(html);
+                        w.document.close();
+                      } else {
+                        // Popup blocked (common on iOS): hand the user a real link
+                        // instead of failing silently.
+                        const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.target = '_blank';
+                        a.rel = 'noopener';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                      }
+                    } catch (e: any) {
+                      w?.close();
+                      setActionResult({ ok: false, text: e?.message ?? 'Could not generate report' });
+                      setTimeout(() => setActionResult(null), 3000);
+                    }
                   }}
                   style={{
                     width: "100%", padding: "12px 16px",
@@ -3563,7 +3630,7 @@ const NAV_ICON_MAP: Record<string, React.ReactNode> = {
   error_codes:   <Search size={14} strokeWidth={1.8} />,
   simulator:     <Plane size={14} strokeWidth={1.8} />,
     "ai-knowledge":<Brain size={14} strokeWidth={1.8} />,
-  nav_manager:   <Map size={14} strokeWidth={1.8} />,
+  nav_manager:   <MapIcon size={14} strokeWidth={1.8} />,
   "quiz-editor": <PenSquare size={14} strokeWidth={1.8} />,
   "media":       <Film size={14} strokeWidth={1.8} />,
 };
