@@ -1690,7 +1690,19 @@ const app = new Hono()
         "http://localhost:4200",
         "http://localhost:3000",
       ];
-      return ALLOWED_ORIGINS.includes(origin ?? "") ? origin : ALLOWED_ORIGINS[0];
+      if (ALLOWED_ORIGINS.includes(origin ?? "")) return origin;
+      // The Admin interface is served from its own hostname on this same
+      // service (admin.* / tls-admin*, or ADMIN_HOSTS). Requests from it are
+      // same-origin, but keep the header correct for it too.
+      try {
+        const host = new URL(origin ?? "").hostname.toLowerCase();
+        const extra = (process.env.ADMIN_HOSTS ?? "")
+          .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+        if (extra.includes(host) || host.startsWith("admin.") || host.startsWith("tls-admin")) {
+          return origin;
+        }
+      } catch { /* not a valid origin — fall through */ }
+      return ALLOWED_ORIGINS[0];
     },
     credentials: true,
     exposeHeaders: ["set-auth-token"],

@@ -48,6 +48,24 @@ const staticDir = `${import.meta.dir}/../static`;
 const indexPath = `${distDir}/index.html`;
 const adminPath = `${distDir}/admin.html`;
 
+// ── Admin hostname detection ─────────────────────────────────────────────────
+// The Admin interface gets its own public hostname pointed at THIS SAME service
+// (same server, same database, same env). A request is treated as "admin host"
+// when its Host header matches `admin.*` or `tls-admin*`, or is listed in the
+// optional ADMIN_HOSTS env var (comma-separated). On an admin host every
+// navigation returns the admin shell, so /, /admin and deep refreshes all work.
+// The trainee host is completely unaffected: /admin keeps working there.
+export function isAdminHostname(host: string | null | undefined): boolean {
+  const h = (host ?? "").split(":")[0].trim().toLowerCase();
+  if (!h) return false;
+  const extra = (process.env.ADMIN_HOSTS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (extra.includes(h)) return true;
+  return h.startsWith("admin.") || h.startsWith("tls-admin");
+}
+
 const server = Bun.serve({
   port,
   async fetch(request) {
@@ -70,6 +88,40 @@ const server = Bun.serve({
 
     if (url.pathname.startsWith("/api")) {
       return app.fetch(request);
+    }
+
+    // ── Optional legacy /admin -> dedicated admin host redirect ──────────────
+    // OFF by default. Enable only after the new admin URL is verified by setting
+    // ADMIN_REDIRECT_HOST=<admin-host> (e.g. tls-admin-production.up.railway.app).
+    // Never applies to /api (handled above) and never runs on the admin host
+    // itself, so authentication and the trainee app are untouched.
+    const onAdminHost = isAdminHostname(request.headers.get("host"));
+
+    // Root of the admin host must return the admin shell. Handled here because
+    // the static lookup below maps "/" straight to dist/index.html.
+    if (onAdminHost && url.pathname === "/") {
+      const adminShell = Bun.file(adminPath);
+      if (await adminShell.exists()) {
+        return new Response(adminShell, {
+          headers: securityHeaders({
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          }),
+        });
+      }
+    }
+
+    const legacyRedirectHost = (process.env.ADMIN_REDIRECT_HOST ?? "").trim();
+    if (
+      legacyRedirectHost &&
+      !onAdminHost &&
+      (url.pathname === "/admin" || url.pathname.startsWith("/admin/"))
+    ) {
+      const target = `https://${legacyRedirectHost}${url.pathname}${url.search}`;
+      return new Response(null, {
+        status: 302,
+        headers: { Location: target, "Cache-Control": "no-store" },
+      });
     }
 
     // Check dist first, then static/ for large files (pdfs, components)
@@ -123,8 +175,11 @@ const server = Bun.serve({
       return new Response(staticFile, { headers: securityHeaders(headers) });
     }
 
-    // Serve admin.html for /admin and all /admin/* routes
+    // Serve admin.html for /admin and all /admin/* routes — and for EVERY
+    // navigation on a dedicated admin hostname (so "/" and direct refreshes of
+    // any admin path return the admin shell instead of the trainee shell).
     const isAdminRoute =
+      onAdminHost ||
       url.pathname === "/admin" ||
       url.pathname.startsWith("/admin/");
 

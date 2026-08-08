@@ -93,6 +93,20 @@ const V2Documents = lazy(() => import("./pages/v2/documents"));
 const V2Profile = lazy(() => import("./pages/v2/profile"));
 const V2Admin = lazy(() => import("./pages/v2/admin"));
 
+// ── Dedicated Admin hostname ──────────────────────────────────────────────────
+// When the app is opened from the Admin's own hostname (admin.* / tls-admin*),
+// the whole origin IS the Admin interface: "/" renders Admin and any path
+// refresh stays in Admin. Trainee hostname behaviour is unchanged (/admin only).
+// Kept in sync with isAdminHostname() in src/server.ts.
+export function isAdminHost(): boolean {
+  try {
+    const h = window.location.hostname.toLowerCase();
+    return h.startsWith("admin.") || h.startsWith("tls-admin");
+  } catch {
+    return false;
+  }
+}
+
 // Re-export for anything that imported from app.tsx directly
 export { unlockAudio, showToast } from "./lib/audio";
 export { playAlertTone, vibrate } from "./lib/audio";
@@ -136,7 +150,7 @@ function useHeartbeat() {
 function usePWAMeta() {
   const [location] = useLocation();
   useEffect(() => {
-    const isAdmin = location === "/admin" || location.startsWith("/admin/");
+    const isAdmin = isAdminHost() || location === "/admin" || location.startsWith("/admin/");
     // Swap manifest link
     const manifest = document.getElementById("pwa-manifest") as HTMLLinkElement | null;
     if (manifest) manifest.href = isAdmin ? "/manifest-admin.json" : "/manifest-trainee.json";
@@ -419,8 +433,9 @@ function App() {
   usePWAMeta();
 
   const [location] = useLocation();
-  const isV2Route = location === "/v2" || location.startsWith("/v2/");
-  const isAdminRoute = location === "/admin" || location.startsWith("/admin");
+  const onAdminHost = isAdminHost();
+  const isV2Route = !onAdminHost && (location === "/v2" || location.startsWith("/v2/"));
+  const isAdminRoute = onAdminHost || location === "/admin" || location.startsWith("/admin");
 
   // Unlock audio on any user interaction
   useEffect(() => {
