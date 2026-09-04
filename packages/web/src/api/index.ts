@@ -3609,6 +3609,39 @@ const app = new Hono()
     await sqlRun(`UPDATE registration_requests SET status='approved', reviewed_at=? WHERE id=?`, [now, reqId]);
     await sqlRun(`INSERT INTO trainee_alerts (trainee_id, message, alert_type, read, ts) VALUES (?, ?, 'info', 0, ?)`,
       [reqId, 'تمت الموافقة على تسجيلك. يمكنك الدخول الآن.', now]).catch(() => {});
+
+    // ── Automatic welcome message (Admin → Trainee private message) ─────────
+    // Written into the SAME table the manual "POST /admin/message" writes to,
+    // so the trainee sees it in the existing private conversation and the row
+    // is indistinguishable from a message the admin typed by hand.
+    // Duplicate-safe: the `status === 'approved'` guard above already blocks a
+    // second approval, and the marker lookup below covers retries/re-approvals.
+    try {
+      const rankStr = typeof req.rank === 'string' ? req.rank.trim() : '';
+      const nameStr = typeof req.name === 'string' ? req.name.trim() : '';
+      const who = [rankStr, nameStr].filter(Boolean).join(' ');
+      const welcomeText =
+        `Welcome, ${who}!\n\n` +
+        `Your TLS Trainer account has been approved successfully.\n\n` +
+        `You now have access to the training modules, technical manuals, quizzes, and AI Instructor.\n\n` +
+        `We wish you a successful and productive training experience.\n\n` +
+        `Welcome aboard.\n\n` +
+        `TLS Trainer Administration`;
+      const [alreadySent] = await sql(
+        `SELECT id FROM trainee_messages WHERE trainee_id=? AND sender_role='admin' AND text LIKE ? LIMIT 1`,
+        [reqId, '%Your TLS Trainer account has been approved successfully.%']
+      );
+      if (!alreadySent && who) {
+        await sqlRun(
+          `INSERT INTO trainee_messages (trainee_id, sender_role, text, read, ts) VALUES (?, 'admin', ?, 0, ?)`,
+          [reqId, welcomeText, now]
+        );
+      }
+    } catch (err) {
+      // Never fail the approval because the welcome message could not be stored.
+      console.error('[approve] welcome message failed:', err);
+    }
+
     sendTelegram({ type: 'admin_alert', message: `✅ تمت الموافقة على تسجيل: ${req.name}` });
     return c.json({ ok: true }, 200);
   })

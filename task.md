@@ -67,3 +67,10 @@
 
 ### لم يُنشر
 كل التعديلات محلية. لا git push بدون موافقة صريحة.
+
+## 2026-09-04 — إصلاح كاش الجوال (commit 85efcfa، منشور ومتحقق)
+- العلة: sw.js كان cache-first لكل .pdf و.jpg → الجوال يقدّم النسخة القديمة للأبد بعد استبدال ملف بنفس الاسم.
+- الإصلاح: CACHE_VERSION v4→v5 (معالج activate يحذف كل كاش قديم) + قاعدة جديدة رقم 2: كل /docs/ صار networkFirstWithCache(MANUAL_CACHE, 8000)، قبل قاعدة الـ PDF وقاعدة الصور.
+- /pdfs/ و/static/pdfs/ و/admin-docs/ بقيت cache-first عمدًا (قراءة بلا اتصال).
+- تحقق على الإنتاج: sw.js يحمل v5 + قاعدة /docs/، والـ PDF md5=ad5084e8104cbba2b078f736bbe1325c (الملف الجديد)، 1,608,163 بايت، X-Frame-Options: SAMEORIGIN.
+- ملاحظة: أي ملف يُستبدل تحت /docs/ لاحقًا يتحدّث تلقائيًا. أي استبدال تحت /pdfs/ أو /admin-docs/ يحتاج رفع CACHE_VERSION يدويًا.
