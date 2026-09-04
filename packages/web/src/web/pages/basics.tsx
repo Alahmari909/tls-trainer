@@ -1,6 +1,100 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import BackButton from "../components/BackButton";
 import { getSession } from "../hooks/useTelegramTrack";
+
+// Reference PDF shown as a thumbnail inside the "What is TLS?" card.
+const REF_PDF = {
+  url: "/docs/how-ttls-works.pdf",
+  thumb: "/docs/how-ttls-works-thumb.jpg",
+  title: "How TTLS works?",
+};
+
+// Full-screen in-app PDF viewer. Rendered through a portal to document.body so
+// the `zoom` media queries used for phone scaling cannot break position:fixed
+// on iOS PWA (same reason the admin overlays are portalled).
+function PdfViewer({ url, title, onClose }: { url: string; title: string; onClose: () => void }) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", esc);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", esc); document.body.style.overflow = prev; };
+  }, [onClose]);
+
+  const body = (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 10000,
+      background: "#050a12", display: "flex", flexDirection: "column",
+    }}>
+      {/* Header with a prominent back button */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: `calc(10px + env(safe-area-inset-top, 0px)) 14px 10px`,
+        borderBottom: "1px solid rgba(0,174,239,0.2)",
+        background: "#071426", flexShrink: 0,
+      }}>
+        <button
+          onClick={onClose}
+          className="font-orbitron"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "rgba(0,174,239,0.12)", border: "1px solid rgba(0,174,239,0.45)",
+            color: "#00AEEF", borderRadius: 8, padding: "9px 14px",
+            fontSize: 11, letterSpacing: "0.1em", cursor: "pointer",
+          }}
+        >
+          ← BACK
+        </button>
+        <div style={{
+          fontSize: 13, color: "#e6f2ff", fontWeight: 600,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {title}
+        </div>
+      </div>
+
+      {/* The PDF itself */}
+      <iframe
+        src={url}
+        title={title}
+        style={{ flex: 1, width: "100%", border: "none", background: "#0b1220" }}
+      />
+
+      {/* Bottom bar — open in a new tab as a fallback for browsers that refuse
+          to render PDFs inside an iframe (some iOS versions). */}
+      <div style={{
+        flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.08)",
+        background: "#071426",
+        padding: `10px 14px calc(10px + env(safe-area-inset-bottom, 0px))`,
+        display: "flex", gap: 10,
+      }}>
+        <button
+          onClick={onClose}
+          style={{
+            flex: 1, background: "rgba(0,174,239,0.12)", border: "1px solid rgba(0,174,239,0.45)",
+            color: "#00AEEF", borderRadius: 8, padding: "12px", fontSize: 13,
+            fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          Back to TLS Basics
+        </button>
+        <a
+          href={url} target="_blank" rel="noopener noreferrer"
+          style={{
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
+            color: "#9fb3c8", borderRadius: 8, padding: "12px 16px", fontSize: 13,
+            fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center",
+          }}
+        >
+          Open
+        </a>
+      </div>
+    </div>
+  );
+
+  return typeof document !== "undefined" ? createPortal(body, document.body) : body;
+}
 
 type Component = {
   id: string;
@@ -501,6 +595,7 @@ function CompCard({ comp, index, onClick }: { comp: Component; index: number; on
 
 export default function Basics() {
   const [selected, setSelected] = useState<Component | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   if (selected) {
     return <ComponentDetail comp={selected} onBack={() => setSelected(null)} />;
@@ -581,12 +676,57 @@ export default function Basics() {
             <div style={{ width: 3, height: 14, borderRadius: 2, background: "#00AEEF", boxShadow: "0 0 8px #00AEEF" }} />
             <div className="font-orbitron" style={{ fontSize: 9, letterSpacing: "0.2em", color: "#00AEEF" }}>WHAT IS TLS?</div>
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.75, margin: 0 }}>
-            The <strong style={{ color: "#00AEEF" }}>Transponder Landing System (TLS)</strong> is a precision approach aid
-            that uses existing aircraft Mode S transponders to provide ILS-equivalent lateral and vertical guidance —
-            without requiring special aircraft equipment or a conventional ILS installation.
-          </p>
+          {/* Text on the left, tappable PDF thumbnail on the right */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+            <p style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.75, margin: 0 }}>
+              The <strong style={{ color: "#00AEEF" }}>Transponder Landing System (TLS)</strong> is a precision approach aid
+              that uses existing aircraft Mode S transponders to provide ILS-equivalent lateral and vertical guidance —
+              without requiring special aircraft equipment or a conventional ILS installation.
+            </p>
+
+            <button
+              onClick={() => setPdfOpen(true)}
+              aria-label={`Open ${REF_PDF.title} (PDF)`}
+              style={{
+                flexShrink: 0, width: 78, padding: 0, cursor: "pointer",
+                background: "transparent", border: "none",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+              }}
+            >
+              <div style={{
+                position: "relative", width: 78, height: 100, borderRadius: 6,
+                overflow: "hidden", border: "1px solid rgba(0,174,239,0.45)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.45)", background: "#0b1220",
+              }}>
+                <img
+                  src={REF_PDF.thumb}
+                  alt={REF_PDF.title}
+                  loading="lazy"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }}
+                />
+                {/* PDF badge */}
+                <div className="font-orbitron" style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0,
+                  background: "linear-gradient(180deg, rgba(5,10,18,0) 0%, rgba(5,10,18,0.92) 55%)",
+                  color: "#00AEEF", fontSize: 7, letterSpacing: "0.14em",
+                  textAlign: "center", padding: "9px 0 3px",
+                }}>
+                  PDF
+                </div>
+              </div>
+              <div style={{
+                fontSize: 8, color: "var(--text-muted)", textAlign: "center",
+                lineHeight: 1.3, maxWidth: 78,
+              }}>
+                {REF_PDF.title}
+              </div>
+            </button>
+          </div>
         </div>
+
+        {pdfOpen && (
+          <PdfViewer url={REF_PDF.url} title={REF_PDF.title} onClose={() => setPdfOpen(false)} />
+        )}
 
         {/* Key Specs */}
         <div style={{ marginTop: 20 }}>
