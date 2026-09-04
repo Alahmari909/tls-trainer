@@ -1,5 +1,5 @@
 /**
- * TLS Trainer — Service Worker  (v4 — SPA-safe PWA)
+ * TLS Trainer — Service Worker  (v5 — SPA-safe PWA)
  *
  * Key fix: Navigation requests (opening app from home screen) MUST always
  * return the correct HTML shell (index.html or admin.html), never a 404 or
@@ -10,11 +10,15 @@
  *  - JS/CSS assets (hashed):    Cache-first (immutable)
  *  - API calls:                 Network-first → cache fallback (5 s timeout)
  *  - Static assets (img/font):  Cache-first → network update
+ *  - /docs/ reference files:    Network-first → cache fallback (replaced in place)
  *  - PDFs / Manuals:            Cache-first after first fetch (offline reading)
  *  - Navigation fallback:       Always serve index.html / admin.html (SPA)
  */
 
-const CACHE_VERSION  = "v4";
+// Bumping this purges every old cache in the `activate` handler below. Raise it
+// whenever a cached asset is replaced in place (same filename, new content) —
+// otherwise installed PWAs keep serving the stale copy forever.
+const CACHE_VERSION  = "v5";
 const SHELL_CACHE    = `tls-shell-${CACHE_VERSION}`;
 const STATIC_CACHE   = `tls-static-${CACHE_VERSION}`;
 const API_CACHE      = `tls-api-${CACHE_VERSION}`;
@@ -104,7 +108,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 2. PDFs / Manuals: Cache-first (offline reading) ─────────────────────
+  // ── 2. Reference docs (/docs/): Network-first ────────────────────────────
+  //   These files (how-ttls-works.pdf + its thumbnail) get replaced in place
+  //   with the same filename, so cache-first would pin the old copy forever.
+  //   Must come BEFORE the PDF rule and the image rule below.
+  if (url.pathname.startsWith("/docs/")) {
+    event.respondWith(networkFirstWithCache(request, MANUAL_CACHE, 8000));
+    return;
+  }
+
+  // ── 3. PDFs / Manuals: Cache-first (offline reading) ─────────────────────
   if (
     url.pathname.endsWith(".pdf") ||
     url.pathname.startsWith("/pdfs/") ||
@@ -115,7 +128,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 3. Static assets (images, fonts, webp): Cache-first ──────────────────
+  // ── 4. Static assets (images, fonts, webp): Cache-first ──────────────────
   if (
     /\.(png|jpg|jpeg|webp|gif|svg|ico|woff2?|ttf|eot)$/.test(url.pathname) ||
     url.hostname.includes("fonts.g")
@@ -124,13 +137,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 4. Hashed JS/CSS assets: Cache-first (immutable) ─────────────────────
+  // ── 5. Hashed JS/CSS assets: Cache-first (immutable) ─────────────────────
   if (/\/assets\/[^/]+-[a-zA-Z0-9_]{8}\.(js|css)$/.test(url.pathname)) {
     event.respondWith(cacheFirstWithNetwork(request, SHELL_CACHE));
     return;
   }
 
-  // ── 5. HTML navigation (SPA) ─────────────────────────────────────────────
+  // ── 6. HTML navigation (SPA) ─────────────────────────────────────────────
   //   This is the critical fix: any navigation request (opening from home
   //   screen, refreshing, deep-linking) must return the correct HTML shell.
   //   The React router then handles the path client-side.
@@ -139,7 +152,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 6. Everything else: Network-first ────────────────────────────────────
+  // ── 7. Everything else: Network-first ────────────────────────────────────
   event.respondWith(networkFirstWithCache(request, SHELL_CACHE, 8000));
 });
 
