@@ -1,67 +1,69 @@
-# TLS Trainer — production outage (502) + pending video fix
+# TLS Trainer — سرعة الموقع + ذكاء الـ AI
 
-## Outage: ROOT CAUSE FOUND & FIXED
-Railway service `@template/web` = **CRASHED** (not a hosting/billing problem; account is fine).
+## المطلوب (من المستخدم)
+1. الموقع أسرع
+2. الـ AI يجاوب على كل سؤال (حالياً يرفض كثير مع إن الملفات كلها مفهرسة)
 
-Production log:
-```
-TypeError: text.replace is not a function
-  at row (/app/packages/web/src/api/telegram.ts)
-  at buildMessage
-  at sendTelegram
-```
+## التشخيص (أرقام حقيقية من Turso)
+- 1204 صفحة مفهرسة / 1197 لها embedding / 42 ملف
+- 7 صفحات بدون embedding = غير مرئية للبحث نهائياً
+  (TLS Training June 2021 KSA=3, TLS Flight Inspection=2, مقدمة عن النظام=1, FTM Checklists=1)
+- ~27 صفحة نصها < 80 حرف (OCR فشل)
+- topK كان 8 من 1204، وحد قبول ثابت 0.14
+- البحث دلالي فقط؛ الكلمات المفتاحية تعمل فقط لو تعطلت الـ embeddings
+- أصول ثقيلة: og-image.png 5.6MB (2560x1436)، how-tls-works 15MB (8 PNG)، slides 13MB (145 jpg)، فيديوهين 7.8MB
 
-`esc(text: string)` in `packages/web/src/api/telegram.ts` was typed as string but
-receives values straight off JSON request bodies (`/track`), which can be
-null / undefined / number / object. The throw became an **unhandled promise
-rejection** because nearly every caller is fire-and-forget
-(`sendTelegram({...})` — no await, no .catch). There were **zero**
-`process.on("unhandledRejection")` handlers in the repo, so Bun killed the
-process → Railway 502.
+## تم تنفيذه
+- [x] searchKnowledgeKeyword() جديدة — بحث لفظي منظم قابل للدمج (score 0.30-0.55)
+- [x] يعمل على كل سؤال بالتوازي (بدون زيادة زمن) مو بس عند تعطل الـ embeddings
+- [x] دمج النتائج اللفظية مع الدلالية + حجز 25% من الخانات لها
+- [x] topK 8 → 14
+- [x] حد القبول: نسبي (55% من أعلى نتيجة، أرضية 0.10) بدل 0.14 الثابت
 
-### Fix (branch `fix/telegram-crash`, commit d37afda) — 3 layers
-1. `esc()` coerces unknown runtime values; missing renders as em dash. `clip()` added for safe truncation.
-2. `sendTelegram()` wraps `buildMessage` in try/catch — can never reject.
-   Also fixed `quiz_finish` divide-by-zero and `status_change` `.toUpperCase()` on missing status.
-3. `server.ts`: global `unhandledRejection` + `uncaughtException` guards —
-   no single fire-and-forget bug can take the site down again.
+## الباقي
+- [ ] ضغط الأصول (og-image + how-tls-works)
+- [ ] bun run build للتحقق
+- [ ] معاينة + zip
+- [ ] يحتاج OPENAI_API_KEY: توليد embeddings للـ 7 صفحات + إعادة OCR للصفحات الفارغة
 
-### Proof captured
-- `hero/repro_crash.ts` — before: 6/7 event shapes throw. after: 0/7.
-- `hero/probe_fireforget.ts` — fire-and-forget, no await/catch:
-  - on `main`: process DIES, exact prod stack `esc → row → buildMessage → sendTelegram`
-  - on fix branch: `STILL ALIVE ... process survived`
-- `hero/verify_msgs.ts` — all messages still render; MarkdownV2 escaping intact
-  (`Test\_1 \(v2\.0\) \[x\] \-done\!`).
-- `/tmp/guard_test.ts` — guard survives rogue rejection + sync throw; without guard the process dies.
-- Gates: `cd packages/web && bunx tsc --noEmit` rc=0 · `bun run build:web` rc=0.
-- Clean-checkout boot of `main` (`d123b2f`) ran fine locally → confirmed code builds/starts; crash is event-triggered at runtime.
+## قرارات
+- ما نغيّر أسماء الملفات ولا الصيغ → صفر تغيير في الكود
+- الريبو: Alahmari909/tls-trainer (خاص) — سُحب بـ depth 1
+- ما نرفع على GitHub/Railway إلا بموافقة صريحة
 
-## Video fix: DEPLOYED & VERIFIED ON LIVE (merge 08829a1)
-Precision Approach autoplay fix merged to main and live in bundle
-`main-7x9Nipyc.js`. Merge touched only `index.tsx`; telegram fix intact.
+## 2026-09-04 — التحقق النهائي من إصلاح الاسترجاع
 
-LIVE production proof (`hero/proof_live.log`), real autoplay policy:
-- m390:  currentTime 7.06 -> 10.07 MOVING=True · 4/4 distinct pixel hashes ·
-         src=tls-precision-720p.mp4 · mutedAttr/autoplayAttr=true ·
-         controls=false · fit=contain · playBtn=false
-- d1440: currentTime 7.02 -> 10.03 MOVING=True · 4/4 distinct pixel hashes ·
-         src=tls-precision-1080p.mp4 · mutedAttr/autoplayAttr=true ·
-         controls=false · fit=contain · playBtn=false
-All 13 requirements satisfied.
+مفتاح OpenAI الجديد: صالح (200 من /v1/embeddings).
+البيئة المحلية: أُضيف DATABASE_URL + DATABASE_AUTH_TOKEN (الكود يقرأ هذين الاسمين لا TURSO_*).
 
-## Notes
-- Railway token in `.env.railway` AND the newly supplied one are both rejected
-  (`Not Authorized` / `Project Token not found`) — no CLI access to logs from sandbox.
-- `start.sh` runs `bun install` + `vite build` on every container start, with
-  379MB `static/` + 46MB `public/`. Slow/risky boot; worth moving to build phase later.
+اختبار الاسترجاع على 12 سؤال حقيقي (1197 embedding محمّلة من Turso، مقارنة قديم/جديد):
+| السؤال | أعلى درجة | الحد الجديد | صفحات قديم | صفحات جديد |
+|---|---|---|---|---|
+| كيف يعمل نظام TLS؟ | 0.545 | 0.299 | 8 | 14 |
+| ما هي مكونات النظام الرئيسية؟ | 0.329 | 0.181 | 8 | 14 |
+| 020-00074 | 0.601 | 0.331 | 8 | 17 |
+| What is TOA delay? | 0.677 | 0.372 | 8 | 17 |
+| VSWR limits | 0.432 | 0.238 | 8 | 17 |
+| كيف اسوي معايرة الثيودوليت؟ | 0.339 | 0.187 | 8 | 14 |
+| GTU setup procedure | 0.640 | 0.352 | 8 | 16 |
+| ما هو الـ DDM؟ | 0.409 | 0.225 | 8 | 14 |
+| set monitor limits / nominals | 0.522 | 0.287 | 8 | 15 |
+| شرح flight inspection | 0.599 | 0.329 | 8 | 17 |
+| critical area TLS | 0.691 | 0.380 | 8 | 17 |
+| spares identification listing | 0.618 | 0.340 | 8 | 17 |
 
-## Status: COMPLETE
-Site up (200, stable across 5 checks), DB healthy, video playing on live at
-both breakpoints. Both fixes deployed.
+ملاحظة صادقة: عمود "قديم" = 8 في كل الأسئلة، أي أن الحد الثابت 0.14 لم يكن هو المانع في هذه الأسئلة
+بل السقف topK=8. الفائدة الحقيقية = ضعف السياق (14–17 صفحة) + الحد النسبي الذي يتكيّف
+(0.181 لسؤال مفهومي عام مقابل 0.380 لسؤال محدد) + دخول النتائج اللفظية.
+المصادر منطقية: السؤال العربي عن الثيودوليت رجّع "خطوات مسح موقع جهاز الثيودوليت" ص2 أولًا.
 
-Outstanding (non-urgent):
-- Railway token still unusable from sandbox (`Not Authorized`) — needs a token
-  scoped to the workspace owning this project for future log access.
-- `start.sh` builds on every container boot (379MB static + 46MB public);
-  worth moving to the build phase.
+### الصفحات الفارغة — تشخيص دقيق
+25 صفحة نصها < 80 حرف (لا 27). الـ7 بدون embedding نصها = 0 حرف تمامًا،
+وترْكها NULL **مقصود في الكود** (تعليق سطر 2866: الصفحات الفارغة/المرفوضة تبقى NULL لئلا تُسترجع)
+→ توليد embedding لنص فارغ بلا قيمة. الإصلاح الصحيح = OCR من صورة الصفحة ثم embedding.
+- 6 صفحات فقط لها صورة مخزّنة في ai_doc_page_images
+- الـ19 الباقية بلا صورة، لكن ملفات PDF المصدر موجودة في packages/web/static/{admin-docs,pdfs}
+→ يمكن إعادة التوليد بـ poppler + vision. مؤجّل: قرار تكلفة للمستخدم.
+
+### لم يُنشر
+كل التعديلات محلية. لا git push بدون موافقة صريحة.

@@ -666,7 +666,48 @@ async function searchKnowledgeChunks(query: string, limit = 10): Promise<string[
 }
 
 // ── Semantic retrieval over indexed slides (OpenAI embeddings + cosine) ──────────
-type RetrievedChunk = { content: string; filename: string; page: number; imagePath: string | null; score: number };
+type RetrievedChunk = { content: string; filename: string; page: number; imagePath: string | null; score: number; lexical?: boolean };
+
+// ── Lexical (keyword) retrieval — structured so it can be MERGED with the
+// semantic hits instead of only replacing them when embeddings are unavailable.
+// Model numbers, error codes, part numbers and exact phrases ("020-00074",
+// "TOA delay", "VSWR") often sit far away in embedding space but match the page
+// text literally, so semantic-only retrieval refused them. Scored by how many
+// distinct query words the page contains.
+async function searchKnowledgeKeyword(query: string, limit = 8): Promise<RetrievedChunk[]> {
+  const stopWords = new Set(['what','that','this','with','from','have','will','your','they','their','does','how','the','and','for',
+    'ماهو','ماهي','كيف','ماذا','لماذا','هل','في','من','على','إلى','عن','مع','ايش','وش','وين']);
+  const words = query.toLowerCase()
+    .replace(/[^\w\s؀-ۿ-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w))
+    .slice(0, 8);
+  if (words.length === 0) return [];
+  const conditions = words.map(() => 'content LIKE ?').join(' OR ');
+  const params = [...words.map((w) => `%${w}%`), limit * 5];
+  const rows = await sql(
+    `SELECT content, filename, page_number, image_path FROM ai_doc_chunks WHERE ${conditions} LIMIT ?`,
+    params,
+  ).catch(() => []);
+  return (rows as any[])
+    .map((r) => {
+      const lc = String(r.content ?? '').toLowerCase();
+      let hits = 0;
+      for (const w of words) if (lc.includes(w)) hits++;
+      return {
+        content: r.content as string,
+        filename: (r.filename as string) ?? '',
+        page: Number(r.page_number) || 0,
+        imagePath: r.image_path ?? null,
+        // Mapped above the relevance gate: a literal multi-word match is strong
+        // evidence even when the cosine score would have rejected the page.
+        score: 0.30 + 0.25 * (hits / words.length),
+        lexical: true,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
 
 async function embedQuery(query: string): Promise<number[] | null> {
   const key = process.env.OPENAI_API_KEY;
@@ -804,12 +845,16 @@ function jaccardSim(a: Set<string>, b: Set<string>): number {
 
 async function searchKnowledgeSemantic(query: string, topK = 5): Promise<RetrievedChunk[]> {
   const enQuery = await translateQueryToEnglish(query);
-  const [qv, qvEn, store] = await Promise.all([
+  const [qv, qvEn, store, lexical] = await Promise.all([
     embedQuery(query),
     enQuery ? embedQuery(enQuery) : Promise.resolve(null),
     loadEmbeddings(),
+    // Lexical retrieval now runs on EVERY query (in parallel, so it costs no
+    // extra latency) instead of only when embeddings are unavailable.
+    searchKnowledgeKeyword(query, Math.max(4, Math.ceil(topK / 3))).catch(() => [] as RetrievedChunk[]),
   ]);
   if ((!qv && !qvEn) || store.length === 0) {
+    if (lexical.length > 0) return lexical.slice(0, topK);
     // Fallback to keyword search when embeddings unavailable
     const kw = await searchKnowledgeChunks(query, topK).catch(() => []);
     return kw.map((c) => ({ content: c, filename: '', page: 0, imagePath: null, score: 0 }));
@@ -852,6 +897,28 @@ async function searchKnowledgeSemantic(query: string, topK = 5): Promise<Retriev
     acc.push({ emb: r.emb, tokens });
     out.push({ content: r.content, filename: r.filename, page: r.page, imagePath: r.imagePath, score: r.score });
     if (out.length >= topK) break;
+  }
+
+  // ── Merge the lexical hits ────────────────────────────────────────────────
+  // Pages whose text literally contains the query words but which never made
+  // the semantic cut (exact part numbers, error codes, rare phrases). A few
+  // slots are reserved for them so semantic recall is never fully displaced.
+  if (lexical.length > 0) {
+    const have = new Set(out.map((r) => `${r.filename}#${r.page}`));
+    const haveText = new Set(out.map((r) => normForDedupe(r.content)));
+    const reserve = Math.max(2, Math.floor(topK / 4));
+    let added = 0;
+    for (const l of lexical) {
+      if (added >= reserve) break;
+      const key = `${l.filename}#${l.page}`;
+      if (have.has(key)) continue;
+      const norm = normForDedupe(l.content);
+      if (norm && haveText.has(norm)) continue;
+      have.add(key);
+      if (norm) haveText.add(norm);
+      out.push(l);
+      added++;
+    }
   }
   return out;
 }
@@ -2546,13 +2613,19 @@ const app = new Hono()
       sql(`SELECT question, correct_option, option_a, option_b, option_c, option_d, explanation
            FROM questions ORDER BY module_id, "order" LIMIT 150`).catch(() => []),
       sql(`SELECT title, content FROM lessons ORDER BY module_id, "order" LIMIT 25`).catch(() => []),
-      searchKnowledgeSemantic(message, 8),
+      searchKnowledgeSemantic(message, 14),
     ]);
-    // Keep only sufficiently relevant chunks (cosine threshold)
-    // 0.18 was too tight for broad/conceptual Arabic questions ("كيف يعمل النظام؟"),
-    // which sit slightly below it and got wrongly refused. 0.14 widens recall; the
-    // strict system prompt still forces a refusal when the pages don't hold the answer.
-    const relevant = retrieved.filter((r) => r.score >= 0.14 || r.filename === '');
+    // Keep only sufficiently relevant chunks.
+    // A FIXED cosine gate (0.18 → 0.14) still refused valid questions: cosine
+    // scores are not comparable across queries — a narrow factual question tops
+    // out around 0.55 while a broad conceptual one peaks near 0.22, so any single
+    // number is simultaneously too tight for one and too loose for the other.
+    // The gate is now RELATIVE to the best-scoring page for this query (55% of
+    // it), with a low absolute floor, so recall scales with the query instead of
+    // against it. Lexical hits carry their own evidence and bypass the gate.
+    const best = retrieved.length > 0 ? Math.max(...retrieved.map((r) => r.score)) : 0;
+    const cut = Math.max(0.10, best * 0.55);
+    const relevant = retrieved.filter((r) => r.lexical || r.score >= cut || r.filename === '');
     const pdfChunks = relevant.map((r) => {
       const page = r.page > 0 ? `, صفحة ${r.page}` : '';
       const src = r.filename ? `[📄 ${r.filename}${page}]` : '[📄 مرجع]';

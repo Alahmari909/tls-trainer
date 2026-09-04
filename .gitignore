@@ -74,3 +74,9 @@ packages/mobile/scripts/*
 !packages/mobile/scripts/generate-ios-certs.py
 .railway.env
 .env.railway
+
+# secrets (added by agent)
+.env.git
+.env.*
+!.env.example
+!.env.template
