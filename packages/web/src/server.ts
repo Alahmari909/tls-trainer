@@ -132,13 +132,25 @@ const server = Bun.serve({
       const isHashed = /\/assets\/[^/]+-[a-zA-Z0-9_]{8}\.(js|css)$/.test(url.pathname);
       // Service Worker must be served with Service-Worker-Allowed header
       const isSW = url.pathname === "/sw.js";
+      // Reference PDFs (e.g. /docs/*.pdf shown in the TLS Basics viewer) are
+      // rendered inside a same-origin iframe. The global X-Frame-Options: DENY
+      // blocks that even for our own pages, so PDFs get SAMEORIGIN: other sites
+      // still cannot frame them, but the in-app viewer works.
+      const isDistPdf = url.pathname.toLowerCase().endsWith(".pdf");
       return new Response(file, {
         headers: securityHeaders(
           isHashed
             ? { "Cache-Control": "public, max-age=31536000, immutable" }
             : isSW
               ? { "Cache-Control": "no-cache, no-store, must-revalidate", "Service-Worker-Allowed": "/", "Content-Type": "application/javascript" }
-              : { "Cache-Control": "no-cache, no-store, must-revalidate" }
+              : isDistPdf
+                ? {
+                    "Cache-Control": "public, max-age=3600",
+                    "Content-Type": "application/pdf",
+                    "Content-Disposition": "inline",
+                    "X-Frame-Options": "SAMEORIGIN",
+                  }
+                : { "Cache-Control": "no-cache, no-store, must-revalidate" }
         ),
       });
     }
@@ -154,6 +166,8 @@ const server = Bun.serve({
       };
       if (isPdf) {
         headers["Content-Type"] = "application/pdf";
+        // Same reason as the dist branch: allow our own in-app iframe viewer.
+        headers["X-Frame-Options"] = "SAMEORIGIN";
         if (isDownload) {
           const fileName = url.pathname.split("/").pop() ?? "file.pdf";
           headers["Content-Disposition"] = `attachment; filename="${fileName}"`;
