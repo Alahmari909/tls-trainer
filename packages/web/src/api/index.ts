@@ -3436,12 +3436,18 @@ const app = new Hono()
     const pw = c.req.header('x-admin-password');
     if (pw !== ADMIN_PASSWORD) return c.json({ error: 'Unauthorized' }, 401);
     const traineeId = c.req.param('traineeId');
+    // Joins `questions` so the admin can see the FULL option text (the answers
+    // table only stores the letter A/B/C/D) and so results can be listed in the
+    // module's official question order instead of insertion order.
     const rows = await sql(`
-      SELECT qa.*, qat.module_name, qat.pct, qat.passed
+      SELECT qa.*, qat.module_name, qat.pct, qat.passed,
+             q.option_a, q.option_b, q.option_c, q.option_d,
+             q.explanation, q."order" AS q_order
       FROM quiz_answers qa
       LEFT JOIN quiz_attempts qat ON qat.id = qa.attempt_id
+      LEFT JOIN questions q ON q.id = qa.question_id
       WHERE qa.trainee_id = ?
-      ORDER BY qa.ts DESC
+      ORDER BY qa.attempt_id DESC, COALESCE(q."order", qa.id) ASC
     `, [traineeId]).catch(() => []);
     return c.json(rows, 200);
   })

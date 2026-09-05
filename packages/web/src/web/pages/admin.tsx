@@ -167,85 +167,86 @@ function QuizAnswerBreakdown({ attemptId, traineeId, adminPw }: { attemptId: num
                 </span>
               </div>
 
-              {/* Wrong answers first — highlighted */}
-              {wrong.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{
-                    fontSize: 9, fontFamily: "Inter", letterSpacing: "0.14em",
-                    color: "#FF4D4D", marginBottom: 6, textTransform: "uppercase",
-                  }}>
-                    ❌ Wrong Answers — Needs Review
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {wrong.map((a: any, i: number) => (
-                      <div key={i} style={{
-                        padding: "10px 12px", borderRadius: 8,
-                        background: "rgba(255,77,77,0.06)",
-                        border: "1px solid rgba(255,77,77,0.25)",
+              {/* All answers — listed in the module's official question order,
+                  so Q1 here is the module's Q1. NOTE: the trainee app shuffles
+                  questions per attempt and that shuffle is never stored, so the
+                  exact on-screen order the trainee saw cannot be reconstructed. */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {answers.map((a: any, i: number) => {
+                  const ok = !!a.is_correct;
+                  const optText = (letter: any) => {
+                    const k = String(letter ?? "").trim().toUpperCase();
+                    const map: Record<string, any> = {
+                      A: a.option_a, B: a.option_b, C: a.option_c, D: a.option_d,
+                    };
+                    return map[k] ?? null;
+                  };
+                  const answered =
+                    a.selected_option !== null &&
+                    a.selected_option !== undefined &&
+                    String(a.selected_option).trim() !== "";
+                  const selText = optText(a.selected_option);
+                  const corText = optText(a.correct_option);
+                  return (
+                    <div key={i} style={{
+                      padding: "10px 12px", borderRadius: 8,
+                      background: ok ? "rgba(0,210,106,0.06)" : "rgba(255,77,77,0.06)",
+                      border: `1px solid ${ok ? "rgba(0,210,106,0.25)" : "rgba(255,77,77,0.25)"}`,
+                    }}>
+                      {/* Question */}
+                      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter", marginBottom: 8, lineHeight: 1.4 }}>
+                        <span style={{ fontSize: 10, color: ok ? "rgba(0,210,106,0.8)" : "rgba(255,77,77,0.8)", marginRight: 6 }}>Q{i + 1}.</span>
+                        {a.question_text}
+                      </div>
+
+                      {/* Trainee answer */}
+                      <div style={{
+                        display: "flex", alignItems: "flex-start", gap: 8,
+                        marginBottom: ok ? 0 : 4,
+                        padding: "6px 10px", borderRadius: 6,
+                        background: ok ? "rgba(0,210,106,0.08)" : "rgba(255,77,77,0.08)",
+                        border: `1px solid ${ok ? "rgba(0,210,106,0.2)" : "rgba(255,77,77,0.2)"}`,
                       }}>
-                        {/* Question */}
-                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter", marginBottom: 8, lineHeight: 1.4 }}>
-                          <span style={{ fontSize: 10, color: "rgba(255,77,77,0.7)", marginRight: 6 }}>Q{i + 1}.</span>
-                          {a.question_text}
-                        </div>
-                        {/* Trainee answer */}
-                        <div style={{
-                          display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4,
-                          padding: "6px 10px", borderRadius: 6,
-                          background: "rgba(255,77,77,0.08)", border: "1px solid rgba(255,77,77,0.2)",
-                        }}>
-                          <span style={{ fontSize: 10, color: "#FF4D4D", flexShrink: 0, marginTop: 1 }}>✗</span>
-                          <div>
-                            <div style={{ fontSize: 9, color: "#FF4D4D", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 2 }}>TRAINEE ANSWERED</div>
-                            <div style={{ fontSize: 12, color: "#FF8080", fontFamily: "Inter" }}>{a.selected_option}</div>
+                        <span style={{ fontSize: 10, color: ok ? "#00D26A" : "#FF4D4D", flexShrink: 0, marginTop: 1 }}>{ok ? "✓" : "✗"}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 9, color: ok ? "#00D26A" : "#FF4D4D", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 2 }}>
+                            TRAINEE ANSWERED
+                          </div>
+                          <div style={{ fontSize: 12, color: ok ? "#00FF88" : "#FF8080", fontFamily: "Inter", lineHeight: 1.4 }}>
+                            {answered
+                              ? <>{String(a.selected_option).toUpperCase()}{selText ? <span style={{ opacity: 0.95 }}>{". " + selText}</span> : null}</>
+                              : <span style={{ fontStyle: "italic", opacity: 0.75 }}>No answer</span>}
                           </div>
                         </div>
-                        {/* Correct answer */}
+                      </div>
+
+                      {/* Correct answer — only shown when the trainee got it wrong */}
+                      {!ok && (
                         <div style={{
                           display: "flex", alignItems: "flex-start", gap: 8,
                           padding: "6px 10px", borderRadius: 6,
                           background: "rgba(0,210,106,0.08)", border: "1px solid rgba(0,210,106,0.25)",
                         }}>
                           <span style={{ fontSize: 10, color: "#00D26A", flexShrink: 0, marginTop: 1 }}>✓</span>
-                          <div>
-                            <div style={{ fontSize: 9, color: "#00D26A", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 2 }}>CORRECT ANSWER</div>
-                            <div style={{ fontSize: 12, color: "#00FF88", fontFamily: "Inter" }}>{a.correct_option}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 9, color: "#00D26A", fontFamily: "Inter", letterSpacing: "0.1em", marginBottom: 2 }}>
+                              CORRECT ANSWER
+                            </div>
+                            <div style={{ fontSize: 12, color: "#00FF88", fontFamily: "Inter", lineHeight: 1.4 }}>
+                              {String(a.correct_option ?? "").toUpperCase()}{corText ? <span style={{ opacity: 0.95 }}>{". " + corText}</span> : null}
+                            </div>
+                            {a.explanation ? (
+                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: "Inter", marginTop: 5, lineHeight: 1.45 }}>
+                                {a.explanation}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Correct answers — collapsed/secondary */}
-              {answers.filter((a:any) => a.is_correct).length > 0 && (
-                <div>
-                  <div style={{
-                    fontSize: 9, fontFamily: "Inter", letterSpacing: "0.14em",
-                    color: "#00D26A", marginBottom: 6, textTransform: "uppercase",
-                  }}>
-                    ✅ Correct Answers
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {answers.filter((a:any) => a.is_correct).map((a: any, i: number) => (
-                      <div key={i} style={{
-                        padding: "8px 12px", borderRadius: 8,
-                        background: "rgba(0,210,106,0.04)",
-                        border: "1px solid rgba(0,210,106,0.15)",
-                        fontSize: 11, fontFamily: "Inter",
-                        display: "flex", alignItems: "flex-start", gap: 8,
-                      }}>
-                        <span style={{ color: "#00D26A", flexShrink: 0 }}>✓</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: "rgba(255,255,255,0.6)", marginBottom: 3, lineHeight: 1.3 }}>{a.question_text}</div>
-                          <div style={{ color: "#00D26A", fontSize: 11 }}>{a.selected_option}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </>
           )}
         </div>
